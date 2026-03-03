@@ -5,12 +5,53 @@
 // ============================================================
 
 // ── Connection credentials ───────────────────────────────────
-define('DB_HOST',    'localhost');
-define('DB_PORT',    '3306');
-define('DB_NAME',    'rocky_payroll');
-define('DB_USER',    'root');        // ← change to your MySQL username
-define('DB_PASS',    '');            // ← change to your MySQL password
-define('DB_CHARSET', 'utf8mb4');
+$envPath = __DIR__ . '/../.env';  // root/.env
+
+if (file_exists($envPath)) {
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || $line[0] === '#') {
+            continue;
+        }
+        if (strpos($line, '=') === false) {
+            continue;
+        }
+
+        list($key, $value) = explode('=', $line, 2);
+        $key   = trim($key);
+        $value = trim($value);
+
+        // Remove surrounding quotes if present
+        $value = trim($value, '"\'');
+        // Handle escaped newlines etc. if needed (rare in .env)
+        $value = str_replace('\n', "\n", $value);
+
+        putenv("$key=" . $value);
+        $_ENV[$key]    = $value;
+        $_SERVER[$key] = $value; // optional fallback
+    }
+}
+
+// ── Connection credentials ───────────────────────────────────
+define('DB_HOST',    getenv('DB_HOST')    ?: 'localhost');
+define('DB_PORT',    getenv('DB_PORT')    ?: '3306');
+define('DB_NAME',    getenv('DB_NAME')    ?: '');
+define('DB_USER',    getenv('DB_USER')    ?: '');
+define('DB_PASS',    getenv('DB_PASS')    ?: '');
+define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
+
+// Safety check - fail loudly in development if critical values missing
+if (empty(DB_NAME) || empty(DB_USER)) {
+    if (getenv('APP_ENV') === 'development' || defined('STDIN')) {
+        die('Database configuration is incomplete. Please check your .env file.');
+    } else {
+        // In production → silent fail or log, don't expose to user
+        error_log('Missing DB config in ' . __FILE__);
+        header('HTTP/1.1 500 Internal Server Error');
+        exit;
+    }
+}
 
 // ── PDO Singleton ────────────────────────────────────────────
 class Database {
