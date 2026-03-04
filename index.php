@@ -1,9 +1,31 @@
 <?php
-require_once __DIR__ . '/config/config.php';
+// index.php - Login page
 
-// Redirect if already logged in
+// Start session FIRST - must be before any output or headers
+session_start();
+
+// ── Load configuration and core classes (in correct order) ────────────────────────────────
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/database.php';     // loads .env + DB constants
+require_once __DIR__ . '/core/Database.php';       // PDO singleton connection
+require_once __DIR__ . '/core/Model.php';          // base model that uses Database
+require_once __DIR__ . '/core/Controller.php';     // if this file exists (optional - comment out if not)
+
+// ── Inactivity timeout (logout after 30 minutes of no activity) ──────────────────────────
+$timeoutMinutes = 30;
+$timeoutSeconds = $timeoutMinutes * 60;
+
+if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeoutSeconds)) {
+    session_unset();
+    session_destroy();
+    header('Location: index.php?msg=timeout');
+    exit;
+}
+$_SESSION['last_activity'] = time(); // refresh activity timestamp on every request
+
+// ── Redirect if already logged in ────────────────────────────────────────────────────────
 if (isset($_SESSION['user_id'])) {
-    $role = $_SESSION['role'];
+    $role = $_SESSION['role'] ?? null;
     if ($role === ROLE_ADMIN) {
         header('Location: app/views/admin/dashboard.php');
         exit;
@@ -13,13 +35,11 @@ if (isset($_SESSION['user_id'])) {
     }
 }
 
-// Handle login form submission
+// ── Handle login form submission ─────────────────────────────────────────────────────────
 $error   = null;
 $success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    require_once __DIR__ . '/core/Model.php';
-
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
@@ -27,27 +47,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter both username and password.';
     } else {
         $user = Model::findUserByUsername($username);
+
         if (!$user || !password_verify($password, $user['password'])) {
             $error = 'Invalid username or password.';
         } elseif ($user['status'] !== 'active') {
             $error = 'Your account has been deactivated. Please contact your administrator.';
         } else {
+            // Successful login
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['role']    = $user['role'];
             $_SESSION['name']    = $user['name'];
             $_SESSION['user']    = $user;
+
+            // Reset activity timestamp on successful login
+            $_SESSION['last_activity'] = time();
+
             $dest = $user['role'] === ROLE_ADMIN
                 ? 'app/views/admin/dashboard.php'
                 : 'app/views/management/dashboard.php';
+
             header('Location: ' . $dest);
             exit;
         }
     }
 }
 
+// ── Handle URL messages ──────────────────────────────────────────────────────────────────
 $msgParam = $_GET['msg'] ?? null;
-if ($msgParam === 'loggedout') $success = 'You have been successfully signed out.';
+if ($msgParam === 'loggedout') {
+    $success = 'You have been successfully signed out.';
+} elseif ($msgParam === 'timeout') {
+    $error = 'Session timed out due to inactivity. Please sign in again.';
+}
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

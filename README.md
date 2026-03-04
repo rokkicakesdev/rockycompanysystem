@@ -164,16 +164,10 @@ project/
 
 ## Configuration
 
-### `config/database.php`
+The project uses environment variables for sensitive settings (via a `.env` file) to keep credentials out of version control.
 
-Update the following constants with your MySQL credentials:
+1. **Create a `.env` file** in the project root (copy from `.env.example` if provided):
 
-```php
-define('DB_HOST', 'localhost');
-define('DB_PORT', '3306');
-define('DB_NAME', 'rocky_payroll');
-define('DB_USER', 'root');       // ← your MySQL username
-define('DB_PASS', '');           // ← your MySQL password
 ```
 
 ### `config/config.php`
