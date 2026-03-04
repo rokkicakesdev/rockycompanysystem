@@ -1,15 +1,15 @@
 <?php
 
+$root = dirname(__DIR__, 3);
+
 if (!class_exists('Model')) {
-    require_once __DIR__ . '/../../../config/database.php';
-    require_once __DIR__ . '/../../../core/Database.php';
-    require_once __DIR__ . '/../../../core/Model.php';
+    require_once $root . '/config/database.php';
+    require_once $root . '/core/Database.php';
+    require_once $root . '/core/Model.php';
+    require_once $root . '/core/Controller.php';
 }
 
-require_once __DIR__ . '/../../../config/config.php';
-require_once __DIR__ . '/../../../config/database.php';
-require_once __DIR__ . '/../../../core/Controller.php';
-require_once __DIR__ . '/../../../core/Model.php';
+require_once $root . '/config/config.php';
 
 // Auth check
 if (!isset($_SESSION['user_id'])) {
