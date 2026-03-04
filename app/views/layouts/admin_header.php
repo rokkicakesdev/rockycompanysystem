@@ -33,6 +33,9 @@ if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {
 // User info (fallback if not set)
 $userName = $_SESSION['name'] ?? 'Admin';
 $userRole = $_SESSION['role'] ?? 'Unknown';
+
+// Debug: confirm BASE_URL (remove after testing)
+// echo '<pre>BASE_URL = ' . BASE_URL . '</pre>';
 ?>
 
 <!DOCTYPE html>
@@ -52,17 +55,8 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
   <link rel="stylesheet" href="<?= ASSETS_URL ?>/dist/css/adminlte.min.css">
   <!-- overlayScrollbars -->
   <link rel="stylesheet" href="<?= ASSETS_URL ?>/plugins/overlayScrollbars/css/OverlayScrollbars.min.css">
-  <!-- Custom styles (if you have any) -->
+  <!-- Custom styles -->
   <link rel="stylesheet" href="<?= ASSETS_URL ?>/css/common.css">
-
-  <!-- jQuery (required for Bootstrap tooltips, DataTables, etc.) -->
-  <script src="<?= ASSETS_URL ?>/plugins/jquery/jquery.min.js"></script>
-  <!-- Bootstrap 4 -->
-  <script src="<?= ASSETS_URL ?>/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <!-- AdminLTE App -->
-  <script src="<?= ASSETS_URL ?>/dist/js/adminlte.min.js"></script>
-  <!-- overlayScrollbars -->
-  <script src="<?= ASSETS_URL ?>/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
@@ -75,10 +69,10 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
         <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
       </li>
       <li class="nav-item d-none d-sm-inline-block">
-        <a href="<?= BASE_URL ?>/admin/dashboard" class="nav-link">Dashboard</a>
+        <a href="<?= BASE_URL ?>/app/views/admin/dashboard.php" class="nav-link">Dashboard</a>
       </li>
       <li class="nav-item d-none d-sm-inline-block">
-        <a href="<?= BASE_URL ?>/admin/employees" class="nav-link">Employees</a>
+        <a href="<?= BASE_URL ?>/app/views/admin/employees.php" class="nav-link">Employees</a>
       </li>
     </ul>
 
@@ -98,11 +92,11 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             <?= $pendingLeaves ?> Pending Leave Request<?= $pendingLeaves !== 1 ? 's' : '' ?>
           </span>
           <div class="dropdown-divider"></div>
-          <a href="<?= BASE_URL ?>/admin/leave-requests?status=pending" class="dropdown-item">
+          <a href="<?= BASE_URL ?>/app/views/admin/leave-requests.php?status=pending" class="dropdown-item">
             <i class="fas fa-envelope mr-2"></i> View Pending Leaves
           </a>
           <div class="dropdown-divider"></div>
-          <a href="<?= BASE_URL ?>/admin/leave-requests" class="dropdown-item dropdown-footer">See All Requests</a>
+          <a href="<?= BASE_URL ?>/app/views/admin/leave-requests.php" class="dropdown-item dropdown-footer">See All Requests</a>
         </div>
       </li>
 
@@ -118,13 +112,13 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             <small class="text-muted"><?= htmlspecialchars($userRole) ?></small>
           </div>
           <div class="dropdown-divider"></div>
-          <a href="<?= BASE_URL ?>/logout" class="dropdown-item">
+          <a href="<?= BASE_URL ?>/logout.php" class="dropdown-item">
             <i class="fas fa-sign-out-alt mr-2"></i> Logout
           </a>
         </div>
       </li>
 
-      <!-- Fullscreen toggle (optional) -->
+      <!-- Fullscreen toggle -->
       <li class="nav-item">
         <a class="nav-link" data-widget="fullscreen" href="#" role="button">
           <i class="fas fa-expand-arrows-alt"></i>
@@ -137,14 +131,14 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
   <!-- Main Sidebar Container -->
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand Logo -->
-    <a href="<?= BASE_URL ?>/admin/dashboard" class="brand-link">
+    <a href="<?= BASE_URL ?>/app/views/admin/dashboard.php" class="brand-link">
       <img src="<?= ASSETS_URL ?>/dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
       <span class="brand-text font-weight-light"><?= htmlspecialchars(APP_NAME ?? 'Rocky') ?></span>
     </a>
 
     <!-- Sidebar -->
     <div class="sidebar">
-      <!-- Sidebar user panel (optional) -->
+      <!-- Sidebar user panel -->
       <div class="user-panel mt-3 pb-3 mb-3 d-flex">
         <div class="image">
           <img src="<?= ASSETS_URL ?>/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
@@ -157,29 +151,29 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
       <!-- Sidebar Menu -->
       <nav class="mt-2">
         <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+          <?php $currentPage = basename($_SERVER['PHP_SELF']); ?>
           <li class="nav-item">
-            <a href="<?= BASE_URL ?>/admin/dashboard" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>">
+            <a href="<?= BASE_URL ?>/app/views/admin/dashboard.php" class="nav-link <?= $currentPage === 'dashboard.php' ? 'active' : '' ?>">
               <i class="nav-icon fas fa-tachometer-alt"></i>
               <p>Dashboard</p>
             </a>
           </li>
 
           <li class="nav-item">
-            <a href="<?= BASE_URL ?>/admin/employees" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'employees.php' ? 'active' : '' ?>">
+            <a href="<?= BASE_URL ?>/app/views/admin/employees.php" class="nav-link <?= $currentPage === 'employees.php' ? 'active' : '' ?>">
               <i class="nav-icon fas fa-users"></i>
               <p>Employees</p>
             </a>
           </li>
-
           <li class="nav-item">
-            <a href="<?= BASE_URL ?>/admin/payroll" class="nav-link">
+            <a href="<?= BASE_URL ?>/app/views/admin/payroll.php" class="nav-link">
               <i class="nav-icon fas fa-money-bill-wave"></i>
               <p>Payroll</p>
             </a>
           </li>
 
           <li class="nav-item">
-            <a href="<?= BASE_URL ?>/admin/leave-requests" class="nav-link">
+            <a href="<?= BASE_URL ?>/app/views/admin/leave.php" class="nav-link">
               <i class="nav-icon fas fa-calendar-alt"></i>
               <p>Leave Requests</p>
               <?php if ($pendingLeaves > 0): ?>
@@ -188,10 +182,9 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             </a>
           </li>
 
-          <!-- Add more menu items as needed -->
           <li class="nav-header">SYSTEM</li>
           <li class="nav-item">
-            <a href="<?= BASE_URL ?>/logout" class="nav-link">
+            <a href="<?= BASE_URL ?>/logout.php" class="nav-link">
               <i class="nav-icon fas fa-sign-out-alt"></i>
               <p>Logout</p>
             </a>
@@ -203,6 +196,6 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
     <!-- /.sidebar -->
   </aside>
 
-  <!-- Content Wrapper. Contains page content -->
+  <!-- Content Wrapper -->
   <div class="content-wrapper">
-    <!-- You can add a content-header or breadcrumb here if desired -->
+    <!-- Your page content starts here -->
