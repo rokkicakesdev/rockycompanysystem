@@ -6,13 +6,23 @@
 //          Announcements, Holidays, Salary History
 // ============================================================
 
+if (!class_exists('Database')) {
+    // Auto-load Database + config if not already loaded
+    require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/Database.php';
+}
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/PhilippineDeductions.php';
 
 class Model {
 
+    /**
+     * Get PDO database connection (singleton)
+     * @return PDO
+     */
     protected static function db(): PDO {
-        return Database::connect();
+        return Database::getInstance();
     }
 
     // ════════════════════════════════════════════════════════
@@ -40,7 +50,7 @@ class Model {
             INSERT INTO users (name, username, email, password, role, status, created_by)
             VALUES (:name, :username, :email, :password, :role, :status, :created_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':name'       => $data['name'],
             ':username'   => $data['username'],
             ':email'      => $data['email'],
@@ -56,7 +66,7 @@ class Model {
             UPDATE users SET name = :name, email = :email, role = :role, status = :status
             WHERE id = :id
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':name'   => $data['name'],
             ':email'  => $data['email'],
             ':role'   => $data['role'],
@@ -67,12 +77,12 @@ class Model {
 
     public static function updateUserPassword(int $id, string $newPassword): bool {
         $stmt = self::db()->prepare('UPDATE users SET password = ? WHERE id = ?');
-        return $stmt->execute([password_hash($newPassword, PASSWORD_BCRYPT), $id]);
+        return (bool) $stmt->execute([password_hash($newPassword, PASSWORD_BCRYPT), $id]);
     }
 
     public static function updateUserStatus(int $id, string $status): bool {
         $stmt = self::db()->prepare('UPDATE users SET status = ? WHERE id = ?');
-        return $stmt->execute([$status, $id]);
+        return (bool) $stmt->execute([$status, $id]);
     }
 
     // ════════════════════════════════════════════════════════
@@ -91,12 +101,12 @@ class Model {
 
     public static function createDepartment(string $name): bool {
         $stmt = self::db()->prepare('INSERT INTO departments (name) VALUES (?)');
-        return $stmt->execute([$name]);
+        return (bool) $stmt->execute([$name]);
     }
 
     public static function updateDepartment(int $id, string $name): bool {
         $stmt = self::db()->prepare('UPDATE departments SET name = ? WHERE id = ?');
-        return $stmt->execute([$name, $id]);
+        return (bool) $stmt->execute([$name, $id]);
     }
 
     public static function getAllPositions(): array {
@@ -115,7 +125,7 @@ class Model {
 
     public static function createPosition(int $deptId, string $name): bool {
         $stmt = self::db()->prepare('INSERT INTO positions (department_id, name) VALUES (?, ?)');
-        return $stmt->execute([$deptId, $name]);
+        return (bool) $stmt->execute([$deptId, $name]);
     }
 
     // ════════════════════════════════════════════════════════
@@ -179,7 +189,7 @@ class Model {
                :solo_parent_leave_balance, :vawc_leave_balance, :magna_carta_leave_balance,
                :emergency_contact_name, :emergency_contact_phone, :emergency_contact_relation)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':name'                      => $data['name'],
             ':gender'                    => $data['gender']                    ?? null,
             ':civil_status'              => $data['civil_status']              ?? null,
@@ -258,7 +268,7 @@ class Model {
                 emergency_contact_relation = :emergency_contact_relation
             WHERE id = :id
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':name'                      => $data['name'],
             ':gender'                    => $data['gender']                    ?? null,
             ':civil_status'              => $data['civil_status']              ?? null,
@@ -296,7 +306,7 @@ class Model {
 
     public static function toggleEmployeeStatus(int $id, string $newStatus): bool {
         $stmt = self::db()->prepare('UPDATE employees SET status = ? WHERE id = ?');
-        return $stmt->execute([$newStatus, $id]);
+        return (bool) $stmt->execute([$newStatus, $id]);
     }
 
     public static function searchEmployees(string $query): array {
@@ -380,7 +390,7 @@ class Model {
               remarks = VALUES(remarks), hours_worked = VALUES(hours_worked),
               is_overtime = VALUES(is_overtime), overtime_hours = VALUES(overtime_hours)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':employee_id'    => $data['employee_id'],
             ':date'           => $data['date'],
             ':time_in'        => $data['time_in']       ?? null,
@@ -451,7 +461,7 @@ class Model {
             INSERT INTO leave_requests (employee_id, leave_type, date_from, date_to, days_applied, reason)
             VALUES (:employee_id, :leave_type, :date_from, :date_to, :days_applied, :reason)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':employee_id'  => $data['employee_id'],
             ':leave_type'   => $data['leave_type'],
             ':date_from'    => $data['date_from'],
@@ -468,10 +478,14 @@ class Model {
                 reviewed_at = NOW(), review_notes = :notes
             WHERE id = :id
         ');
-        $ok = $stmt->execute([':status' => $status, ':reviewed_by' => $reviewedBy, ':notes' => $notes, ':id' => $id]);
+        $success = $stmt->execute([
+            ':status'      => $status,
+            ':reviewed_by' => $reviewedBy,
+            ':notes'       => $notes,
+            ':id'          => $id
+        ]);
 
-        // Deduct leave balance if approved
-        if ($ok && $status === 'approved') {
+        if ((bool) $success && $status === 'approved') {
             $leave = self::findLeaveRequestById($id);
             if ($leave && $leave['leave_type'] !== 'unpaid') {
                 $balanceFields = LEAVE_BALANCE_FIELDS;
@@ -480,11 +494,15 @@ class Model {
                     $deductStmt = self::db()->prepare("
                         UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
                     ");
-                    $deductStmt->execute([':days' => $leave['days_applied'], ':emp_id' => $leave['employee_id']]);
+                    $deductStmt->execute([
+                        ':days'    => $leave['days_applied'],
+                        ':emp_id'  => $leave['employee_id']
+                    ]);
                 }
             }
         }
-        return $ok;
+
+        return (bool) $success;
     }
 
     public static function countPendingLeaves(): int {
@@ -539,7 +557,7 @@ class Model {
               (:department_id, :position_id, :title, :description, :requirements,
                :slots, :salary_min, :salary_max, :employment_type, :deadline, :posted_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':department_id'   => $data['department_id'],
             ':position_id'     => $data['position_id']   ?? null,
             ':title'           => $data['title'],
@@ -556,7 +574,7 @@ class Model {
 
     public static function updateJobPostingStatus(int $id, string $status): bool {
         $stmt = self::db()->prepare('UPDATE job_postings SET status = ? WHERE id = ?');
-        return $stmt->execute([$status, $id]);
+        return (bool) $stmt->execute([$status, $id]);
     }
 
     public static function getApplicantsByJob(int $jobId): array {
@@ -586,7 +604,7 @@ class Model {
             INSERT INTO applicants (job_posting_id, name, email, phone, source, notes)
             VALUES (:job_posting_id, :name, :email, :phone, :source, :notes)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':job_posting_id' => $data['job_posting_id'],
             ':name'           => $data['name'],
             ':email'          => $data['email']  ?? null,
@@ -603,7 +621,7 @@ class Model {
                 notes = :notes, interview_date = :interview_date
             WHERE id = :id
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':status'         => $status,
             ':processed_by'   => $processedBy,
             ':notes'          => $notes,
@@ -641,7 +659,7 @@ class Model {
             INSERT INTO employee_documents (employee_id, document_type, title, file_path, expiry_date, notes, uploaded_by)
             VALUES (:employee_id, :document_type, :title, :file_path, :expiry_date, :notes, :uploaded_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':employee_id'    => $data['employee_id'],
             ':document_type'  => $data['document_type'],
             ':title'          => $data['title'],
@@ -654,7 +672,7 @@ class Model {
 
     public static function deleteDocument(int $id): bool {
         $stmt = self::db()->prepare('DELETE FROM employee_documents WHERE id = ?');
-        return $stmt->execute([$id]);
+        return (bool) $stmt->execute([$id]);
     }
 
     // ════════════════════════════════════════════════════════
@@ -686,7 +704,7 @@ class Model {
     public static function periodExists(string $period): bool {
         $stmt = self::db()->prepare("SELECT COUNT(*) FROM payroll_records WHERE period = ?");
         $stmt->execute([$period]);
-        return (int)$stmt->fetchColumn() > 0;
+        return (bool) $stmt->fetchColumn();
     }
 
     public static function getTotalNetPayForPeriod(string $period): float {
@@ -718,7 +736,7 @@ class Model {
                :other_deductions, :total_deductions, :net_pay,
                :status, :processed_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':employee_id'      => $d['employee_id'],
             ':period'           => $d['period'],
             ':basic_salary'     => $d['basic_salary'],
@@ -745,12 +763,12 @@ class Model {
 
     public static function releasePayroll(int $payrollId): bool {
         $stmt = self::db()->prepare("UPDATE payroll_records SET status = 'released', released_at = NOW() WHERE id = ?");
-        return $stmt->execute([$payrollId]);
+        return (bool) $stmt->execute([$payrollId]);
     }
 
     public static function releaseAllPayrollForPeriod(string $period): bool {
         $stmt = self::db()->prepare("UPDATE payroll_records SET status = 'released', released_at = NOW() WHERE period = ? AND status = 'pending'");
-        return $stmt->execute([$period]);
+        return (bool) $stmt->execute([$period]);
     }
 
     public static function computePayroll(array $employee): array {
@@ -782,7 +800,7 @@ class Model {
             VALUES (:employee_id, :old_basic_salary, :new_basic_salary, :old_allowance, :new_allowance,
                     :reason, :effective_date, :approved_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':employee_id'      => $data['employee_id'],
             ':old_basic_salary' => $data['old_basic_salary'],
             ':new_basic_salary' => $data['new_basic_salary'],
@@ -812,7 +830,7 @@ class Model {
             INSERT INTO announcements (title, content, type, is_pinned, expires_at, posted_by)
             VALUES (:title, :content, :type, :is_pinned, :expires_at, :posted_by)
         ');
-        return $stmt->execute([
+        return (bool) $stmt->execute([
             ':title'      => $data['title'],
             ':content'    => $data['content'],
             ':type'       => $data['type']       ?? 'general',
@@ -824,7 +842,7 @@ class Model {
 
     public static function deleteAnnouncement(int $id): bool {
         $stmt = self::db()->prepare('DELETE FROM announcements WHERE id = ?');
-        return $stmt->execute([$id]);
+        return (bool) $stmt->execute([$id]);
     }
 
     // ════════════════════════════════════════════════════════
@@ -883,7 +901,7 @@ class Model {
     }
 
     public static function getHeadcountByDepartment(): array {
-        return $db = self::db()->query("
+        return self::db()->query("
             SELECT d.name AS department, COUNT(e.id) AS count
             FROM departments d
             LEFT JOIN employees e ON e.department_id = d.id AND e.status = 'active'
