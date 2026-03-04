@@ -1,171 +1,208 @@
 <?php
+// app/views/layouts/admin_header.php
+// ──────────────────────────────────────────────────────────────
+// Admin Header / Navbar Layout
+// Loads core dependencies safely, no duplicates
+// ──────────────────────────────────────────────────────────────
 
+// Calculate project root once (from app/views/layouts/ → root = 3 levels up)
 $root = dirname(__DIR__, 3);
 
-if (!class_exists('Model')) {
-    require_once $root . '/config/database.php';
-    require_once $root . '/core/Database.php';
-    require_once $root . '/core/Model.php';
-    require_once $root . '/core/Controller.php';
+// Safety net: load core classes if not already present
+if (!class_exists('Model') || !class_exists('Database')) {
+    require_once $root . '/config/database.php';     // .env + DB constants
+    require_once $root . '/core/Database.php';       // PDO singleton
+    require_once $root . '/core/Model.php';          // main model class
+    require_once $root . '/core/Controller.php';     // base controller (if used)
 }
 
+// Always load global config (defines APP_NAME, BASE_URL, etc.)
 require_once $root . '/config/config.php';
 
-// Auth check
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../../index.php'); exit;
+// Start session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
-$currentUser = $_SESSION['user'];
-$currentPath = basename($_SERVER['PHP_SELF']);
-$pendingLeaves = Model::countPendingLeaves();
-$openJobs      = Model::countOpenJobPostings();
-$newApplicants = Model::countNewApplicants();
+
+// Get pending leave count for badge (fallback to 0 if method fails)
+$pendingLeaves = 0;
+if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {
+    $pendingLeaves = Model::countPendingLeaves() ?? 0;
+}
+
+// User info (fallback if not set)
+$userName = $_SESSION['name'] ?? 'Admin';
+$userRole = $_SESSION['role'] ?? 'Unknown';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= APP_NAME ?> — <?= $pageTitle ?? 'Dashboard' ?></title>
-  <!-- AdminLTE & Bootstrap -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/admin-lte/3.2.0/css/adminlte.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap">
-  <link rel="stylesheet" href="../../../assets/css/common.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><?= htmlspecialchars(APP_NAME ?? 'Rocky Company') ?> | Admin Panel</title>
+
+  <!-- Google Font: Source Sans Pro -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700&display=fallback">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="<?= ASSETS_URL ?>/plugins/fontawesome-free/css/all.min.css">
+  <!-- Ionicons -->
+  <link rel="stylesheet" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+  <!-- Theme style -->
+  <link rel="stylesheet" href="<?= ASSETS_URL ?>/dist/css/adminlte.min.css">
+  <!-- overlayScrollbars -->
+  <link rel="stylesheet" href="<?= ASSETS_URL ?>/plugins/overlayScrollbars/css/OverlayScrollbars.min.css">
+  <!-- Custom styles (if you have any) -->
+  <link rel="stylesheet" href="<?= ASSETS_URL ?>/css/common.css">
+
+  <!-- jQuery (required for Bootstrap tooltips, DataTables, etc.) -->
+  <script src="<?= ASSETS_URL ?>/plugins/jquery/jquery.min.js"></script>
+  <!-- Bootstrap 4 -->
+  <script src="<?= ASSETS_URL ?>/plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <!-- AdminLTE App -->
+  <script src="<?= ASSETS_URL ?>/dist/js/adminlte.min.js"></script>
+  <!-- overlayScrollbars -->
+  <script src="<?= ASSETS_URL ?>/plugins/overlayScrollbars/js/jquery.overlayScrollbars.min.js"></script>
 </head>
-<body class="hold-transition sidebar-mini">
+<body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
 
-<!-- Navbar -->
-<nav class="main-header navbar navbar-expand navbar-white navbar-light">
-  <ul class="navbar-nav">
-    <li class="nav-item"><a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a></li>
-  </ul>
-  <ul class="navbar-nav ml-auto">
-    <?php if ($pendingLeaves > 0): ?>
-    <li class="nav-item">
-      <a class="nav-link" href="leave.php" title="Pending Leaves">
-        <i class="fas fa-calendar-times"></i>
-        <span class="badge badge-danger navbar-badge"><?= $pendingLeaves ?></span>
-      </a>
-    </li>
-    <?php endif; ?>
-    <li class="nav-item dropdown">
-      <a class="nav-link dropdown-toggle" href="#" data-toggle="dropdown">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--accent);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:700;margin-right:6px;">
-          <?= strtoupper(substr($currentUser['name'], 0, 1)) ?>
+  <!-- Navbar -->
+  <nav class="main-header navbar navbar-expand navbar-white navbar-light">
+    <!-- Left navbar links -->
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i class="fas fa-bars"></i></a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="<?= BASE_URL ?>/admin/dashboard" class="nav-link">Dashboard</a>
+      </li>
+      <li class="nav-item d-none d-sm-inline-block">
+        <a href="<?= BASE_URL ?>/admin/employees" class="nav-link">Employees</a>
+      </li>
+    </ul>
+
+    <!-- Right navbar links -->
+    <ul class="navbar-nav ml-auto">
+
+      <!-- Notifications: Pending Leaves -->
+      <li class="nav-item dropdown">
+        <a class="nav-link" data-toggle="dropdown" href="#">
+          <i class="far fa-bell"></i>
+          <?php if ($pendingLeaves > 0): ?>
+            <span class="badge badge-danger navbar-badge"><?= $pendingLeaves ?></span>
+          <?php endif; ?>
+        </a>
+        <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
+          <span class="dropdown-item dropdown-header">
+            <?= $pendingLeaves ?> Pending Leave Request<?= $pendingLeaves !== 1 ? 's' : '' ?>
+          </span>
+          <div class="dropdown-divider"></div>
+          <a href="<?= BASE_URL ?>/admin/leave-requests?status=pending" class="dropdown-item">
+            <i class="fas fa-envelope mr-2"></i> View Pending Leaves
+          </a>
+          <div class="dropdown-divider"></div>
+          <a href="<?= BASE_URL ?>/admin/leave-requests" class="dropdown-item dropdown-footer">See All Requests</a>
         </div>
-        <?= htmlspecialchars($currentUser['name']) ?>
-      </a>
-      <div class="dropdown-menu dropdown-menu-right">
-        <span class="dropdown-item-text text-muted" style="font-size:.75rem;">
-          <?= ucfirst($currentUser['role']) ?>
-        </span>
-        <div class="dropdown-divider"></div>
-        <a class="dropdown-item" href="../../../logout.php"><i class="fas fa-sign-out-alt mr-2"></i>Logout</a>
+      </li>
+
+      <!-- User Menu -->
+      <li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <i class="far fa-user-circle mr-1"></i>
+          <span class="d-none d-md-inline"><?= htmlspecialchars($userName) ?></span>
+        </a>
+        <div class="dropdown-menu dropdown-menu-right" aria-labelledby="userDropdown">
+          <div class="dropdown-header">
+            <strong><?= htmlspecialchars($userName) ?></strong><br>
+            <small class="text-muted"><?= htmlspecialchars($userRole) ?></small>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a href="<?= BASE_URL ?>/logout" class="dropdown-item">
+            <i class="fas fa-sign-out-alt mr-2"></i> Logout
+          </a>
+        </div>
+      </li>
+
+      <!-- Fullscreen toggle (optional) -->
+      <li class="nav-item">
+        <a class="nav-link" data-widget="fullscreen" href="#" role="button">
+          <i class="fas fa-expand-arrows-alt"></i>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  <!-- /.navbar -->
+
+  <!-- Main Sidebar Container -->
+  <aside class="main-sidebar sidebar-dark-primary elevation-4">
+    <!-- Brand Logo -->
+    <a href="<?= BASE_URL ?>/admin/dashboard" class="brand-link">
+      <img src="<?= ASSETS_URL ?>/dist/img/AdminLTELogo.png" alt="AdminLTE Logo" class="brand-image img-circle elevation-3" style="opacity: .8">
+      <span class="brand-text font-weight-light"><?= htmlspecialchars(APP_NAME ?? 'Rocky') ?></span>
+    </a>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <!-- Sidebar user panel (optional) -->
+      <div class="user-panel mt-3 pb-3 mb-3 d-flex">
+        <div class="image">
+          <img src="<?= ASSETS_URL ?>/dist/img/user2-160x160.jpg" class="img-circle elevation-2" alt="User Image">
+        </div>
+        <div class="info">
+          <a href="#" class="d-block"><?= htmlspecialchars($userName) ?></a>
+        </div>
       </div>
-    </li>
-  </ul>
-</nav>
 
-<!-- Sidebar -->
-<aside class="main-sidebar sidebar-dark-primary elevation-1">
-  <a href="dashboard.php" class="brand-link">
-    <i class="fas fa-building mr-2" style="color:#60a5fa;font-size:1.3rem;"></i>
-    <span class="brand-text">
-      <?= COMPANY_NAME ?>
-      <span>HRIS + Payroll</span>
-    </span>
-  </a>
-  <div class="sidebar">
-    <nav class="mt-2">
-      <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+      <!-- Sidebar Menu -->
+      <nav class="mt-2">
+        <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/admin/dashboard" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-tachometer-alt"></i>
+              <p>Dashboard</p>
+            </a>
+          </li>
 
-        <!-- MAIN -->
-        <li class="nav-header">Main</li>
-        <li class="nav-item">
-          <a href="dashboard.php" class="nav-link <?= $currentPath==='dashboard.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-tachometer-alt"></i><p>Dashboard</p>
-          </a>
-        </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/admin/employees" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'employees.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-users"></i>
+              <p>Employees</p>
+            </a>
+          </li>
 
-        <!-- HRIS -->
-        <li class="nav-header">HRIS</li>
-        <li class="nav-item">
-          <a href="employees.php" class="nav-link <?= $currentPath==='employees.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-users"></i><p>Employees</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="attendance.php" class="nav-link <?= $currentPath==='attendance.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-clock"></i><p>Attendance</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="leave.php" class="nav-link <?= $currentPath==='leave.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-calendar-minus"></i><p>Leave Management <?php if ($pendingLeaves > 0): ?><span class="right badge badge-danger badge-pill"><?= $pendingLeaves ?></span><?php endif; ?></p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="recruitment.php" class="nav-link <?= $currentPath==='recruitment.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-briefcase"></i><p>Recruitment <?php if ($newApplicants > 0): ?><span class="right badge badge-warning badge-pill"><?= $newApplicants ?></span><?php endif; ?></p>
-          </a>
-        </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/admin/payroll" class="nav-link">
+              <i class="nav-icon fas fa-money-bill-wave"></i>
+              <p>Payroll</p>
+            </a>
+          </li>
 
-        <!-- PAYROLL -->
-        <li class="nav-header">Payroll</li>
-        <li class="nav-item">
-          <a href="payroll.php" class="nav-link <?= $currentPath==='payroll.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-money-check-alt"></i><p>Payroll Processing</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="payslip.php" class="nav-link <?= $currentPath==='payslip.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-file-invoice-dollar"></i><p>Payslips</p>
-          </a>
-        </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/admin/leave-requests" class="nav-link">
+              <i class="nav-icon fas fa-calendar-alt"></i>
+              <p>Leave Requests</p>
+              <?php if ($pendingLeaves > 0): ?>
+                <span class="badge badge-danger right"><?= $pendingLeaves ?></span>
+              <?php endif; ?>
+            </a>
+          </li>
 
-        <!-- ADMIN -->
-        <?php if ($_SESSION['role'] === ROLE_ADMIN): ?>
-        <li class="nav-header">Administration</li>
-        <li class="nav-item">
-          <a href="departments.php" class="nav-link <?= $currentPath==='departments.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-sitemap"></i><p>Departments & Positions</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="users.php" class="nav-link <?= $currentPath==='users.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-user-shield"></i><p>User Management</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="announcements.php" class="nav-link <?= $currentPath==='announcements.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-bullhorn"></i><p>Announcements</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="holidays.php" class="nav-link <?= $currentPath==='holidays.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-umbrella-beach"></i><p>Holidays</p>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a href="activity_log.php" class="nav-link <?= $currentPath==='activity_log.php'?'active':'' ?>">
-            <i class="nav-icon fas fa-history"></i><p>Activity Logs</p>
-          </a>
-        </li>
-        <?php endif; ?>
-
-      </ul>
-    </nav>
-  </div>
-</aside>
-
-<!-- /.main-sidebar -->
-<div class="content-wrapper">
-  <div class="content-header">
-    <div class="container-fluid">
-      <h1 class="m-0" style="font-size:1.1rem;font-weight:700;color:#1e293b;"><?= $pageTitle ?? 'Page' ?></h1>
+          <!-- Add more menu items as needed -->
+          <li class="nav-header">SYSTEM</li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/logout" class="nav-link">
+              <i class="nav-icon fas fa-sign-out-alt"></i>
+              <p>Logout</p>
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- /.sidebar-menu -->
     </div>
-  </div>
-  <section class="content">
-    <div class="container-fluid">
+    <!-- /.sidebar -->
+  </aside>
+
+  <!-- Content Wrapper. Contains page content -->
+  <div class="content-wrapper">
+    <!-- You can add a content-header or breadcrumb here if desired -->
