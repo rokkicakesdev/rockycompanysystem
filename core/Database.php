@@ -29,13 +29,7 @@ class Database {
                     ]
                 );
             } catch (PDOException $e) {
-                $isDev = (getenv('APP_ENV') === 'development') || defined('STDIN');
-                if ($isDev) {
-                    die("Database connection failed: " . $e->getMessage());
-                } else {
-                    error_log("DB connection error: " . $e->getMessage());
-                    die("Service unavailable.");
-                }
+                die("PDO Connection Failed: " . $e->getMessage() . "<br><br>SQLSTATE Code: " . $e->getCode() . "<br><br>DSN used: mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET . "<br>User: " . DB_USER);
             }
         }
         return self::$instance;
