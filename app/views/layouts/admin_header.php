@@ -91,16 +91,11 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             <small class="text-muted"><?= ucfirst(htmlspecialchars($userRole)) ?></small>
           </div>
           <div class="dropdown-divider"></div>
-          <a href="<?= BASE_URL ?>/logout.php" class="dropdown-item">
+          <a href="<?= BASE_URL ?>/logout.php" class="dropdown-item"
+             onclick="return confirm('Are you sure you want to log out?');">
             <i class="fas fa-sign-out-alt mr-2"></i> Logout
           </a>
         </div>
-      </li>
-
-      <li class="nav-item">
-        <a class="nav-link" data-widget="fullscreen" href="#" role="button">
-          <i class="fas fa-expand-arrows-alt"></i>
-        </a>
       </li>
     </ul>
   </nav>
