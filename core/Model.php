@@ -74,6 +74,19 @@ class Model {
         ]);
     }
 
+    public static function getPayrollRecordsByEmployee(int $employeeId): array {
+        $stmt = self::db()->prepare("
+            SELECT 
+                period, gross_pay, total_deductions, net_pay, status, processed_by_name
+            FROM v_payroll
+            WHERE employee_id = ?
+            ORDER BY period DESC
+            LIMIT 24  -- last 2 years monthly
+        ");
+        $stmt->execute([$employeeId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public static function updateUserPassword(int $id, string $newPassword): bool {
         $stmt = self::db()->prepare('UPDATE users SET password = ? WHERE id = ?');
         return (bool) $stmt->execute([password_hash($newPassword, PASSWORD_BCRYPT), $id]);

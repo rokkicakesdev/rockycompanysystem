@@ -32,6 +32,9 @@ if (isset($_SESSION['user_id'])) {
     } elseif ($role === ROLE_MANAGEMENT) {
         header('Location: app/views/management/dashboard.php');
         exit;
+    } elseif ($role === 'employee') {  // Added explicit check for employee
+        header('Location: app/views/employee/my_payslips.php');
+        exit;
     }
 }
 
@@ -54,20 +57,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Your account has been deactivated. Please contact your administrator.';
         } else {
             // Successful login
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role']    = $user['role'];
-            $_SESSION['name']    = $user['name'];
-            $_SESSION['user']    = $user;
+            $_SESSION['user_id']     = $user['id'];
+            $_SESSION['role']        = $user['role'];
+            $_SESSION['name']        = $user['name'];
+            $_SESSION['user']        = $user;
 
-            // Reset activity timestamp on successful login
+            // ── NEW: Store employee_id for employee role ────────────────────────────────
+            if ($user['role'] === 'employee') {
+                $_SESSION['employee_id'] = $user['employee_id'] ?? null;
+
+                if (empty($_SESSION['employee_id'])) {
+                    session_unset();
+                    session_destroy();
+                    $error = 'Employee account is not properly linked to an employee record. Contact admin.';
+                    // Do not redirect - show error on login page
+                }
+            }
+
+            // Reset activity timestamp
             $_SESSION['last_activity'] = time();
 
-            $dest = $user['role'] === ROLE_ADMIN
-                ? 'app/views/admin/dashboard.php'
-                : 'app/views/management/dashboard.php';
-
-            header('Location: ' . $dest);
-            exit;
+            if (empty($error)) {
+                // Role-based redirect
+                if ($_SESSION['role'] === ROLE_ADMIN) {
+                    header('Location: app/views/admin/dashboard.php');
+                } elseif ($_SESSION['role'] === ROLE_MANAGEMENT) {
+                    header('Location: app/views/management/dashboard.php');
+                } elseif ($_SESSION['role'] === 'employee') {
+                    header('Location: app/views/employee/my_payslips.php');
+                } else {
+                    $error = 'Unknown role. Contact administrator.';
+                }
+                exit;
+            }
         }
     }
 }
