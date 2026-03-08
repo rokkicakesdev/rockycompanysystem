@@ -4,9 +4,17 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 
 $msg = '';
 
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // Handle Department actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['new_dept'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } elseif (isset($_POST['new_dept'])) {
         Model::createDepartment(trim($_POST['dept_name']));
         Model::log($_SESSION['user_id'], 'CREATE_DEPARTMENT', "Created: " . $_POST['dept_name']);
         $msg = "<div class='alert alert-success alert-auto-dismiss'>Department created.</div>";
@@ -105,6 +113,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="new_dept" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="modal-header"><h5 class="modal-title">Add Department</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
         <div class="form-group"><label>Department Name *</label><input type="text" name="dept_name" class="form-control" required></div>
@@ -122,6 +131,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="edit_dept" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <input type="hidden" name="dept_id" id="editDeptId">
       <div class="modal-header"><h5 class="modal-title">Edit Department</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
@@ -140,6 +150,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="new_position" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="modal-header"><h5 class="modal-title">Add Position</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
         <div class="form-group">

@@ -4,32 +4,46 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 
 $msg = '';
 
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // Handle approve/reject
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id     = (int)$_POST['leave_id'];
-    $action = $_POST['action']; // approved | rejected
-    $notes  = trim($_POST['review_notes'] ?? '');
-    if (in_array($action, ['approved', 'rejected'])) {
-        Model::reviewLeaveRequest($id, $action, $_SESSION['user_id'], $notes);
-        $leave = Model::findLeaveRequestById($id);
-        Model::log($_SESSION['user_id'], strtoupper($action) . '_LEAVE',
-            "{$action} leave request ID:{$id} for {$leave['employee_name']}");
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request <strong>{$action}</strong> successfully.</div>";
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } else {
+        $id     = (int)$_POST['leave_id'];
+        $action = $_POST['action']; // approved | rejected
+        $notes  = trim($_POST['review_notes'] ?? '');
+        if (in_array($action, ['approved', 'rejected'])) {
+            Model::reviewLeaveRequest($id, $action, $_SESSION['user_id'], $notes);
+            $leave = Model::findLeaveRequestById($id);
+            Model::log($_SESSION['user_id'], strtoupper($action) . '_LEAVE',
+                "{$action} leave request ID:{$id} for {$leave['employee_name']}");
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request <strong>{$action}</strong> successfully.</div>";
+        }
     }
 }
 
 // Handle new leave request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_leave'])) {
-    Model::createLeaveRequest([
-        'employee_id'  => (int)$_POST['employee_id'],
-        'leave_type'   => $_POST['leave_type'],
-        'date_from'    => $_POST['date_from'],
-        'date_to'      => $_POST['date_to'],
-        'days_applied' => (float)$_POST['days_applied'],
-        'reason'       => $_POST['reason'] ?? null,
-    ]);
-    Model::log($_SESSION['user_id'], 'CREATE_LEAVE', "Filed leave for employee ID:" . $_POST['employee_id']);
-    $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request filed successfully.</div>";
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } else {
+        Model::createLeaveRequest([
+            'employee_id'  => (int)$_POST['employee_id'],
+            'leave_type'   => $_POST['leave_type'],
+            'date_from'    => $_POST['date_from'],
+            'date_to'      => $_POST['date_to'],
+            'days_applied' => (float)$_POST['days_applied'],
+            'reason'       => $_POST['reason'] ?? null,
+        ]);
+        Model::log($_SESSION['user_id'], 'CREATE_LEAVE', "Filed leave for employee ID:" . $_POST['employee_id']);
+        $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request filed successfully.</div>";
+    }
 }
 
 $filterStatus = $_GET['status'] ?? '';
@@ -153,6 +167,7 @@ $statusCounts = [
           <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
         <div class="modal-body">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
           <input type="hidden" name="leave_id" id="reviewLeaveId">
           <input type="hidden" name="action"   id="reviewAction">
           <p id="reviewDesc" class="text-muted mb-3"></p>
@@ -175,6 +190,7 @@ $statusCounts = [
     <div class="modal-content">
       <form method="POST">
         <input type="hidden" name="new_leave" value="1">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <div class="modal-header">
           <h5 class="modal-title">File Leave Request</h5>
           <button type="button" class="close" data-dismiss="modal">&times;</button>
