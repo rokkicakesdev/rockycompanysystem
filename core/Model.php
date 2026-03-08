@@ -503,6 +503,18 @@ class Model {
                 $balanceFields = LEAVE_BALANCE_FIELDS;
                 if (isset($balanceFields[$leave['leave_type']])) {
                     $field = $balanceFields[$leave['leave_type']];
+
+                    // Security: whitelist $field against the known balance columns defined
+                    // in LEAVE_BALANCE_FIELDS before interpolating into the SQL query.
+                    // This prevents SQL injection if $field is ever tampered with or
+                    // LEAVE_BALANCE_FIELDS is modified to include user-influenced values.
+                    $allowedColumns = array_values(LEAVE_BALANCE_FIELDS);
+                    if (!in_array($field, $allowedColumns, true)) {
+                        // Field is not a recognized balance column — abort silently and log.
+                        error_log("reviewLeaveRequest: rejected unsafe column name '{$field}' for employee {$leave['employee_id']}");
+                        return (bool) $success;
+                    }
+
                     $deductStmt = self::db()->prepare("
                         UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
                     ");
