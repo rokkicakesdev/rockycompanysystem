@@ -4,16 +4,27 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 if ($_SESSION['role'] !== ROLE_ADMIN) { header('Location: dashboard.php'); exit; }
 
 $msg = '';
+
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_announcement'])) {
-    Model::createAnnouncement([
-        'title'      => trim($_POST['title']),
-        'content'    => trim($_POST['content']),
-        'type'       => $_POST['type']       ?? 'general',
-        'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
-        'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
-        'posted_by'  => $_SESSION['user_id'],
-    ]);
-    $msg = "<div class='alert alert-success alert-auto-dismiss'>Announcement posted.</div>";
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } else {
+        Model::createAnnouncement([
+            'title'      => trim($_POST['title']),
+            'content'    => trim($_POST['content']),
+            'type'       => $_POST['type']       ?? 'general',
+            'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
+            'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
+            'posted_by'  => $_SESSION['user_id'],
+        ]);
+        $msg = "<div class='alert alert-success alert-auto-dismiss'>Announcement posted.</div>";
+    }
 }
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     Model::deleteAnnouncement((int)$_GET['delete']);
@@ -73,6 +84,7 @@ $typeColors = ['general'=>'#6366f1','payroll'=>'#2563eb','leave'=>'#d97706','hol
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="new_announcement" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="modal-header"><h5 class="modal-title">Post Announcement</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
         <div class="form-group"><label>Title *</label><input type="text" name="title" class="form-control" required></div>

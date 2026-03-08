@@ -5,6 +5,21 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 $msg = '';
 $view = $_GET['view'] ?? 'postings'; // postings | applicants
 
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
+// Validate CSRF on all POST requests up front
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+        // Skip all POST processing below by unsetting method check
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+    }
+}
+
 // Handle new job posting
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_posting'])) {
     Model::createJobPosting([
@@ -205,6 +220,7 @@ $applicantStatuses = [
     <div class="modal-content">
       <form method="POST">
         <input type="hidden" name="new_posting" value="1">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <div class="modal-header"><h5 class="modal-title">Create Job Posting</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
         <div class="modal-body">
           <div class="row">
@@ -287,6 +303,7 @@ $applicantStatuses = [
     <div class="modal-content">
       <form method="POST">
         <input type="hidden" name="new_applicant" value="1">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="hidden" name="job_posting_id" value="<?= $selectedJobId ?>">
         <div class="modal-header"><h5 class="modal-title">Add Applicant</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
         <div class="modal-body">
@@ -320,6 +337,7 @@ $applicantStatuses = [
     <div class="modal-content">
       <form method="POST">
         <input type="hidden" name="update_applicant" value="1">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="hidden" name="applicant_id" id="updateAppId">
         <div class="modal-header">
           <h5 class="modal-title">Update Applicant: <span id="updateAppName"></span></h5>

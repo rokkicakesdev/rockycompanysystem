@@ -6,9 +6,17 @@ if ($_SESSION['role'] !== ROLE_ADMIN) { header('Location: dashboard.php'); exit;
 
 $msg = '';
 
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // Handle create
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
-    if (Model::createUser([
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } elseif (Model::createUser([
         'name'       => trim($_POST['name']),
         'username'   => trim($_POST['username']),
         'email'      => trim($_POST['email']),
@@ -26,17 +34,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
 
 // Handle update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
-    Model::updateUser((int)$_POST['user_id'], [
-        'name'   => trim($_POST['name']),
-        'email'  => trim($_POST['email']),
-        'role'   => $_POST['role'],
-        'status' => $_POST['status'],
-    ]);
-    if (!empty($_POST['new_password'])) {
-        Model::updateUserPassword((int)$_POST['user_id'], $_POST['new_password']);
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } else {
+        Model::updateUser((int)$_POST['user_id'], [
+            'name'   => trim($_POST['name']),
+            'email'  => trim($_POST['email']),
+            'role'   => $_POST['role'],
+            'status' => $_POST['status'],
+        ]);
+        if (!empty($_POST['new_password'])) {
+            Model::updateUserPassword((int)$_POST['user_id'], $_POST['new_password']);
+        }
+        Model::log($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID:" . $_POST['user_id']);
+        $msg = "<div class='alert alert-success alert-auto-dismiss'>User updated successfully.</div>";
     }
-    Model::log($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID:" . $_POST['user_id']);
-    $msg = "<div class='alert alert-success alert-auto-dismiss'>User updated successfully.</div>";
 }
 
 $users = Model::getAllUsers();
@@ -91,6 +103,7 @@ $users = Model::getAllUsers();
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="create_user" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <div class="modal-header"><h5 class="modal-title">Create User Account</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
         <div class="form-group"><label>Full Name *</label><input type="text" name="name" class="form-control" required></div>
@@ -118,6 +131,7 @@ $users = Model::getAllUsers();
   <div class="modal-dialog"><div class="modal-content">
     <form method="POST">
       <input type="hidden" name="update_user" value="1">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <input type="hidden" name="user_id" id="editUserId">
       <div class="modal-header"><h5 class="modal-title">Edit User</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
       <div class="modal-body">
