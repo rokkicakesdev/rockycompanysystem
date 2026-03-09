@@ -186,7 +186,7 @@ if ($selectedEmp && $selectedPeriod) {
           <button class="btn btn-info btn-sm" onclick="window.print()">
             <i class="fas fa-print mr-1"></i> Print Payslip
           </button>
-          <button class="btn btn-success btn-sm ml-1">
+          <button class="btn btn-success btn-sm ml-1" onclick="window.print()">
             <i class="fas fa-download mr-1"></i> Export PDF
           </button>
         </div>
