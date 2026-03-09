@@ -21,7 +21,7 @@
       $('[data-widget="treeview"]').Treeview('init');
     });
   </script>
-  <?php if (isset($extraJs)) echo $extraJs; ?>
+  <?php if (isset($extraJs)) echo '<script>' . $extraJs . '</script>'; ?>
   <script>
     // Auto-dismiss alerts after 4 seconds
     setTimeout(() => {
