@@ -1,4 +1,24 @@
 <?php
+// ============================================================
+//  SECURITY: localhost only — block all external access
+// ============================================================
+$_allowed = ['127.0.0.1', '::1'];
+if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', $_allowed, true)) {
+    http_response_code(403);
+    die('403 Forbidden');
+}
+unset($_allowed);
+
+// ============================================================
+//  SECURITY: localhost only — block all external access
+// ============================================================
+$_allowed = ['127.0.0.1', '::1'];
+if (!in_array($_SERVER['REMOTE_ADDR'] ?? '', $_allowed, true)) {
+    http_response_code(403);
+    die('403 Forbidden');
+}
+unset($_allowed);
+
 /**
  * Session Cleaner & Debugger
  * Use this script to clear your session and debug redirect issues

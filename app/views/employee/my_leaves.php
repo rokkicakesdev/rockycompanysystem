@@ -12,8 +12,18 @@ $leaveTypes = LEAVE_TYPES;
 
 $msg = '';
 
+// CSRF token
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // Handle new leave request submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['file_leave'])) {
+
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token. Please refresh and try again.</div>";
+    } else {
     $dateFrom    = $_POST['date_from']    ?? '';
     $dateTo      = $_POST['date_to']      ?? '';
     $leaveType   = $_POST['leave_type']   ?? '';
@@ -37,6 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['file_leave'])) {
     } else {
         $msg = "<div class='alert alert-warning alert-auto-dismiss'><i class='fas fa-exclamation-triangle mr-2'></i>Please fill in all required fields.</div>";
     }
+    } // end CSRF else
 }
 
 $leaveRequests = $employeeId ? Model::getLeaveRequestsByEmployee($employeeId) : [];
@@ -139,7 +150,8 @@ $balanceMap = [
         <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
       </div>
       <form method="POST" action="my_leaves.php">
-        <input type="hidden" name="file_leave" value="1">
+        <input type="hidden" name="file_leave"  value="1">
+        <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrf_token) ?>">
         <div class="modal-body">
           <div class="form-group">
             <label>Leave Type <span class="text-danger">*</span></label>

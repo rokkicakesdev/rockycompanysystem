@@ -126,3 +126,4 @@ $currentPath = basename($_SERVER['PHP_SELF']);
 
 <!-- Content Wrapper -->
 <div class="content-wrapper">
+<div class="container-fluid py-3 px-4">
