@@ -16,7 +16,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/core/Database.php';
 
-$newPassword = 'admin123';
+$newPassword = 'password123';
 $hash        = password_hash($newPassword, PASSWORD_BCRYPT);
 
 $pdo  = Database::getInstance();

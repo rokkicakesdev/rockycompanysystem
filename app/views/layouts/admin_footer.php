@@ -31,6 +31,32 @@
         setTimeout(() => el.remove(), 500);
       });
     }, 4000);
+
+    // Live pending leave badge — polls every 30 seconds
+    function refreshPendingBadge() {
+      $.getJSON('<?= BASE_URL ?>/app/ajax/pending_count.php', function(data) {
+        var count = data.count || 0;
+
+        // Navbar bell badge
+        var $bell = $('.navbar-badge');
+        if (count > 0) { $bell.text(count).show(); } else { $bell.hide(); }
+
+        // Sidebar Leave Management badge
+        var $sidebar = $('a[href*="leave.php"] .right.badge-danger');
+        if (count > 0) {
+          if ($sidebar.length) { $sidebar.text(count); }
+          else { $('a[href*="leave.php"] p').after('<span class="right badge badge-danger">' + count + '</span>'); }
+        } else {
+          $sidebar.remove();
+        }
+
+        // Navbar dropdown header text
+        $('.dropdown-header:contains("Pending Leave")').text(count + ' Pending Leave(s)');
+      });
+    }
+
+    // Poll every 30 seconds
+    setInterval(refreshPendingBadge, 30000);
   </script>
 </body>
 </html>

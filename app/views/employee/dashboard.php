@@ -43,9 +43,9 @@ $announcements  = array_slice($announcements, 0, 5);
         <?php if (!empty($employee['department'])): ?> &mdash; <?= htmlspecialchars($employee['department']) ?><?php endif; ?>
       </small>
     </div>
-    <div class="text-right">
-      <small style="opacity:.7;">Employee No.</small><br>
-      <strong><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></strong>
+    <div class="text-right ml-auto">
+      <small style="opacity:.7; font-size:.75rem; letter-spacing:.5px; text-transform:uppercase;">Employee No.</small><br>
+      <strong style="font-size:1.1rem; letter-spacing:.5px;"><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></strong>
     </div>
   </div>
 </div>
@@ -101,7 +101,7 @@ $announcements  = array_slice($announcements, 0, 5);
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="card-title mb-0"><i class="fas fa-file-invoice-dollar mr-2 text-primary"></i>Recent Payslips</span>
-        <a href="my_payslips.php" class="btn btn-sm btn-outline-primary">View All</a>
+        <a href="my_payslips.php" class="btn btn-sm btn-outline-primary ml-auto">View All</a>
       </div>
       <div class="card-body p-0">
         <?php if (empty($recentPayroll)): ?>
@@ -134,7 +134,7 @@ $announcements  = array_slice($announcements, 0, 5);
     <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="card-title mb-0"><i class="fas fa-calendar-minus mr-2 text-warning"></i>Leave Balances</span>
-        <a href="my_leaves.php" class="btn btn-sm btn-outline-warning">File Leave</a>
+        <a href="my_leaves.php" class="btn btn-sm btn-outline-warning ml-auto">File Leave</a>
       </div>
       <div class="card-body p-0">
         <?php if ($employee):
@@ -170,7 +170,7 @@ $announcements  = array_slice($announcements, 0, 5);
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span class="card-title mb-0"><i class="fas fa-bullhorn mr-2 text-danger"></i>Announcements</span>
-        <a href="announcements.php" class="btn btn-sm btn-outline-danger">View All</a>
+        <a href="announcements.php" class="btn btn-sm btn-outline-danger ml-auto">View All</a>
       </div>
       <div class="card-body">
         <?php if (empty($announcements)): ?>

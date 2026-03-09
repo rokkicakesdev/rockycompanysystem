@@ -7,7 +7,7 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 
 $employees      = Model::getAllEmployees();
 $selectedEmpId  = (int)($_GET['emp'] ?? 0);
-$selectedPeriod = $_GET['period'] ?? '2025-01';
+$selectedPeriod = $_GET['period'] ?? '';
 
 $selectedEmp   = $selectedEmpId ? Model::findEmployeeById($selectedEmpId) : null;
 
@@ -23,13 +23,20 @@ if ($selectedEmp && $selectedPeriod) {
     }
 }
 
-// Build all 12 months of 2025 for the dropdown
+// Build periods: all months from 2025 through current month
 $allPeriods = [];
-for ($m = 1; $m <= 12; $m++) {
-    $val   = '2025-' . str_pad($m, 2, '0', STR_PAD_LEFT);
-    $label = date('F Y', strtotime($val . '-01'));
-    $allPeriods[$val] = $label;
+$startYear  = 2025;
+$endYear    = (int)date('Y');
+$endMonth   = (int)date('m');
+for ($y = $startYear; $y <= $endYear; $y++) {
+    $maxMonth = ($y === $endYear) ? $endMonth : 12;
+    for ($m = 1; $m <= $maxMonth; $m++) {
+        $val = $y . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
+        $allPeriods[$val] = date('F Y', strtotime($val . '-01'));
+    }
 }
+$allPeriods = array_reverse($allPeriods, true); // latest first
+$selectedPeriod = $_GET['period'] ?? array_key_first($allPeriods);
 ?>
 
 <div class="row">
@@ -167,17 +174,13 @@ for ($m = 1; $m <= 12; $m++) {
           </div>
         </div>
 
-        <!-- Signature area -->
-        <div class="row mt-4 pt-2 no-print" style="display:none">
+        <!-- Signature area — hidden on screen, visible on print -->
+        <div class="row mt-4 pt-3 print-only">
           <div class="col-6 text-center">
-            <div style="border-top:1px solid #343a40; padding-top:6px; font-size:.8rem">
-              Employee Signature / Date
-            </div>
+            <div class="signature-line">Employee Signature / Date</div>
           </div>
           <div class="col-6 text-center">
-            <div style="border-top:1px solid #343a40; padding-top:6px; font-size:.8rem">
-              Authorized Signatory
-            </div>
+            <div class="signature-line">Authorized Signatory</div>
           </div>
         </div>
 
