@@ -55,6 +55,10 @@ $currentPath = basename($_SERVER['PHP_SELF']);
           <small class="text-muted"><?= ucfirst(htmlspecialchars($currentUser['role'] ?? 'employee')) ?></small>
         </div>
         <div class="dropdown-divider"></div>
+        <a href="<?= BASE_URL ?>/app/views/employee/profile.php" class="dropdown-item">
+          <i class="fas fa-user-circle mr-2"></i> My Profile
+        </a>
+        <div class="dropdown-divider"></div>
         <a href="<?= BASE_URL ?>/logout.php" class="dropdown-item"
            onclick="return confirm('Are you sure you want to log out?');">
           <i class="fas fa-sign-out-alt mr-2"></i> Logout
@@ -116,6 +120,16 @@ $currentPath = basename($_SERVER['PHP_SELF']);
              class="nav-link <?= strpos($currentPath, 'announcements') !== false ? 'active' : '' ?>">
             <i class="nav-icon fas fa-bullhorn"></i>
             <p>Announcements</p>
+          </a>
+        </li>
+
+        <li class="nav-header text-uppercase small">Account</li>
+
+        <li class="nav-item">
+          <a href="<?= BASE_URL ?>/app/views/employee/profile.php"
+             class="nav-link <?= strpos($currentPath, 'profile') !== false ? 'active' : '' ?>">
+            <i class="nav-icon fas fa-user-circle"></i>
+            <p>My Profile</p>
           </a>
         </li>
 

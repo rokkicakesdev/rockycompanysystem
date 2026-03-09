@@ -1,6 +1,6 @@
 <?php
-$pageTitle = 'Employees';
-require_once __DIR__ . '/../layouts/admin_header.php';
+// ── Handlers MUST run before any HTML output ─────────────────────────────────
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 // Generate CSRF token if not already set
 if (empty($_SESSION['csrf_token'])) {
@@ -12,6 +12,9 @@ $msg = '';
 
 // ── Handle toggle status ──────────────────────────────────────────────────────
 if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
+    require_once __DIR__ . '/../../../config/config.php';
+    require_once __DIR__ . '/../../../config/database.php';
+    require_once __DIR__ . '/../../../core/Model.php';
     $emp   = Model::findEmployeeById((int)$_GET['toggle']);
     $newSt = ($emp && $emp['status'] === 'active') ? 'inactive' : 'active';
     Model::toggleEmployeeStatus((int)$_GET['toggle'], $newSt);
@@ -19,6 +22,9 @@ if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
     header('Location: employees.php');
     exit;
 }
+
+$pageTitle = 'Employees';
+require_once __DIR__ . '/../layouts/admin_header.php';
 
 // ── Handle create / update ────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -736,35 +742,48 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
   </div>
 </div>
 
+<?php
+// Build positions JSON for JS — avoids PHP inside heredoc
+$positionsJson = json_encode(array_map(fn($p) => [
+    'id'            => $p['id'],
+    'department_id' => $p['department_id'],
+    'name'          => $p['name'],
+], $positions));
+?>
 <script>
+// Positions data — injected before jQuery loads, safe
+var POSITIONS_DATA = <?= $positionsJson ?>;
+</script>
+
+<?php
+$extraJs = <<<'JS'
 $(document).ready(function () {
   $('[data-toggle="tooltip"]').tooltip();
 
   window.openEditModal = function(emp) {
-    document.getElementById('empId').value         = emp.id;
-    document.getElementById('empModalTitle').innerHTML = '<i class="fas fa-user-edit mr-2"></i>Edit Employee';
-    document.getElementById('empSubmitBtn').innerHTML  = '<i class="fas fa-save mr-1"></i>Update Employee';
+    document.getElementById('empId').value              = emp.id;
+    document.getElementById('empModalTitle').innerHTML  = '<i class="fas fa-user-edit mr-2"></i>Edit Employee';
+    document.getElementById('empSubmitBtn').innerHTML   = '<i class="fas fa-save mr-1"></i>Update Employee';
 
-    document.getElementById('fName').value           = emp.name          ?? '';
-    document.getElementById('fGender').value          = emp.gender        ?? '';
-    document.getElementById('fCivilStatus').value     = emp.civil_status  ?? '';
-    document.getElementById('fBirthdate').value       = emp.birthdate     ?? '';
-    document.getElementById('fEmail').value           = emp.email         ?? '';
-    document.getElementById('fPhone').value           = emp.phone         ?? '';
-    document.getElementById('fAddress').value         = emp.address       ?? '';
-    document.getElementById('fBasicSalary').value     = emp.basic_salary  ?? 0;
-    document.getElementById('fAllowance').value       = emp.allowance     ?? 0;
-    document.getElementById('fDateHired').value       = emp.date_hired    ?? '';
-    document.getElementById('fEmploymentType').value  = emp.employment_type ?? 'regular';
-    document.getElementById('fStatus').value          = emp.status        ?? 'active';
-
-    document.getElementById('fDeptId').value      = emp.department_id ?? '';
+    document.getElementById('fName').value              = emp.name             ?? '';
+    document.getElementById('fGender').value            = emp.gender           ?? '';
+    document.getElementById('fCivilStatus').value       = emp.civil_status     ?? '';
+    document.getElementById('fBirthdate').value         = emp.birthdate        ?? '';
+    document.getElementById('fEmail').value             = emp.email            ?? '';
+    document.getElementById('fPhone').value             = emp.phone            ?? '';
+    document.getElementById('fAddress').value           = emp.address          ?? '';
+    document.getElementById('fBasicSalary').value       = emp.basic_salary     ?? 0;
+    document.getElementById('fAllowance').value         = emp.allowance        ?? 0;
+    document.getElementById('fDateHired').value         = emp.date_hired       ?? '';
+    document.getElementById('fEmploymentType').value    = emp.employment_type  ?? 'regular';
+    document.getElementById('fStatus').value            = emp.status           ?? 'active';
+    document.getElementById('fDeptId').value            = emp.department_id    ?? '';
     filterPositions(emp.department_id, emp.position_id);
 
-    document.getElementById('fSssNo').value        = emp.sss_no        ?? '';
-    document.getElementById('fPhilhealthNo').value = emp.philhealth_no ?? '';
-    document.getElementById('fPagibigNo').value    = emp.pagibig_no    ?? '';
-    document.getElementById('fTinNo').value        = emp.tin_no        ?? '';
+    document.getElementById('fSssNo').value             = emp.sss_no           ?? '';
+    document.getElementById('fPhilhealthNo').value      = emp.philhealth_no    ?? '';
+    document.getElementById('fPagibigNo').value         = emp.pagibig_no       ?? '';
+    document.getElementById('fTinNo').value             = emp.tin_no           ?? '';
 
     const leaveMap = {
       'sick_leave_balance':        emp.sick_leave_balance,
@@ -783,9 +802,9 @@ $(document).ready(function () {
       if (el) el.value = val ?? 0;
     }
 
-    document.getElementById('fEcName').value     = emp.emergency_contact_name     ?? '';
-    document.getElementById('fEcPhone').value    = emp.emergency_contact_phone    ?? '';
-    document.getElementById('fEcRelation').value = emp.emergency_contact_relation ?? '';
+    document.getElementById('fEcName').value            = emp.emergency_contact_name     ?? '';
+    document.getElementById('fEcPhone').value           = emp.emergency_contact_phone    ?? '';
+    document.getElementById('fEcRelation').value        = emp.emergency_contact_relation ?? '';
 
     $('#employeeModal .nav-tabs a:first').tab('show');
     $('#employeeModal').modal('show');
@@ -793,7 +812,7 @@ $(document).ready(function () {
 
   window.openAddModal = function() {
     document.getElementById('employeeForm').reset();
-    document.getElementById('empId').value        = '';
+    document.getElementById('empId').value             = '';
     document.getElementById('empModalTitle').innerHTML = '<i class="fas fa-user-plus mr-2"></i>Add Employee';
     document.getElementById('empSubmitBtn').innerHTML  = '<i class="fas fa-save mr-1"></i>Save Employee';
     filterPositions('', '');
@@ -808,19 +827,15 @@ $(document).ready(function () {
     const $sel = $('#fPositionId');
     $sel.html('<option value="">-- Select Position --</option>');
     if (!deptId) return;
-    <?php foreach ($positions as $pos): ?>
-      if ('<?= $pos['department_id'] ?>' == deptId) {
-        const opt = new Option(
-          '<?= addslashes(htmlspecialchars($pos['name'])) ?>',
-          '<?= $pos['id'] ?>',
-          false,
-          '<?= $pos['id'] ?>' == selectedPositionId
-        );
+    POSITIONS_DATA.forEach(function(pos) {
+      if (pos.department_id == deptId) {
+        const opt = new Option(pos.name, pos.id, false, pos.id == selectedPositionId);
         $sel.append(opt);
       }
-    <?php endforeach; ?>
+    });
   }
 });
-</script>
+JS;
 
-<?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
+require_once __DIR__ . '/../layouts/admin_footer.php';
+?>
