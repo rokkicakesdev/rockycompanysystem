@@ -33,7 +33,7 @@ if (isset($_SESSION['user_id'])) {
         header('Location: app/views/management/dashboard.php');
         exit;
     } elseif ($role === 'employee') {  // Added explicit check for employee
-        header('Location: app/views/employee/my_payslips.php');
+        header('Location: app/views/employee/dashboard.php');
         exit;
     }
 }
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif ($_SESSION['role'] === ROLE_MANAGEMENT) {
                     header('Location: app/views/management/dashboard.php');
                 } elseif ($_SESSION['role'] === 'employee') {
-                    header('Location: app/views/employee/my_payslips.php');
+                    header('Location: app/views/employee/dashboard.php');
                 } else {
                     $error = 'Unknown role. Contact administrator.';
                 }

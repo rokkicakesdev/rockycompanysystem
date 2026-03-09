@@ -1,6 +1,12 @@
 <?php
-$pageTitle = 'Dashboard';
+$pageTitle  = 'Dashboard';
+$activeMenu = 'dashboard';
 require_once __DIR__ . '/../layouts/admin_header.php';
+
+// CSRF token for inline leave approve/reject forms
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $stats        = Model::getDashboardStats();
 $headcount    = Model::getHeadcountByDepartment();
@@ -123,8 +129,24 @@ $currentPayroll = Model::getPayrollByPeriod($currentPeriod);
                 <td><small><?= date('M d, Y', strtotime($leave['filed_at'])) ?></small></td>
                 <td>
                   <div class="action-btn-group">
-                    <a href="leave.php?action=review&id=<?= $leave['id'] ?>" class="btn btn-xs btn-success">Approve</a>
-                    <a href="leave.php?action=reject&id=<?= $leave['id'] ?>" class="btn btn-xs btn-danger">Reject</a>
+                    <form method="POST" action="leave.php" style="display:inline"
+                      onsubmit="return confirm('Approve this leave request?')">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                      <input type="hidden" name="leave_id"   value="<?= $leave['id'] ?>">
+                      <input type="hidden" name="action"     value="approved">
+                      <button type="submit" class="btn btn-xs btn-success">
+                        <i class="fas fa-check"></i> Approve
+                      </button>
+                    </form>
+                    <form method="POST" action="leave.php" style="display:inline"
+                      onsubmit="return confirm('Reject this leave request?')">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>">
+                      <input type="hidden" name="leave_id"   value="<?= $leave['id'] ?>">
+                      <input type="hidden" name="action"     value="rejected">
+                      <button type="submit" class="btn btn-xs btn-danger">
+                        <i class="fas fa-times"></i> Reject
+                      </button>
+                    </form>
                   </div>
                 </td>
               </tr>

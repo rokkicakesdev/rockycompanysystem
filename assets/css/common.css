@@ -749,23 +749,209 @@ td.text-nowrap {
 /* ════════════════════════════════════════════════════════════
    PRINT STYLES
    ════════════════════════════════════════════════════════════ */
+
+/* Hidden on screen, visible only when printing */
+.print-only { display: none !important; }
+
 @media print {
-  .content-header,
+
+  /* ── Page setup ─────────────────────────────────────────── */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 15mm 15mm 15mm;
+  }
+
+  /* ── Reset body & layout ────────────────────────────────── */
+  html, body {
+    background: #fff !important;
+    font-family: 'Plus Jakarta Sans', Arial, sans-serif !important;
+    font-size: 11pt !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Hide everything except the payslip card ────────────── */
   .main-header,
   .main-sidebar,
   .main-footer,
-  .no-print {
+  .content-header,
+  .no-print,
+  .col-md-4,          /* left selector panel */
+  .page-title-bar,
+  .card-footer,
+  .btn,
+  nav, header, footer {
     display: none !important;
   }
+
+  /* ── Content wrapper — full width, no sidebar offset ────── */
   .content-wrapper {
     margin-left: 0 !important;
+    padding: 0 !important;
     background: #fff !important;
+    min-height: unset !important;
   }
+
+  .wrapper,
+  .container-fluid {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* ── Bootstrap row/col reset for print ─────────────────── */
+  .row { display: block !important; }
+  .col-md-8,
+  .col-md-4,
+  .col-6 {
+    width: 100% !important;
+    flex: unset !important;
+    max-width: 100% !important;
+    float: none !important;
+    padding: 0 !important;
+  }
+
+  /* Employee info tables — restore 2-column layout */
+  .row.mb-3 { display: flex !important; flex-wrap: wrap !important; }
+  .row.mb-3 .col-6 {
+    width: 50% !important;
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+    padding: 0 8px !important;
+  }
+
+  /* Earnings & deductions — restore side-by-side */
+  .row .col-6 {
+    width: 50% !important;
+    flex: 0 0 50% !important;
+    max-width: 50% !important;
+    display: inline-block !important;
+    vertical-align: top !important;
+    padding: 0 8px !important;
+  }
+
+  /* ── Card — clean white box ─────────────────────────────── */
+  .card,
   .payslip-card {
+    border: 1px solid #ccc !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
-    border: 1px solid #000 !important;
+    margin: 0 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
-  body {
-    background: #fff !important;
+  .card-body { padding: 16px !important; }
+
+  /* ── Payslip header bar ─────────────────────────────────── */
+  .payslip-header-bar {
+    background: #1e2433 !important;
+    color: #fff !important;
+    padding: 14px 20px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .payslip-header-bar h4 { font-size: 14pt !important; margin: 0 !important; }
+  .payslip-header-bar p  { font-size: 8pt  !important; opacity: .75; margin: 2px 0 0 !important; }
+
+  /* ── Section titles ─────────────────────────────────────── */
+  .payslip-section-title {
+    font-size: 7.5pt !important;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #555 !important;
+    margin-bottom: 6px !important;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 3px;
+  }
+
+  /* ── Earnings/deductions rows ───────────────────────────── */
+  .comp-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 3px 0 !important;
+    font-size: 9.5pt !important;
+  }
+  .comp-row.total {
+    font-weight: 700 !important;
+    border-top: 1.5px solid #333 !important;
+    padding-top: 5px !important;
+    margin-top: 3px !important;
+    font-size: 10pt !important;
+  }
+
+  /* ── Divider ────────────────────────────────────────────── */
+  .payslip-divider {
+    border-top: 1.5px dashed #999 !important;
+    margin: 10px 0 !important;
+  }
+
+  /* ── Net pay box ────────────────────────────────────────── */
+  .payslip-net-box,
+  .d-flex.justify-content-between.align-items-center.p-3.rounded {
+    background: #f4f6f9 !important;
+    border: 1px solid #ddd !important;
+    border-radius: 4px !important;
+    padding: 12px 16px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .payslip-net-box h2,
+  .text-primary.font-weight-bold {
+    font-size: 18pt !important;
+    font-weight: 700 !important;
+    color: #1e3a5f !important;
+  }
+  .payslip-net-box .text-muted { font-size: 8pt !important; }
+
+  /* ── Employee info table ────────────────────────────────── */
+  .table-borderless td {
+    font-size: 9pt !important;
+    padding: 2px 4px !important;
+  }
+  .table-borderless .text-muted { color: #666 !important; }
+
+  /* ── Status badge in employee info ─────────────────────── */
+  .badge-success {
+    background: #dcfce7 !important;
+    color: #166534 !important;
+    padding: 1px 6px !important;
+    border-radius: 10px !important;
+    font-size: 8pt !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Signature lines — show on print ───────────────────── */
+  .print-only { display: block !important; }
+  .signature-line {
+    border-top: 1px solid #333 !important;
+    padding-top: 6px !important;
+    font-size: 8.5pt !important;
+    color: #333 !important;
+    margin-top: 40px !important;
+    text-align: center;
+  }
+
+  /* ── Typography tweaks ──────────────────────────────────── */
+  strong { font-weight: 700 !important; }
+  code {
+    font-family: monospace !important;
+    background: none !important;
+    color: #000 !important;
+    font-size: 9pt !important;
+  }
+  .text-muted  { color: #555 !important; }
+  .text-danger { color: #c0392b !important; }
+  .text-success{ color: #166534 !important; }
+
+  /* ── Prevent page breaks inside payslip ────────────────── */
+  .payslip-card,
+  .card-body,
+  .row.mb-3,
+  .payslip-net-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 }

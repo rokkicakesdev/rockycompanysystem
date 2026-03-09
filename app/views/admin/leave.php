@@ -245,7 +245,8 @@ $statusCounts = [
   </div>
 </div>
 
-<script>
+<?php
+$extraJs = <<<JS
 $('#reviewModal').on('show.bs.modal', function(e) {
   const btn    = $(e.relatedTarget);
   const id     = btn.data('id');
@@ -274,5 +275,12 @@ function calcDays() {
   }
 }
 $('#newDateFrom, #newDateTo').on('change', calcDays);
-</script>
-<?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
+
+// Refresh badge immediately after approve/reject
+$(document).ready(function() {
+  if ($('.alert-success').length) {
+    if (typeof refreshPendingBadge === 'function') refreshPendingBadge();
+  }
+});
+JS;
+require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
