@@ -870,6 +870,29 @@ class Model {
         ]);
     }
 
+    public static function updateAnnouncement(int $id, array $data): bool {
+        $stmt = self::db()->prepare('
+            UPDATE announcements
+            SET title = :title, content = :content, type = :type,
+                is_pinned = :is_pinned, expires_at = :expires_at
+            WHERE id = :id
+        ');
+        return (bool) $stmt->execute([
+            ':title'      => $data['title'],
+            ':content'    => $data['content'],
+            ':type'       => $data['type']       ?? 'general',
+            ':is_pinned'  => $data['is_pinned']  ?? 0,
+            ':expires_at' => $data['expires_at'] ?? null,
+            ':id'         => $id,
+        ]);
+    }
+
+    public static function findAnnouncementById(int $id): ?array {
+        $stmt = self::db()->prepare('SELECT * FROM announcements WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+
     public static function deleteAnnouncement(int $id): bool {
         $stmt = self::db()->prepare('DELETE FROM announcements WHERE id = ?');
         return (bool) $stmt->execute([$id]);

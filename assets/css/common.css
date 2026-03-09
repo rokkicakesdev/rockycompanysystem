@@ -954,4 +954,47 @@ td.text-nowrap {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+
+  /* ── Employee payslip modal print ───────────────────────── */
+  /* Show modal content as normal flow, hide modal chrome */
+  .modal {
+    position: static !important;
+    display: block !important;
+    overflow: visible !important;
+    background: none !important;
+  }
+  .modal-dialog {
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  .modal-content {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .modal-backdrop { display: none !important; }
+  #payslipPrintArea { display: block !important; }
+
+  /* Hide everything except the payslip print area */
+  body > *:not(.modal),
+  .content-wrapper,
+  .main-sidebar,
+  .main-header,
+  .main-footer,
+  .page-title-bar,
+  .card:not(.payslip-card),
+  .modal-footer,
+  .modal-header,
+  .no-print {
+    display: none !important;
+  }
+
+  /* But show the modal with payslip */
+  #payslipModal,
+  #payslipModal .modal-dialog,
+  #payslipModal .modal-content,
+  #payslipModal #payslipPrintArea {
+    display: block !important;
+    visibility: visible !important;
+  }
 }
