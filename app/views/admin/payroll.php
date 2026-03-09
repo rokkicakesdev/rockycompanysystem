@@ -311,9 +311,22 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
       <i class="fas fa-table mr-2"></i>
       Payroll Records &mdash; <?= date('F Y', strtotime($selectedPeriod . '-01')) ?>
     </h3>
-    <div class="card-tools">
+    <div class="card-tools d-flex align-items-center">
       <span class="badge badge-warning mr-2"><?= count($pendingList) ?> Pending</span>
-      <span class="badge badge-success"><?= count($releasedList) ?> Released</span>
+      <span class="badge badge-success mr-3"><?= count($releasedList) ?> Released</span>
+      <?php if (!empty($periodPayroll)): ?>
+      <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=pdf"
+         target="_blank"
+         class="btn btn-xs btn-outline-danger mr-1"
+         title="Print / Export as PDF">
+        <i class="fas fa-file-pdf mr-1"></i>PDF
+      </a>
+      <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=excel"
+         class="btn btn-xs btn-outline-success"
+         title="Export as Excel">
+        <i class="fas fa-file-excel mr-1"></i>Excel
+      </a>
+      <?php endif; ?>
     </div>
   </div>
   <div class="card-body p-0">
