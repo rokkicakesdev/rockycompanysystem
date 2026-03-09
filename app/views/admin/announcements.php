@@ -11,111 +11,243 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf_token = $_SESSION['csrf_token'];
 
+// ── POST: Create ──────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_announcement'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
-        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
     } else {
         Model::createAnnouncement([
             'title'      => trim($_POST['title']),
             'content'    => trim($_POST['content']),
-            'type'       => $_POST['type']       ?? 'general',
+            'type'       => $_POST['type']      ?? 'general',
             'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
             'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
             'posted_by'  => $_SESSION['user_id'],
         ]);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Announcement posted.</div>";
+        Model::log($_SESSION['user_id'], 'CREATE_ANNOUNCEMENT', "Posted: " . trim($_POST['title']));
+        $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement posted successfully.</div>";
     }
 }
+
+// ── POST: Edit ────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_announcement'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
+    } else {
+        $editId = (int)$_POST['edit_id'];
+        Model::updateAnnouncement($editId, [
+            'title'      => trim($_POST['title']),
+            'content'    => trim($_POST['content']),
+            'type'       => $_POST['type']      ?? 'general',
+            'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
+            'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
+        ]);
+        Model::log($_SESSION['user_id'], 'EDIT_ANNOUNCEMENT', "Edited ID:{$editId} — " . trim($_POST['title']));
+        $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement updated successfully.</div>";
+    }
+}
+
+// ── GET: Delete ───────────────────────────────────────────────
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
-    Model::deleteAnnouncement((int)$_GET['delete']);
-    $msg = "<div class='alert alert-success alert-auto-dismiss'>Announcement deleted.</div>";
+    $delId = (int)$_GET['delete'];
+    Model::deleteAnnouncement($delId);
+    Model::log($_SESSION['user_id'], 'DELETE_ANNOUNCEMENT', "Deleted ID:{$delId}");
+    $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement deleted.</div>";
 }
 
 $announcements = Model::getActiveAnnouncements();
-$typeColors = ['general'=>'#6366f1','payroll'=>'#2563eb','leave'=>'#d97706','holiday'=>'#16a34a','urgent'=>'#dc2626'];
+$typeColors    = [
+    'general' => '#6366f1',
+    'payroll' => '#2563eb',
+    'leave'   => '#d97706',
+    'holiday' => '#16a34a',
+    'urgent'  => '#dc2626',
+];
+$typeIcons = [
+    'general' => 'fa-bullhorn',
+    'payroll' => 'fa-peso-sign',
+    'leave'   => 'fa-calendar-minus',
+    'holiday' => 'fa-umbrella-beach',
+    'urgent'  => 'fa-exclamation-circle',
+];
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-bullhorn" class="text-primary"></i>
-    <h1>Announcements</h1>
-    <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#newAnnouncementModal">
-      <i class="fas fa-plus mr-1"></i>Post Announcement
-    </button>
-  </div>
+  <i class="fas fa-bullhorn text-primary"></i>
+  <h1>Announcements</h1>
+  <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#announcementModal" id="newAnnouncementBtn">
+    <i class="fas fa-plus mr-1"></i> Post Announcement
+  </button>
+</div>
 
 <?= $msg ?>
-    <div class="row">
-      <?php foreach ($announcements as $ann):
-        $color = $typeColors[$ann['type']] ?? '#6366f1';
-      ?>
-      <div class="col-md-6 mb-3">
-        <div class="card h-100" style="border-left:4px solid <?= $color ?> !important;">
-          <div class="card-body">
-            <div class="d-flex justify-content-between">
-              <div>
-                <?php if ($ann['is_pinned']): ?>
-                  <i class="fas fa-thumbtack mr-1" style="color:#d97706;" title="Pinned"></i>
-                <?php endif; ?>
-                <strong><?= htmlspecialchars($ann['title']) ?></strong>
-                <span class="badge ml-2" style="background:<?= $color ?>20;color:<?= $color ?>;"><?= ucfirst($ann['type']) ?></span>
-              </div>
-              <a href="announcements.php?delete=<?= $ann['id'] ?>" class="btn btn-xs btn-outline-danger"
-                 onclick="return confirm('Delete this announcement?')">
-                <i class="fas fa-trash"></i>
-              </a>
-            </div>
-            <p class="mt-2 mb-1" style="font-size:.85rem;"><?= nl2br(htmlspecialchars($ann['content'])) ?></p>
-            <small class="text-muted">
-              By <?= htmlspecialchars($ann['posted_by_name'] ?? 'System') ?> &bull;
-              <?= date('M d, Y', strtotime($ann['created_at'])) ?>
-              <?php if ($ann['expires_at']): ?> &bull; Expires: <?= date('M d, Y', strtotime($ann['expires_at'])) ?><?php endif; ?>
-            </small>
+
+<!-- Announcement Cards -->
+<div class="row">
+  <?php if (empty($announcements)): ?>
+    <div class="col-12 text-center text-muted py-5">
+      <i class="fas fa-bullhorn fa-3x mb-3 d-block" style="opacity:.15;"></i>
+      No announcements posted yet.
+    </div>
+  <?php endif; ?>
+
+  <?php foreach ($announcements as $ann):
+    $color = $typeColors[$ann['type']] ?? '#6366f1';
+    $icon  = $typeIcons[$ann['type']]  ?? 'fa-bullhorn';
+  ?>
+  <div class="col-md-6 mb-3">
+    <div class="card h-100" style="border-left: 4px solid <?= $color ?> !important;">
+      <div class="card-body">
+
+        <!-- Title row -->
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <?php if ($ann['is_pinned']): ?>
+              <i class="fas fa-thumbtack mr-1" style="color:#d97706;" title="Pinned"></i>
+            <?php endif; ?>
+            <strong><?= htmlspecialchars($ann['title']) ?></strong>
+            <span class="badge ml-1" style="background:<?= $color ?>20; color:<?= $color ?>; border:1px solid <?= $color ?>40;">
+              <i class="fas <?= $icon ?> mr-1"></i><?= ucfirst($ann['type']) ?>
+            </span>
+            <?php if ($ann['is_pinned']): ?>
+              <span class="badge badge-warning ml-1"><i class="fas fa-thumbtack mr-1"></i>Pinned</span>
+            <?php endif; ?>
+          </div>
+          <!-- Action buttons -->
+          <div class="action-btn-group ml-2 flex-shrink-0">
+            <button class="btn btn-xs btn-outline-primary edit-ann-btn"
+              data-id="<?= $ann['id'] ?>"
+              data-title="<?= htmlspecialchars($ann['title'], ENT_QUOTES) ?>"
+              data-content="<?= htmlspecialchars($ann['content'], ENT_QUOTES) ?>"
+              data-type="<?= htmlspecialchars($ann['type']) ?>"
+              data-pinned="<?= $ann['is_pinned'] ?>"
+              data-expires="<?= htmlspecialchars($ann['expires_at'] ?? '') ?>"
+              title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <a href="announcements.php?delete=<?= $ann['id'] ?>"
+               class="btn btn-xs btn-outline-danger"
+               onclick="return confirm('Delete this announcement?')"
+               title="Delete">
+              <i class="fas fa-trash"></i>
+            </a>
           </div>
         </div>
+
+        <!-- Content -->
+        <p class="mb-2" style="font-size:.85rem; white-space:pre-wrap;"><?= nl2br(htmlspecialchars($ann['content'])) ?></p>
+
+        <!-- Meta -->
+        <small class="text-muted">
+          <i class="fas fa-user mr-1"></i><?= htmlspecialchars($ann['posted_by_name'] ?? 'System') ?>
+          &bull; <i class="fas fa-calendar mr-1"></i><?= date('M d, Y', strtotime($ann['created_at'])) ?>
+          <?php if ($ann['expires_at']): ?>
+            &bull; <i class="fas fa-clock mr-1"></i>Expires: <?= date('M d, Y', strtotime($ann['expires_at'])) ?>
+          <?php endif; ?>
+        </small>
+
       </div>
-      <?php endforeach; ?>
-      <?php if (empty($announcements)): ?>
-        <div class="col-12 text-center text-muted py-5">No announcements posted yet.</div>
-      <?php endif; ?>
     </div>
+  </div>
+  <?php endforeach; ?>
 </div>
 
-<div class="modal fade" id="newAnnouncementModal" tabindex="-1">
-  <div class="modal-dialog"><div class="modal-content">
-    <form method="POST">
-      <input type="hidden" name="new_announcement" value="1">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-      <div class="modal-header"><h5 class="modal-title">Post Announcement</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
-      <div class="modal-body">
-        <div class="form-group"><label>Title *</label><input type="text" name="title" class="form-control" required></div>
-        <div class="form-group"><label>Content *</label><textarea name="content" class="form-control" rows="4" required></textarea></div>
-        <div class="row">
-          <div class="col-6">
-            <div class="form-group">
-              <label>Type</label>
-              <select name="type" class="form-control">
-                <option value="general">General</option>
-                <option value="payroll">Payroll</option>
-                <option value="leave">Leave</option>
-                <option value="holiday">Holiday</option>
-                <option value="urgent">Urgent</option>
-              </select>
+<!-- ══════════════════════════════════════════════
+     CREATE / EDIT MODAL (shared)
+     ══════════════════════════════════════════════ -->
+<div class="modal fade" id="announcementModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" id="announcementForm">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+        <!-- Switches between new_announcement and edit_announcement -->
+        <input type="hidden" name="new_announcement" id="formModeNew" value="1">
+        <input type="hidden" name="edit_announcement" id="formModeEdit" value="">
+        <input type="hidden" name="edit_id" id="formEditId" value="">
+
+        <div class="modal-header">
+          <h5 class="modal-title" id="announcementModalTitle">
+            <i class="fas fa-bullhorn mr-2 text-primary"></i>Post Announcement
+          </h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" id="annTitle" class="form-control" required maxlength="255">
+          </div>
+          <div class="form-group">
+            <label>Content <span class="text-danger">*</span></label>
+            <textarea name="content" id="annContent" class="form-control" rows="4" required></textarea>
+          </div>
+          <div class="row">
+            <div class="col-6">
+              <div class="form-group">
+                <label>Type</label>
+                <select name="type" id="annType" class="form-control">
+                  <option value="general">General</option>
+                  <option value="payroll">Payroll</option>
+                  <option value="leave">Leave</option>
+                  <option value="holiday">Holiday</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="form-group">
+                <label>Expires On <small class="text-muted">(optional)</small></label>
+                <input type="date" name="expires_at" id="annExpires" class="form-control">
+              </div>
             </div>
           </div>
-          <div class="col-6">
-            <div class="form-group"><label>Expires On</label><input type="date" name="expires_at" class="form-control"></div>
+          <div class="form-check mt-1">
+            <input type="checkbox" name="is_pinned" class="form-check-input" id="annPinned">
+            <label class="form-check-label" for="annPinned">
+              <i class="fas fa-thumbtack mr-1" style="color:#d97706;"></i> Pin this announcement
+            </label>
           </div>
         </div>
-        <div class="form-check">
-          <input type="checkbox" name="is_pinned" class="form-check-input" id="isPinned">
-          <label class="form-check-label" for="isPinned">Pin this announcement</label>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="annSubmitBtn">
+            <i class="fas fa-paper-plane mr-1"></i> Post
+          </button>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Post</button>
-      </div>
-    </form>
-  </div></div>
+      </form>
+    </div>
+  </div>
 </div>
-<?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
+
+<?php
+$extraJs = <<<'JS'
+// New announcement — reset form to create mode
+$('#newAnnouncementBtn').on('click', function() {
+  $('#announcementModalTitle').html('<i class="fas fa-bullhorn mr-2 text-primary"></i>Post Announcement');
+  $('#announcementForm')[0].reset();
+  $('#formModeNew').attr('name', 'new_announcement').val('1');
+  $('#formModeEdit').attr('name', '').val('');
+  $('#formEditId').val('');
+  $('#annSubmitBtn').html('<i class="fas fa-paper-plane mr-1"></i> Post');
+});
+
+// Edit announcement — populate form with existing data
+$('.edit-ann-btn').on('click', function() {
+  const d = $(this).data();
+  $('#announcementModalTitle').html('<i class="fas fa-edit mr-2 text-primary"></i>Edit Announcement');
+  $('#annTitle').val(d.title);
+  $('#annContent').val(d.content);
+  $('#annType').val(d.type);
+  $('#annExpires').val(d.expires || '');
+  $('#annPinned').prop('checked', d.pinned == 1);
+  $('#formModeNew').attr('name', '').val('');
+  $('#formModeEdit').attr('name', 'edit_announcement').val('1');
+  $('#formEditId').val(d.id);
+  $('#annSubmitBtn').html('<i class="fas fa-save mr-1"></i> Save Changes');
+  $('#announcementModal').modal('show');
+});
+JS;
+
+require_once __DIR__ . '/../layouts/admin_footer.php';
+?>
