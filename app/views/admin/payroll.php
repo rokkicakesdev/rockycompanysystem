@@ -1,9 +1,15 @@
 <?php
+// ===========================================================================
+//  ALL POST HANDLERS MUST BE BEFORE ANY HTML OUTPUT
+// ===========================================================================
 $pageTitle  = 'Payroll Processing';
 $breadcrumb = 'Payroll';
 $activeMenu = 'payroll';
 
-require_once __DIR__ . '/../layouts/admin_header.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+
+// Core files (Database, Model, PhilippineDeductions) are loaded by the router
+// before this view is included — do NOT require them here directly.
 
 // CSRF token
 if (empty($_SESSION['csrf_token'])) {
@@ -11,7 +17,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf_token = $_SESSION['csrf_token'];
 
-$msg = '';
+// (msg is set by POST handlers above, or empty for GET requests)
 
 // ===========================================================================
 //  POST: GENERATE PAYROLL
@@ -160,6 +166,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_all'])) {
         $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to release records.</div>";
     }
 }
+
+
+require_once __DIR__ . '/../layouts/admin_header.php';
+
+$msg = '';
 
 // ===========================================================================
 //  SETUP: Period selection and data

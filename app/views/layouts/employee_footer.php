@@ -1,5 +1,4 @@
 </div><!-- /.container-fluid -->
-  </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 
     <footer class="main-footer" style="background:#fff;border-top:1px solid #e2e8f0;padding:12px 20px;">
