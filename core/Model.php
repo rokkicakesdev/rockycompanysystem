@@ -373,14 +373,14 @@ class Model {
         $stmt = self::db()->prepare('
             SELECT
               COUNT(*) AS total_records,
-              SUM(status = "present")  AS days_present,
-              SUM(status = "absent")   AS days_absent,
-              SUM(status = "on_leave") AS days_on_leave,
-              SUM(status = "late")     AS days_late,
-              SUM(status = "half_day") AS days_half,
-              SUM(status = "holiday")  AS days_holiday,
+              COALESCE(SUM(status = "present"),  0) AS days_present,
+              COALESCE(SUM(status = "absent"),   0) AS days_absent,
+              COALESCE(SUM(status = "on_leave"), 0) AS days_on_leave,
+              COALESCE(SUM(status = "late"),     0) AS days_late,
+              COALESCE(SUM(status = "half_day"), 0) AS days_half,
+              COALESCE(SUM(status = "holiday"),  0) AS days_holiday,
               COALESCE(SUM(overtime_hours), 0) AS total_overtime,
-              COALESCE(SUM(hours_worked), 0) AS total_hours
+              COALESCE(SUM(hours_worked),   0) AS total_hours
             FROM attendance
             WHERE employee_id = ? AND DATE_FORMAT(date, "%Y-%m") = ?
         ');
@@ -728,6 +728,12 @@ class Model {
     public static function periodExists(string $period): bool {
         $stmt = self::db()->prepare("SELECT COUNT(*) FROM payroll_records WHERE period = ?");
         $stmt->execute([$period]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function employeeExistsInPeriod(int $employeeId, string $period): bool {
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM payroll_records WHERE employee_id = ? AND period = ?");
+        $stmt->execute([$employeeId, $period]);
         return (bool) $stmt->fetchColumn();
     }
 
