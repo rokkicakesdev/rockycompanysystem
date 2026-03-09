@@ -7,9 +7,17 @@ require_once __DIR__ . '/../layouts/admin_header.php';
 
 $employees      = Model::getAllEmployees();
 $selectedEmpId  = (int)($_GET['emp'] ?? 0);
-$selectedPeriod = $_GET['period'] ?? '';
+$selectedEmp = $selectedEmpId ? Model::findEmployeeById($selectedEmpId) : null;
 
-$selectedEmp   = $selectedEmpId ? Model::findEmployeeById($selectedEmpId) : null;
+// Build period dropdown from actual DB records (latest first)
+$rawPeriods = Model::getPayrollPeriods();
+$allPeriods = [];
+foreach ($rawPeriods as $p) {
+    $allPeriods[$p] = date('F Y', strtotime($p . '-01'));
+}
+
+// Default to latest available period
+$selectedPeriod = $_GET['period'] ?? array_key_first($allPeriods);
 
 // Load the actual payroll record from DB for this employee + period
 $payrollRecord = null;
@@ -22,21 +30,6 @@ if ($selectedEmp && $selectedPeriod) {
         }
     }
 }
-
-// Build periods: all months from 2025 through current month
-$allPeriods = [];
-$startYear  = 2025;
-$endYear    = (int)date('Y');
-$endMonth   = (int)date('m');
-for ($y = $startYear; $y <= $endYear; $y++) {
-    $maxMonth = ($y === $endYear) ? $endMonth : 12;
-    for ($m = 1; $m <= $maxMonth; $m++) {
-        $val = $y . '-' . str_pad($m, 2, '0', STR_PAD_LEFT);
-        $allPeriods[$val] = date('F Y', strtotime($val . '-01'));
-    }
-}
-$allPeriods = array_reverse($allPeriods, true); // latest first
-$selectedPeriod = $_GET['period'] ?? array_key_first($allPeriods);
 ?>
 
 <div class="row">

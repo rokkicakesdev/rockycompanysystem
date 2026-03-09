@@ -92,6 +92,27 @@ class Model {
         return (bool) $stmt->execute([password_hash($newPassword, PASSWORD_BCRYPT), $id]);
     }
 
+    // Employee self-service profile update (safe fields only — no salary/dept/position)
+    public static function updateEmployeeProfile(int $id, array $data): bool {
+        $stmt = self::db()->prepare('
+            UPDATE employees SET
+                phone      = :phone,
+                address    = :address,
+                emergency_contact_name     = :emergency_contact_name,
+                emergency_contact_phone    = :emergency_contact_phone,
+                emergency_contact_relation = :emergency_contact_relation
+            WHERE id = :id
+        ');
+        return (bool) $stmt->execute([
+            ':phone'                     => $data['phone']                     ?? null,
+            ':address'                   => $data['address']                   ?? null,
+            ':emergency_contact_name'    => $data['emergency_contact_name']    ?? null,
+            ':emergency_contact_phone'   => $data['emergency_contact_phone']   ?? null,
+            ':emergency_contact_relation'=> $data['emergency_contact_relation'] ?? null,
+            ':id'                        => $id,
+        ]);
+    }
+
     public static function updateUserStatus(int $id, string $status): bool {
         $stmt = self::db()->prepare('UPDATE users SET status = ? WHERE id = ?');
         return (bool) $stmt->execute([$status, $id]);
@@ -145,12 +166,20 @@ class Model {
     // ════════════════════════════════════════════════════════
 
     public static function getAllEmployees(string $status = ''): array {
+        $sql = '
+            SELECT e.*, d.name AS department, d.id AS department_id,
+                   p.name AS position, p.id AS position_id,
+                   (e.basic_salary + e.allowance) AS gross_pay
+            FROM employees e
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions  p ON p.id = e.position_id
+        ';
         if ($status) {
-            $stmt = self::db()->prepare('SELECT * FROM v_employees WHERE status = ? ORDER BY name');
+            $stmt = self::db()->prepare($sql . ' WHERE e.status = ? ORDER BY e.name');
             $stmt->execute([$status]);
             return $stmt->fetchAll();
         }
-        return self::db()->query('SELECT * FROM v_employees ORDER BY name')->fetchAll();
+        return self::db()->query($sql . ' ORDER BY e.name')->fetchAll();
     }
 
     public static function findEmployeeById(int $id): ?array {
@@ -324,9 +353,15 @@ class Model {
     public static function searchEmployees(string $query): array {
         $like = '%' . $query . '%';
         $stmt = self::db()->prepare('
-            SELECT * FROM v_employees
-            WHERE name LIKE ? OR employee_no LIKE ? OR email LIKE ? OR department LIKE ? OR position LIKE ?
-            ORDER BY name
+            SELECT e.*, d.name AS department, d.id AS department_id,
+                   p.name AS position, p.id AS position_id,
+                   (e.basic_salary + e.allowance) AS gross_pay
+            FROM employees e
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions  p ON p.id = e.position_id
+            WHERE e.name LIKE ? OR e.employee_no LIKE ? OR e.email LIKE ?
+               OR d.name LIKE ? OR p.name LIKE ?
+            ORDER BY e.name
         ');
         $stmt->execute([$like, $like, $like, $like, $like]);
         return $stmt->fetchAll();
