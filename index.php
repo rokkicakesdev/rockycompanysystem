@@ -1,117 +1,43 @@
 <?php
-// index.php - Login page
+// index.php — Login page entry point
+// ─────────────────────────────────────────────────────────────
+// All authentication logic lives in AuthController.
+// This file bootstraps dependencies, delegates to the controller,
+// then renders the login HTML view.
+// ─────────────────────────────────────────────────────────────
 
-// Start session FIRST - must be before any output or headers
+// Start session FIRST — must be before any output or headers
 session_start();
 
-// ── Load configuration and core classes (in correct order) ────────────────────────────────
+// Load configuration and core classes
 require_once __DIR__ . '/config/config.php';
-require_once __DIR__ . '/config/database.php';     // loads .env + DB constants
-require_once __DIR__ . '/core/Database.php';       // PDO singleton connection
-require_once __DIR__ . '/core/Model.php';          // base model that uses Database
-require_once __DIR__ . '/core/Controller.php';     // if this file exists (optional - comment out if not)
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/core/Database.php';
+require_once __DIR__ . '/core/Model.php';
+require_once __DIR__ . '/core/Controller.php';
+require_once __DIR__ . '/app/controllers/AuthController.php';
 
-// ── Inactivity timeout (logout after 30 minutes of no activity) ──────────────────────────
-$timeoutMinutes = 30;
-$timeoutSeconds = $timeoutMinutes * 60;
+$auth = new AuthController();
 
-if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $timeoutSeconds)) {
-    session_unset();
-    session_destroy();
-    header('Location: index.php?msg=timeout');
+// Handle POST login submission — delegate fully to AuthController
+// AuthController::login() handles CSRF, validation, session setup, and redirect
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $auth->login();
     exit;
 }
-$_SESSION['last_activity'] = time(); // refresh activity timestamp on every request
 
-// ── Generate CSRF token for login form ───────────────────────────────────────────────────
+// Handle GET — check timeout, redirect if already logged in, set error/success vars
+$auth->loginPage();
+
+// Read variables set by loginPage() via $GLOBALS
+$error   = $GLOBALS['login_error']   ?? null;
+$success = $GLOBALS['login_success'] ?? null;
+
+// Generate CSRF token for the login form
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf_token = $_SESSION['csrf_token'];
-
-// ── Redirect if already logged in ────────────────────────────────────────────────────────
-if (isset($_SESSION['user_id'])) {
-    $role = $_SESSION['role'] ?? null;
-    if ($role === ROLE_ADMIN) {
-        header('Location: app/views/admin/dashboard.php');
-        exit;
-    } elseif ($role === ROLE_MANAGEMENT) {
-        header('Location: app/views/management/dashboard.php');
-        exit;
-    } elseif ($role === 'employee') {  // Added explicit check for employee
-        header('Location: app/views/employee/dashboard.php');
-        exit;
-    }
-}
-
-// ── Handle login form submission ─────────────────────────────────────────────────────────
-$error   = null;
-$success = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // CSRF validation
-    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
-        $error = 'Invalid security token. Please refresh the page and try again.';
-    } else {
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
-
-    if (empty($username) || empty($password)) {
-        $error = 'Please enter both username and password.';
-    } else {
-        $user = Model::findUserByUsername($username);
-
-        if (!$user || !password_verify($password, $user['password'])) {
-            $error = 'Invalid username or password.';
-        } elseif ($user['status'] !== 'active') {
-            $error = 'Your account has been deactivated. Please contact your administrator.';
-        } else {
-            // Successful login
-            $_SESSION['user_id']     = $user['id'];
-            $_SESSION['role']        = $user['role'];
-            $_SESSION['name']        = $user['name'];
-            $_SESSION['user']        = $user;
-
-            // ── NEW: Store employee_id for employee role ────────────────────────────────
-            if ($user['role'] === 'employee') {
-                $_SESSION['employee_id'] = $user['employee_id'] ?? null;
-
-                if (empty($_SESSION['employee_id'])) {
-                    session_unset();
-                    session_destroy();
-                    $error = 'Employee account is not properly linked to an employee record. Contact admin.';
-                    // Do not redirect - show error on login page
-                }
-            }
-
-            // Reset activity timestamp
-            $_SESSION['last_activity'] = time();
-
-            if (empty($error)) {
-                // Role-based redirect
-                if ($_SESSION['role'] === ROLE_ADMIN) {
-                    header('Location: app/views/admin/dashboard.php');
-                } elseif ($_SESSION['role'] === ROLE_MANAGEMENT) {
-                    header('Location: app/views/management/dashboard.php');
-                } elseif ($_SESSION['role'] === 'employee') {
-                    header('Location: app/views/employee/dashboard.php');
-                } else {
-                    $error = 'Unknown role. Contact administrator.';
-                }
-                exit;
-            }
-        }
-    }
-    } // end CSRF check
-}
-
-// ── Handle URL messages ──────────────────────────────────────────────────────────────────
-$msgParam = $_GET['msg'] ?? null;
-if ($msgParam === 'loggedout') {
-    $success = 'You have been successfully signed out.';
-} elseif ($msgParam === 'timeout') {
-    $error = 'Session timed out due to inactivity. Please sign in again.';
-}
 ?>
 
 <!DOCTYPE html>
@@ -127,200 +53,7 @@ if ($msgParam === 'loggedout') {
   <!-- Google Fonts -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
 
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background: #1a1f2e;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Animated background shapes */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background:
-        radial-gradient(ellipse at 20% 20%, rgba(60,141,188,.18) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 80%, rgba(0,166,90,.12) 0%, transparent 60%);
-      pointer-events: none;
-    }
-    .bg-shape {
-      position: fixed; border-radius: 50%;
-      background: rgba(60,141,188,.07);
-      animation: float 8s ease-in-out infinite;
-    }
-    .bg-shape:nth-child(1) { width:400px;height:400px;top:-100px;right:-100px;animation-delay:0s; }
-    .bg-shape:nth-child(2) { width:300px;height:300px;bottom:-80px;left:-80px;animation-delay:3s; }
-    @keyframes float {
-      0%,100% { transform: translateY(0) scale(1); }
-      50%      { transform: translateY(-20px) scale(1.05); }
-    }
-
-    .login-wrapper {
-      width: 100%;
-      max-width: 420px;
-      padding: 20px;
-      position: relative;
-      z-index: 10;
-      animation: slideUp .5s ease;
-    }
-    @keyframes slideUp {
-      from { opacity:0; transform: translateY(30px); }
-      to   { opacity:1; transform: translateY(0); }
-    }
-
-    .login-logo {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    .logo-circle {
-      width: 72px; height: 72px;
-      background: linear-gradient(135deg, #3c8dbc, #00a65a);
-      border-radius: 18px;
-      display: inline-flex; align-items: center; justify-content: center;
-      margin-bottom: 14px;
-      box-shadow: 0 8px 24px rgba(60,141,188,.35);
-    }
-    .login-logo h1 {
-      color: #fff;
-      font-size: 1.3rem; font-weight: 700;
-      margin: 0 0 4px;
-      line-height: 1.2;
-    }
-    .login-logo p {
-      color: #7a8bb5;
-      font-size: .8rem;
-      margin: 0;
-    }
-
-    .login-card {
-      background: rgba(255,255,255,.04);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 16px;
-      padding: 36px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.4);
-    }
-
-    .login-card h5 {
-      color: #fff;
-      font-size: .95rem; font-weight: 600;
-      margin-bottom: 6px;
-    }
-    .login-card .subtitle {
-      color: #7a8bb5;
-      font-size: .78rem;
-      margin-bottom: 28px;
-    }
-
-    .form-group label {
-      color: #a0aec0;
-      font-size: .78rem;
-      font-weight: 500;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .input-wrap {
-      position: relative;
-    }
-    .input-wrap .input-icon {
-      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-      color: #4a5568; font-size: .9rem;
-    }
-    .input-wrap input {
-      width: 100%;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 8px;
-      color: #e2e8f0;
-      padding: 11px 14px 11px 40px;
-      font-family: 'Inter', sans-serif;
-      font-size: .875rem;
-      transition: all .2s;
-    }
-    .input-wrap input::placeholder { color: #4a5568; }
-    .input-wrap input:focus {
-      outline: none;
-      background: rgba(255,255,255,.1);
-      border-color: #3c8dbc;
-      box-shadow: 0 0 0 3px rgba(60,141,188,.2);
-    }
-    .toggle-pw {
-      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-      background: none; border: none;
-      color: #4a5568; cursor: pointer; font-size: .9rem;
-      transition: color .2s;
-    }
-    .toggle-pw:hover { color: #3c8dbc; }
-
-    .alert-box {
-      border-radius: 8px; padding: 10px 14px;
-      font-size: .82rem; margin-bottom: 18px;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .alert-error   { background: rgba(220,53,69,.15); border: 1px solid rgba(220,53,69,.3); color: #f8a8a8; }
-    .alert-success { background: rgba(40,167,69,.15);  border: 1px solid rgba(40,167,69,.3);  color: #7edba7; }
-
-    .btn-login {
-      width: 100%;
-      background: linear-gradient(135deg, #3c8dbc, #2a6f99);
-      border: none;
-      color: #fff;
-      padding: 12px;
-      border-radius: 8px;
-      font-family: 'Inter', sans-serif;
-      font-size: .9rem; font-weight: 600;
-      cursor: pointer;
-      margin-top: 8px;
-      transition: all .2s;
-      position: relative; overflow: hidden;
-    }
-    .btn-login:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 8px 20px rgba(60,141,188,.4);
-    }
-    .btn-login:active { transform: translateY(0); }
-
-    .login-footer {
-      text-align: center;
-      margin-top: 24px;
-      color: #4a5568;
-      font-size: .75rem;
-    }
-
-    .demo-accounts {
-      background: rgba(255,255,255,.03);
-      border: 1px solid rgba(255,255,255,.07);
-      border-radius: 8px;
-      padding: 12px 16px;
-      margin-top: 20px;
-    }
-    .demo-accounts p {
-      color: #7a8bb5; font-size: .72rem;
-      text-transform: uppercase; letter-spacing: .06em;
-      margin-bottom: 8px; font-weight: 600;
-    }
-    .demo-row {
-      display: flex; justify-content: space-between;
-      color: #a0aec0; font-size: .78rem;
-      padding: 3px 0;
-      border-bottom: 1px solid rgba(255,255,255,.04);
-    }
-    .demo-row:last-child { border-bottom: 0; }
-    .demo-row code { color: #7fc8f8; font-size: .78rem; }
-    .role-pill {
-      font-size: .65rem; padding: 1px 7px;
-      border-radius: 10px; font-weight: 600;
-    }
-    .pill-admin { background: rgba(60,141,188,.25); color: #7fc8f8; }
-    .pill-mgmt  { background: rgba(0,166,90,.25);   color: #7edba7; }
-  </style>
+  <link rel="stylesheet" href="assets/css/index.css">
 </head>
 <body>
   <div class="bg-shape"></div>

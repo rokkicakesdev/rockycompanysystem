@@ -190,9 +190,10 @@ $applicantStatuses = [
                       </span>
                     </td>
                     <td>
-                      <button class="btn btn-xs btn-outline-primary" data-toggle="modal" data-target="#updateApplicantModal"
-                        data-id="<?= $app['id'] ?>" data-name="<?= htmlspecialchars($app['name']) ?>"
-                        data-status="<?= $app['status'] ?>">
+                      <button class="btn btn-xs btn-outline-primary update-applicant-btn"
+                        data-id="<?= $app['id'] ?>"
+                        data-name="<?= htmlspecialchars($app['name'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-status="<?= htmlspecialchars($app['status'], ENT_QUOTES, 'UTF-8') ?>">
                         Update
                       </button>
                     </td>
@@ -371,12 +372,18 @@ $applicantStatuses = [
   </div>
 </div>
 
-<script>
-$('#updateApplicantModal').on('show.bs.modal', function(e) {
-  const btn = $(e.relatedTarget);
-  $('#updateAppId').val(btn.data('id'));
-  $('#updateAppName').text(btn.data('name'));
-  $('#updateAppStatus').val(btn.data('status'));
+<?php
+// $extraJs runs AFTER jQuery is loaded in admin_footer.php
+$extraJs = <<<JS
+\$(document).ready(function () {
+    \$(document).on('click', '.update-applicant-btn', function () {
+        var btn = \$(this);
+        \$('#updateAppId').val(btn.attr('data-id'));
+        \$('#updateAppName').text(btn.attr('data-name'));
+        \$('#updateAppStatus').val(btn.attr('data-status'));
+        \$('#updateApplicantModal').modal('show');
+    });
 });
-</script>
+JS;
+?>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

@@ -42,6 +42,7 @@ class AuthController extends Controller
             'unauthorized'  => 'You are not authorized to access this system.',
             'not_logged_in' => 'Please sign in to continue.',
             'no_employee'   => 'Employee account is not properly linked to an employee record. Contact admin.',
+            'invalid_token' => 'Invalid security token. Please refresh the page and try again.',
             default         => null,
         };
 
@@ -51,10 +52,10 @@ class AuthController extends Controller
             $error = 'Session timed out due to inactivity. Please sign in again.';
         }
 
-        $this->view('login', [
-            'error'   => $error,
-            'success' => $success,
-        ]);
+        // Set variables for the login view rendered by index.php
+        // These are extracted into the calling scope via output buffering
+        $GLOBALS['login_error']   = $error;
+        $GLOBALS['login_success'] = $success;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -64,6 +65,11 @@ class AuthController extends Controller
     {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('index.php');
+        }
+
+        // CSRF validation
+        if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+            $this->redirect('index.php?error=invalid_token');
         }
 
         $username = trim($_POST['username'] ?? '');
@@ -148,7 +154,7 @@ class AuthController extends Controller
         match ($role) {
             ROLE_ADMIN      => $this->redirect('app/views/admin/dashboard.php'),
             ROLE_MANAGEMENT => $this->redirect('app/views/management/dashboard.php'),
-            'employee'      => $this->redirect('app/views/employee/my_payslips.php'),
+            'employee'      => $this->redirect('app/views/employee/dashboard.php'),
             default         => $this->redirect('index.php?error=unauthorized'),
         };
     }
