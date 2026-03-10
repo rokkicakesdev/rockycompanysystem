@@ -204,8 +204,6 @@ CREATE DATABASE rocky_payroll
 mysql -u root -p rocky_payroll < database/rocky_payroll.sql
 ```
 
-> If a `.sql` dump file is not included, contact the project maintainer.
-
 ### 4. Set Up Environment Configuration
 
 Copy the example environment file and fill in your values:
@@ -240,7 +238,7 @@ DB_PASS=your_password_here
 DB_CHARSET=utf8mb4
 
 # ── Application Settings ───────────────────────────────────────
-APP_ENV=development        # Change to 'production' on live server
+APP_ENV=development
 APP_NAME=Rocky Company System
 APP_VERSION=1.0.0
 
@@ -300,8 +298,6 @@ Employees can log in with their own credentials to access a dedicated portal:
 | **My Leaves** | File leave requests and track approval status |
 | **My Profile** | Update personal info, phone, address, emergency contact |
 | **Announcements** | View company-wide announcements |
-
-> Employee accounts must be linked to an employee record via `employee_id` in the `users` table.
 
 ---
 
