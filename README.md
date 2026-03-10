@@ -256,8 +256,6 @@ WORK_HOURS=8
 RECORDS_PER_PAGE=15
 ```
 
-> ⚠️ Set `APP_ENV=production` on your live server to prevent sensitive error details from being exposed.
-
 ---
 
 ## 👥 User Roles
