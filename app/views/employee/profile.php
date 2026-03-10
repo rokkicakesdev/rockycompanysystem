@@ -316,14 +316,12 @@ $leaveBalances = [
 
 <?php
 $extraJs = <<<'JS'
-<script>
 // Confirm password match visual feedback
 document.getElementById('confirmPw').addEventListener('input', function() {
   const match = this.value === document.getElementById('newPw').value;
   this.classList.toggle('is-invalid', !match && this.value.length > 0);
   this.classList.toggle('is-valid',   match  && this.value.length > 0);
 });
-</script>
 JS;
 
 require_once __DIR__ . '/../layouts/employee_footer.php';

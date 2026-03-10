@@ -138,7 +138,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
   <h1>Employees Management</h1>
   <?php if (!$viewEmp && !$editEmp): ?>
     <div class="ml-auto">
-      <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#employeeModal" onclick="openAddModal()">
+      <button type="button" class="btn btn-primary btn-sm" onclick="openAddModal()">
         <i class="fas fa-plus mr-1"></i> Add Employee
       </button>
     </div>
