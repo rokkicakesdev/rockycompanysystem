@@ -23,6 +23,12 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
 }
 $_SESSION['last_activity'] = time(); // refresh activity timestamp on every request
 
+// ── Generate CSRF token for login form ───────────────────────────────────────────────────
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf_token = $_SESSION['csrf_token'];
+
 // ── Redirect if already logged in ────────────────────────────────────────────────────────
 if (isset($_SESSION['user_id'])) {
     $role = $_SESSION['role'] ?? null;
@@ -43,6 +49,10 @@ $error   = null;
 $success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // CSRF validation
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid security token. Please refresh the page and try again.';
+    } else {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
@@ -92,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+    } // end CSRF check
 }
 
 // ── Handle URL messages ──────────────────────────────────────────────────────────────────
@@ -346,6 +357,7 @@ if ($msgParam === 'loggedout') {
       <?php endif; ?>
 
       <form method="POST" action="index.php">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <div class="form-group">
           <label>Username</label>
           <div class="input-wrap">
