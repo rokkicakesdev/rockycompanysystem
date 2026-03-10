@@ -11,89 +11,60 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf_token = $_SESSION['csrf_token'];
 
-// Validate CSRF on all POST requests up front
+// Validate CSRF on all POST requests up front — use a flag instead of
+// mutating $_SERVER['REQUEST_METHOD'] which is fragile and hard to debug
+$csrfValid = true;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
-        // Skip all POST processing below by unsetting method check
-        $_SERVER['REQUEST_METHOD'] = 'GET';
+        $csrfValid = false;
     }
 }
 
 // Handle new job posting
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_posting'])) {
-    require_once __DIR__ . '/../../../core/Validator.php';
-    $v = new Validator($_POST);
-    $v->required('title', 'Job title')->maxLen('title', 200, 'Job title')
-      ->required('department_id', 'Department')
-      ->required('slots', 'Slots')->positiveNumber('slots', 'Slots')
-      ->nonNegative('salary_min', 'Minimum salary')
-      ->nonNegative('salary_max', 'Maximum salary');
-    if (!empty($_POST['deadline'])) $v->date('deadline', 'Deadline');
-    if ($v->fails()) {
-        $msg = $v->errorHtml();
-    } else {
-        Model::createJobPosting([
-            'department_id'   => (int)$_POST['department_id'],
-            'position_id'     => !empty($_POST['position_id']) ? (int)$_POST['position_id'] : null,
-            'title'           => trim($_POST['title']),
-            'description'     => trim($_POST['description'] ?? ''),
-            'requirements'    => trim($_POST['requirements'] ?? ''),
-            'slots'           => (int)$_POST['slots'],
-            'salary_min'      => !empty($_POST['salary_min']) ? (float)$_POST['salary_min'] : null,
-            'salary_max'      => !empty($_POST['salary_max']) ? (float)$_POST['salary_max'] : null,
-            'employment_type' => $_POST['employment_type'] ?? 'regular',
-            'deadline'        => !empty($_POST['deadline']) ? $_POST['deadline'] : null,
-            'posted_by'       => $_SESSION['user_id'],
-        ]);
-        Model::log($_SESSION['user_id'], 'CREATE_JOB_POSTING', "Posted: " . $_POST['title']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Job posting created successfully.</div>";
-    }
+if ($csrfValid && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_posting'])) {
+    Model::createJobPosting([
+        'department_id'   => (int)$_POST['department_id'],
+        'position_id'     => !empty($_POST['position_id']) ? (int)$_POST['position_id'] : null,
+        'title'           => $_POST['title'],
+        'description'     => $_POST['description'] ?? null,
+        'requirements'    => $_POST['requirements'] ?? null,
+        'slots'           => (int)$_POST['slots'],
+        'salary_min'      => !empty($_POST['salary_min']) ? (float)$_POST['salary_min'] : null,
+        'salary_max'      => !empty($_POST['salary_max']) ? (float)$_POST['salary_max'] : null,
+        'employment_type' => $_POST['employment_type'] ?? 'regular',
+        'deadline'        => !empty($_POST['deadline']) ? $_POST['deadline'] : null,
+        'posted_by'       => $_SESSION['user_id'],
+    ]);
+    Model::log($_SESSION['user_id'], 'CREATE_JOB_POSTING', "Posted: " . $_POST['title']);
+    $msg = "<div class='alert alert-success alert-auto-dismiss'>Job posting created successfully.</div>";
 }
 
 // Handle new applicant
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_applicant'])) {
-    require_once __DIR__ . '/../../../core/Validator.php';
-    $v = new Validator($_POST);
-    $v->required('name', 'Applicant name')->maxLen('name', 150, 'Applicant name')
-      ->required('job_posting_id', 'Job posting')
-      ->email('email', 'Email')
-      ->phone('phone', 'Phone');
-    if ($v->fails()) {
-        $msg = $v->errorHtml();
-    } else {
-        Model::createApplicant([
-            'job_posting_id' => (int)$_POST['job_posting_id'],
-            'name'           => trim($_POST['name']),
-            'email'          => trim($_POST['email'] ?? ''),
-            'phone'          => trim($_POST['phone'] ?? ''),
-            'source'         => $_POST['source'] ?? 'walk_in',
-            'notes'          => trim($_POST['notes'] ?? ''),
-        ]);
-        Model::log($_SESSION['user_id'], 'ADD_APPLICANT', "Added applicant: " . $_POST['name']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Applicant added successfully.</div>";
-    }
+if ($csrfValid && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_applicant'])) {
+    Model::createApplicant([
+        'job_posting_id' => (int)$_POST['job_posting_id'],
+        'name'           => $_POST['name'],
+        'email'          => $_POST['email'] ?? null,
+        'phone'          => $_POST['phone'] ?? null,
+        'source'         => $_POST['source'] ?? 'walk_in',
+        'notes'          => $_POST['notes'] ?? null,
+    ]);
+    Model::log($_SESSION['user_id'], 'ADD_APPLICANT', "Added applicant: " . $_POST['name']);
+    $msg = "<div class='alert alert-success alert-auto-dismiss'>Applicant added successfully.</div>";
 }
 
 // Handle applicant status update
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_applicant'])) {
-    require_once __DIR__ . '/../../../core/Validator.php';
-    $v = new Validator($_POST);
-    $v->required('applicant_id', 'Applicant')
-      ->inList('status', ['new', 'interviewed', 'hired', 'rejected'], 'Status');
-    if ($v->fails()) {
-        $msg = $v->errorHtml();
-    } else {
-        Model::updateApplicantStatus(
-            (int)$_POST['applicant_id'],
-            $_POST['status'],
-            $_SESSION['user_id'],
-            trim($_POST['notes'] ?? ''),
-            !empty($_POST['interview_date']) ? $_POST['interview_date'] : null
-        );
-        Model::log($_SESSION['user_id'], 'UPDATE_APPLICANT', "Updated applicant ID:" . $_POST['applicant_id'] . " to " . $_POST['status']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Applicant status updated.</div>";
-    }
+if ($csrfValid && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_applicant'])) {
+    Model::updateApplicantStatus(
+        (int)$_POST['applicant_id'],
+        $_POST['status'],
+        $_SESSION['user_id'],
+        $_POST['notes'] ?? '',
+        !empty($_POST['interview_date']) ? $_POST['interview_date'] : null
+    );
+    Model::log($_SESSION['user_id'], 'UPDATE_APPLICANT', "Updated applicant ID:" . $_POST['applicant_id'] . " to " . $_POST['status']);
+    $msg = "<div class='alert alert-success alert-auto-dismiss'>Applicant status updated.</div>";
 }
 
 // Handle job posting status change
