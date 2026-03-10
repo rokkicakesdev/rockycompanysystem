@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/my_leaves.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $pageTitle = 'My Leaves';
 require_once __DIR__ . '/../layouts/employee_header.php';
@@ -24,29 +24,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['file_leave'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token. Please refresh and try again.</div>";
     } else {
-    $dateFrom    = $_POST['date_from']    ?? '';
-    $dateTo      = $_POST['date_to']      ?? '';
-    $leaveType   = $_POST['leave_type']   ?? '';
-    $reason      = trim($_POST['reason']  ?? '');
-    $daysApplied = (float)($_POST['days_applied'] ?? 1);
-
-    if ($dateFrom && $dateTo && $leaveType && $daysApplied > 0) {
-        $created = Model::createLeaveRequest([
-            'employee_id'  => $employeeId,
-            'leave_type'   => $leaveType,
-            'date_from'    => $dateFrom,
-            'date_to'      => $dateTo,
-            'days_applied' => $daysApplied,
-            'reason'       => $reason,
-        ]);
-        if ($created) {
-            $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Leave request filed successfully. Please wait for approval.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('leave_type', 'Leave type')
+          ->required('date_from', 'Date from')->date('date_from', 'Date from')
+          ->required('date_to', 'Date to')->date('date_to', 'Date to')
+          ->dateAfter('date_from', 'date_to', 'Date from', 'Date to')
+          ->required('days_applied', 'Days applied')->positiveNumber('days_applied', 'Days applied');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
         } else {
-            $msg = "<div class='alert alert-danger alert-auto-dismiss'><i class='fas fa-exclamation-circle mr-2'></i>Failed to file leave request. Please try again.</div>";
+            $created = Model::createLeaveRequest([
+                'employee_id'  => $employeeId,
+                'leave_type'   => $_POST['leave_type'],
+                'date_from'    => $_POST['date_from'],
+                'date_to'      => $_POST['date_to'],
+                'days_applied' => (float)$_POST['days_applied'],
+                'reason'       => trim($_POST['reason'] ?? ''),
+            ]);
+            if ($created) {
+                $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Leave request filed successfully. Please wait for approval.</div>";
+            } else {
+                $msg = "<div class='alert alert-danger alert-auto-dismiss'><i class='fas fa-exclamation-circle mr-2'></i>Failed to file leave request. Please try again.</div>";
+            }
         }
-    } else {
-        $msg = "<div class='alert alert-warning alert-auto-dismiss'><i class='fas fa-exclamation-triangle mr-2'></i>Please fill in all required fields.</div>";
-    }
     } // end CSRF else
 }
 

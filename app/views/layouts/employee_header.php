@@ -6,6 +6,11 @@ require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../core/Controller.php';
 require_once __DIR__ . '/../../../core/Model.php';
 
+// Start session safely — prevents 'headers already sent' errors
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Auth: only employee
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     header('Location: ' . BASE_URL . 'index.php?error=access_denied');

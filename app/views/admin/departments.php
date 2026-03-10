@@ -15,16 +15,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
     } elseif (isset($_POST['new_dept'])) {
-        Model::createDepartment(trim($_POST['dept_name']));
-        Model::log($_SESSION['user_id'], 'CREATE_DEPARTMENT', "Created: " . $_POST['dept_name']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Department created.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('dept_name', 'Department name')->maxLen('dept_name', 100, 'Department name');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::createDepartment(trim($_POST['dept_name']));
+            Model::log($_SESSION['user_id'], 'CREATE_DEPARTMENT', "Created: " . $_POST['dept_name']);
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Department created.</div>";
+        }
     } elseif (isset($_POST['edit_dept'])) {
-        Model::updateDepartment((int)$_POST['dept_id'], trim($_POST['dept_name']));
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Department updated.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('dept_name', 'Department name')->maxLen('dept_name', 100, 'Department name');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::updateDepartment((int)$_POST['dept_id'], trim($_POST['dept_name']));
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Department updated.</div>";
+        }
     } elseif (isset($_POST['new_position'])) {
-        Model::createPosition((int)$_POST['position_dept_id'], trim($_POST['position_name']));
-        Model::log($_SESSION['user_id'], 'CREATE_POSITION', "Created: " . $_POST['position_name']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Position created.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('position_name', 'Position name')->maxLen('position_name', 100, 'Position name')
+          ->required('position_dept_id', 'Department');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::createPosition((int)$_POST['position_dept_id'], trim($_POST['position_name']));
+            Model::log($_SESSION['user_id'], 'CREATE_POSITION', "Created: " . $_POST['position_name']);
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Position created.</div>";
+        }
     }
 }
 

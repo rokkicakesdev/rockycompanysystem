@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/profile.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $pageTitle  = 'My Profile';
 $employeeId = (int)($_SESSION['employee_id'] ?? 0);
@@ -22,7 +22,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token.</div>";
     } else {
-        $ok = Model::updateEmployeeProfile($employeeId, [
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->phone('phone', 'Phone number')
+          ->maxLen('address', 300, 'Address')
+          ->maxLen('emergency_contact_name', 100, 'Emergency contact name')
+          ->phone('emergency_contact_phone', 'Emergency contact phone')
+          ->maxLen('emergency_contact_relation', 50, 'Relationship');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            $ok = Model::updateEmployeeProfile($employeeId, [
             'phone'                      => trim($_POST['phone']                      ?? ''),
             'address'                    => trim($_POST['address']                    ?? ''),
             'emergency_contact_name'     => trim($_POST['emergency_contact_name']     ?? ''),
@@ -34,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Profile updated successfully.</div>";
         } else {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update profile. Please try again.</div>";
+            }
         }
     }
 }

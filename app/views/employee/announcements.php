@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/announcements.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $pageTitle = 'Announcements';
 require_once __DIR__ . '/../layouts/employee_header.php';
