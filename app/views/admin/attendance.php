@@ -271,16 +271,17 @@ $statusOptions = [
 </div>
 <?php endif; ?>
 
-<script>
-document.querySelectorAll('.att-status').forEach(sel => {
-  sel.addEventListener('change', function() {
-    const empId    = this.dataset.empid;
-    const leaveSel = document.querySelector('.leave-type-select-' + empId);
-    if (leaveSel) leaveSel.style.display = this.value === 'on_leave' ? 'block' : 'none';
-  });
-  // Trigger on page load so pre-selected "on_leave" shows the dropdown immediately
-  sel.dispatchEvent(new Event('change'));
+<?php
+$extraJs = <<<JS
+document.querySelectorAll('.att-status').forEach(function(sel) {
+    sel.addEventListener('change', function() {
+        var empId    = this.dataset.empid;
+        var leaveSel = document.querySelector('.leave-type-select-' + empId);
+        if (leaveSel) leaveSel.style.display = this.value === 'on_leave' ? 'block' : 'none';
+    });
+    sel.dispatchEvent(new Event('change'));
 });
-</script>
+JS;
+?>
 
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

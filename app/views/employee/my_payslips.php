@@ -269,7 +269,6 @@ if ($employeeId) {
 
 <?php
 $extraJs = <<<JS
-<script>
 function fmt(val) {
   return '₱ ' + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
@@ -318,7 +317,6 @@ $('.view-payslip-btn').on('click', function() {
 function printPayslip() {
   window.print();
 }
-</script>
 JS;
 ?>
 
