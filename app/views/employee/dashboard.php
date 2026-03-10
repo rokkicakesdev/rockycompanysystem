@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/dashboard.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $pageTitle = 'My Dashboard';
 require_once __DIR__ . '/../layouts/employee_header.php';

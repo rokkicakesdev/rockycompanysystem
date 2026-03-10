@@ -16,16 +16,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_announcement'])) 
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
     } else {
-        Model::createAnnouncement([
-            'title'      => trim($_POST['title']),
-            'content'    => trim($_POST['content']),
-            'type'       => $_POST['type']      ?? 'general',
-            'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
-            'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
-            'posted_by'  => $_SESSION['user_id'],
-        ]);
-        Model::log($_SESSION['user_id'], 'CREATE_ANNOUNCEMENT', "Posted: " . trim($_POST['title']));
-        $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement posted successfully.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('title', 'Title')->maxLen('title', 200, 'Title')
+          ->required('content', 'Content')->maxLen('content', 2000, 'Content');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::createAnnouncement([
+                'title'      => trim($_POST['title']),
+                'content'    => trim($_POST['content']),
+                'type'       => $_POST['type']      ?? 'general',
+                'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
+                'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
+                'posted_by'  => $_SESSION['user_id'],
+            ]);
+            Model::log($_SESSION['user_id'], 'CREATE_ANNOUNCEMENT', "Posted: " . trim($_POST['title']));
+            $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement posted successfully.</div>";
+        }
     }
 }
 
@@ -34,16 +42,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_announcement']))
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
     } else {
-        $editId = (int)$_POST['edit_id'];
-        Model::updateAnnouncement($editId, [
-            'title'      => trim($_POST['title']),
-            'content'    => trim($_POST['content']),
-            'type'       => $_POST['type']      ?? 'general',
-            'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
-            'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
-        ]);
-        Model::log($_SESSION['user_id'], 'EDIT_ANNOUNCEMENT', "Edited ID:{$editId} — " . trim($_POST['title']));
-        $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement updated successfully.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('title', 'Title')->maxLen('title', 200, 'Title')
+          ->required('content', 'Content')->maxLen('content', 2000, 'Content');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            $editId = (int)$_POST['edit_id'];
+            Model::updateAnnouncement($editId, [
+                'title'      => trim($_POST['title']),
+                'content'    => trim($_POST['content']),
+                'type'       => $_POST['type']      ?? 'general',
+                'is_pinned'  => isset($_POST['is_pinned']) ? 1 : 0,
+                'expires_at' => !empty($_POST['expires_at']) ? $_POST['expires_at'] : null,
+            ]);
+            Model::log($_SESSION['user_id'], 'EDIT_ANNOUNCEMENT', "Edited ID:{$editId} — " . trim($_POST['title']));
+            $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Announcement updated successfully.</div>";
+        }
     }
 }
 

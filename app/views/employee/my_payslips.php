@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/my_payslips.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'employee') {
     header('Location: ' . BASE_URL . 'index.php?error=access_denied');

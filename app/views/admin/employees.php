@@ -35,6 +35,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
         </div>';
     } else {
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('name', 'Full name')->maxLen('name', 150, 'Full name')
+          ->required('date_hired', 'Date hired')->date('date_hired', 'Date hired')
+          ->required('department_id', 'Department')
+          ->required('position_id', 'Position')
+          ->required('basic_salary', 'Basic salary')->positiveNumber('basic_salary', 'Basic salary')
+          ->nonNegative('allowance', 'Allowance')
+          ->email('email', 'Email')
+          ->phone('phone', 'Phone');
+        if (!empty($_POST['birthdate'])) $v->date('birthdate', 'Birthdate');
+        if ($v->fails()) {
+            $msg = '<div class="alert alert-danger alert-dismissible fade show" role="alert">'
+                 . $v->errorHtml()
+                 . '<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+        } else {
         $data = [
             'name'                       => trim($_POST['name'] ?? ''),
             'gender'                     => $_POST['gender']        ?? null,
@@ -86,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
             </div>';
         }
+        } // end validation else
     }
 }
 

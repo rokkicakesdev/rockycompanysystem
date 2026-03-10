@@ -16,19 +16,30 @@ $csrf_token = $_SESSION['csrf_token'];
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
-    } elseif (Model::createUser([
-        'name'       => trim($_POST['name']),
-        'username'   => trim($_POST['username']),
-        'email'      => trim($_POST['email']),
-        'password'   => $_POST['password'],
-        'role'       => $_POST['role'],
-        'status'     => 'active',
-        'created_by' => $_SESSION['user_id'],
-    ])) {
-        Model::log($_SESSION['user_id'], 'CREATE_USER', "Created user: " . $_POST['username']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>User created successfully.</div>";
     } else {
-        $msg = "<div class='alert alert-danger'>Failed to create user. Username or email may already exist.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('name', 'Full name')->maxLen('name', 100, 'Full name')
+          ->required('username', 'Username')->maxLen('username', 50, 'Username')
+          ->required('email', 'Email')->email('email', 'Email')
+          ->required('password', 'Password')->minLen('password', 8, 'Password')
+          ->inList('role', ['admin', 'management', 'employee'], 'Role');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } elseif (Model::createUser([
+            'name'       => trim($_POST['name']),
+            'username'   => trim($_POST['username']),
+            'email'      => trim($_POST['email']),
+            'password'   => $_POST['password'],
+            'role'       => $_POST['role'],
+            'status'     => 'active',
+            'created_by' => $_SESSION['user_id'],
+        ])) {
+            Model::log($_SESSION['user_id'], 'CREATE_USER', "Created user: " . $_POST['username']);
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>User created successfully.</div>";
+        } else {
+            $msg = "<div class='alert alert-danger'>Failed to create user. Username or email may already exist.</div>";
+        }
     }
 }
 
@@ -37,17 +48,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
     } else {
-        Model::updateUser((int)$_POST['user_id'], [
-            'name'   => trim($_POST['name']),
-            'email'  => trim($_POST['email']),
-            'role'   => $_POST['role'],
-            'status' => $_POST['status'],
-        ]);
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('name', 'Full name')->maxLen('name', 100, 'Full name')
+          ->required('email', 'Email')->email('email', 'Email')
+          ->inList('role', ['admin', 'management', 'employee'], 'Role')
+          ->inList('status', ['active', 'inactive'], 'Status');
         if (!empty($_POST['new_password'])) {
-            Model::updateUserPassword((int)$_POST['user_id'], $_POST['new_password']);
+            $v->minLen('new_password', 8, 'New password');
         }
-        Model::log($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID:" . $_POST['user_id']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>User updated successfully.</div>";
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::updateUser((int)$_POST['user_id'], [
+                'name'   => trim($_POST['name']),
+                'email'  => trim($_POST['email']),
+                'role'   => $_POST['role'],
+                'status' => $_POST['status'],
+            ]);
+            if (!empty($_POST['new_password'])) {
+                Model::updateUserPassword((int)$_POST['user_id'], $_POST['new_password']);
+            }
+            Model::log($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID:" . $_POST['user_id']);
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>User updated successfully.</div>";
+        }
     }
 }
 
@@ -81,9 +105,11 @@ $users = Model::getAllUsers();
               <td>
                 <?php if ($u['id'] != $_SESSION['user_id']): ?>
                 <div class="action-btn-group"><button class="btn btn-xs btn-warning" data-toggle="modal" data-target="#editUserModal"
-                  data-id="<?= $u['id'] ?>" data-name="<?= htmlspecialchars($u['name']) ?>"
-                  data-email="<?= htmlspecialchars($u['email']) ?>"
-                  data-role="<?= $u['role'] ?>" data-status="<?= $u['status'] ?>">
+                  data-id="<?= $u['id'] ?>"
+                  data-name="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-email="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-role="<?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
                   <i class="fas fa-edit"></i> Edit
                 </button></div>
                 <?php else: ?>
@@ -164,11 +190,16 @@ $users = Model::getAllUsers();
 <script>
 $('#editUserModal').on('show.bs.modal', function(e) {
   const btn = $(e.relatedTarget);
-  $('#editUserId').val(btn.data('id'));
-  $('#editUserName').val(btn.data('name'));
-  $('#editUserEmail').val(btn.data('email'));
-  $('#editUserRole').val(btn.data('role'));
-  $('#editUserStatus').val(btn.data('status'));
+
+  // Use attr() instead of data() to avoid jQuery's type-casting cache
+  // which can cause stale or incorrectly parsed values on repeated opens
+  $('#editUserId').val(btn.attr('data-id'));
+  $('#editUserName').val(btn.attr('data-name'));
+  $('#editUserEmail').val(btn.attr('data-email'));
+
+  // Set dropdowns and trigger change to ensure selected state is visible
+  $('#editUserRole').val(btn.attr('data-role')).trigger('change');
+  $('#editUserStatus').val(btn.attr('data-status')).trigger('change');
 });
 </script>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

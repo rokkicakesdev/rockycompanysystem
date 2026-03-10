@@ -15,10 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
     } else {
-        $id     = (int)$_POST['leave_id'];
-        $action = $_POST['action']; // approved | rejected
-        $notes  = trim($_POST['review_notes'] ?? '');
-        if (in_array($action, ['approved', 'rejected'])) {
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('leave_id', 'Leave request')
+          ->inList('action', ['approved', 'rejected'], 'Action');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            $id     = (int)$_POST['leave_id'];
+            $action = $_POST['action'];
+            $notes  = trim($_POST['review_notes'] ?? '');
             Model::reviewLeaveRequest($id, $action, $_SESSION['user_id'], $notes);
             $leave = Model::findLeaveRequestById($id);
             Model::log($_SESSION['user_id'], strtoupper($action) . '_LEAVE',
@@ -33,16 +39,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_leave'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
     } else {
-        Model::createLeaveRequest([
-            'employee_id'  => (int)$_POST['employee_id'],
-            'leave_type'   => $_POST['leave_type'],
-            'date_from'    => $_POST['date_from'],
-            'date_to'      => $_POST['date_to'],
-            'days_applied' => (float)$_POST['days_applied'],
-            'reason'       => $_POST['reason'] ?? null,
-        ]);
-        Model::log($_SESSION['user_id'], 'CREATE_LEAVE', "Filed leave for employee ID:" . $_POST['employee_id']);
-        $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request filed successfully.</div>";
+        require_once __DIR__ . '/../../../core/Validator.php';
+        $v = new Validator($_POST);
+        $v->required('employee_id', 'Employee')
+          ->required('leave_type', 'Leave type')
+          ->required('date_from', 'Date from')->date('date_from', 'Date from')
+          ->required('date_to', 'Date to')->date('date_to', 'Date to')
+          ->dateAfter('date_from', 'date_to', 'Date from', 'Date to')
+          ->required('days_applied', 'Days applied')->positiveNumber('days_applied', 'Days applied');
+        if ($v->fails()) {
+            $msg = $v->errorHtml();
+        } else {
+            Model::createLeaveRequest([
+                'employee_id'  => (int)$_POST['employee_id'],
+                'leave_type'   => $_POST['leave_type'],
+                'date_from'    => $_POST['date_from'],
+                'date_to'      => $_POST['date_to'],
+                'days_applied' => (float)$_POST['days_applied'],
+                'reason'       => trim($_POST['reason'] ?? ''),
+            ]);
+            Model::log($_SESSION['user_id'], 'CREATE_LEAVE', "Filed leave for employee ID:" . $_POST['employee_id']);
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request filed successfully.</div>";
+        }
     }
 }
 

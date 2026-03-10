@@ -1,7 +1,7 @@
 <?php
 // app/views/employee/my_attendance.php
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $pageTitle = 'My Attendance';
 require_once __DIR__ . '/../layouts/employee_header.php';

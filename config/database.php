@@ -26,12 +26,17 @@ if (file_exists($envPath)) {
         $key   = trim($key);
         $value = trim($value);
 
-        // Remove surrounding quotes if present
+        // Remove surrounding quotes if present (e.g. DB_PASS="my secret")
         $value = trim($value, '"\'');
+
+        // Strip inline comments e.g. DB_PASS=secret # this is a comment
+        if (strpos($value, ' #') !== false) {
+            $value = trim(explode(' #', $value, 2)[0]);
+        }
 
         putenv("$key=" . $value);
         $_ENV[$key]    = $value;
-        $_SERVER[$key] = $value; // optional fallback
+        $_SERVER[$key] = $value;
     }
 }
 
@@ -40,7 +45,7 @@ define('DB_HOST',    getenv('DB_HOST')    ?: 'localhost');
 define('DB_PORT',    getenv('DB_PORT')    ?: '3306');
 define('DB_NAME',    getenv('DB_NAME')    ?: '');
 define('DB_USER',    getenv('DB_USER')    ?: '');
-define('DB_PASS', '');
+define('DB_PASS',    getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');  // ← Fixed: now correctly reads from .env
 define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
 
 // ── Basic validation (fail early in development) ─────────────────────
@@ -55,18 +60,3 @@ if (empty(DB_NAME) || empty(DB_USER)) {
         exit('Service unavailable');
     }
 }
-
-// You can keep your existing PDO connection code below this point if any
-// Example (uncomment/adapt if needed):
-/*
-try {
-    $dsn = "mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
-*/
