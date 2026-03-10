@@ -767,13 +767,9 @@ $positionsJson = json_encode(array_map(fn($p) => [
     'name'          => $p['name'],
 ], $positions));
 ?>
-<script>
-// Positions data — injected before jQuery loads, safe
-var POSITIONS_DATA = <?= $positionsJson ?>;
-</script>
-
 <?php
-$extraJs = <<<'JS'
+$extraJs = 'var POSITIONS_DATA = ' . $positionsJson . ';' . PHP_EOL;
+$extraJs .= <<<'JS'
 $(document).ready(function () {
   $('[data-toggle="tooltip"]').tooltip();
 
@@ -834,6 +830,7 @@ $(document).ready(function () {
     document.getElementById('empSubmitBtn').innerHTML  = '<i class="fas fa-save mr-1"></i>Save Employee';
     filterPositions('', '');
     $('#employeeModal .nav-tabs a:first').tab('show');
+    $('#employeeModal').modal('show');
   };
 
   $('#fDeptId').on('change', function () {
