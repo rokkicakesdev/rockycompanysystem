@@ -234,8 +234,8 @@ All sensitive settings are managed through the `.env` file in the project root. 
 # ── Database Connection ────────────────────────────────────────
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=rocky_payroll
-DB_USER=root
+DB_NAME=your_db_name_here
+DB_USER=your_user_here
 DB_PASS=your_password_here
 DB_CHARSET=utf8mb4
 
@@ -280,7 +280,7 @@ VALUES (
   'Administrator',
   'admin',
   'admin@rockycompany.com',
-  '$2y$10$...', -- use password_hash() to generate this
+  '$2y$10$...',
   'admin',
   'active'
 );
