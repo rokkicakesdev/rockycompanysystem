@@ -104,14 +104,16 @@ $users = Model::getAllUsers();
               <td><small><?= date('M d, Y', strtotime($u['created_at'])) ?></small></td>
               <td>
                 <?php if ($u['id'] != $_SESSION['user_id']): ?>
-                <div class="action-btn-group"><button class="btn btn-xs btn-warning" data-toggle="modal" data-target="#editUserModal"
-                  data-id="<?= $u['id'] ?>"
-                  data-name="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
-                  data-email="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"
-                  data-role="<?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>"
-                  data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
-                  <i class="fas fa-edit"></i> Edit
-                </button></div>
+                <div class="action-btn-group">
+                  <button class="btn btn-xs btn-warning edit-user-btn"
+                    data-id="<?= $u['id'] ?>"
+                    data-name="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-email="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-role="<?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>"
+                    data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
+                    <i class="fas fa-edit"></i> Edit
+                  </button>
+                </div>
                 <?php else: ?>
                 <span class="text-muted" style="font-size:.75rem;">(You)</span>
                 <?php endif; ?>
@@ -187,19 +189,20 @@ $users = Model::getAllUsers();
   </div></div>
 </div>
 
-<script>
-$('#editUserModal').on('show.bs.modal', function(e) {
-  const btn = $(e.relatedTarget);
-
-  // Use attr() instead of data() to avoid jQuery's type-casting cache
-  // which can cause stale or incorrectly parsed values on repeated opens
-  $('#editUserId').val(btn.attr('data-id'));
-  $('#editUserName').val(btn.attr('data-name'));
-  $('#editUserEmail').val(btn.attr('data-email'));
-
-  // Set dropdowns and trigger change to ensure selected state is visible
-  $('#editUserRole').val(btn.attr('data-role')).trigger('change');
-  $('#editUserStatus').val(btn.attr('data-status')).trigger('change');
+<?php
+// $extraJs runs AFTER jQuery is loaded in admin_footer.php
+$extraJs = <<<JS
+\$(document).ready(function () {
+    \$(document).on('click', '.edit-user-btn', function () {
+        var btn = \$(this);
+        \$('#editUserId').val(btn.attr('data-id'));
+        \$('#editUserName').val(btn.attr('data-name'));
+        \$('#editUserEmail').val(btn.attr('data-email'));
+        \$('#editUserRole').val(btn.attr('data-role')).trigger('change');
+        \$('#editUserStatus').val(btn.attr('data-status')).trigger('change');
+        \$('#editUserModal').modal('show');
+    });
 });
-</script>
+JS;
+?>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

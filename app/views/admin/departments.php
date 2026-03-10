@@ -87,8 +87,9 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
                   <td><strong><?= htmlspecialchars($d['name']) ?></strong></td>
                   <td><span class="badge badge-secondary"><?= count(Model::getEmployeesByDepartment($d['id'])) ?> active</span></td>
                   <td>
-                    <button class="btn btn-xs btn-outline-warning" data-toggle="modal" data-target="#editDeptModal"
-                      data-id="<?= $d['id'] ?>" data-name="<?= htmlspecialchars($d['name']) ?>">
+                    <button class="btn btn-xs btn-outline-warning edit-dept-btn"
+                      data-id="<?= $d['id'] ?>"
+                      data-name="<?= htmlspecialchars($d['name'], ENT_QUOTES, 'UTF-8') ?>">
                       <i class="fas fa-edit"></i>
                     </button>
                   </td>
@@ -194,11 +195,17 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
   </div></div>
 </div>
 
-<script>
-$('#editDeptModal').on('show.bs.modal', function(e) {
-  const btn = $(e.relatedTarget);
-  $('#editDeptId').val(btn.data('id'));
-  $('#editDeptName').val(btn.data('name'));
+<?php
+// $extraJs runs AFTER jQuery is loaded in admin_footer.php
+$extraJs = <<<JS
+\$(document).ready(function () {
+    \$(document).on('click', '.edit-dept-btn', function () {
+        var btn = \$(this);
+        \$('#editDeptId').val(btn.attr('data-id'));
+        \$('#editDeptName').val(btn.attr('data-name'));
+        \$('#editDeptModal').modal('show');
+    });
 });
-</script>
+JS;
+?>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

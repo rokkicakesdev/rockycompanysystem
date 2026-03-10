@@ -565,7 +565,7 @@ function confirmGenerate() {
     var period  = document.getElementById('genPeriod').value;
     var checked = document.querySelectorAll('.emp-check:checked').length;
     if (checked === 0) { alert('Please select at least one employee.'); return false; }
-    return confirm('Generate payroll for ' + checked + ' employee(s) for ' + period + '?\nThis cannot be undone.');
+    return confirm('Generate payroll for ' + checked + ' employee(s) for ' + period + '?\\nThis cannot be undone.');
 }
 JSEOF;
 

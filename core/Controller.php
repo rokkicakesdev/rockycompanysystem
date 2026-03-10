@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-final class Controller
+class Controller
 {
     /**
      * Render a view with data.
