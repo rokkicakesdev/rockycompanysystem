@@ -94,7 +94,14 @@ if (isset($_GET['delete_job']) && is_numeric($_GET['delete_job'])) {
 }
 
 $selectedJobId = isset($_GET['job_id']) ? (int)$_GET['job_id'] : null;
-$postings      = Model::getAllJobPostings();
+$allPostings   = Model::getAllJobPostings();
+
+// Pagination for job postings sidebar
+$perPage       = RECORDS_PER_PAGE;
+$totalPostings = count($allPostings);
+$totalPages    = (int) ceil($totalPostings / $perPage);
+$curPage       = max(1, min((int)($_GET['page'] ?? 1), max(1, $totalPages)));
+$postings      = array_slice($allPostings, ($curPage - 1) * $perPage, $perPage);
 $departments   = Model::getAllDepartments();
 $positions     = Model::getAllPositions();
 $applicants    = $selectedJobId ? Model::getApplicantsByJob($selectedJobId) : [];
@@ -128,7 +135,7 @@ $applicantStatuses = [
         <div class="card">
           <div class="card-header">
             <i class="fas fa-clipboard-list mr-2"></i>Job Postings
-            <span class="badge badge-primary ml-1"><?= count($postings) ?></span>
+            <span class="badge badge-primary ml-1"><?= $totalPostings ?></span>
           </div>
           <div class="card-body p-0" class="recruitment-jobs-scroll">
             <?php foreach ($postings as $post): ?>
@@ -154,6 +161,26 @@ $applicantStatuses = [
               </div>
             </div>
             <?php endforeach; ?>
+            <?php if ($totalPages > 1): ?>
+            <div class="card-footer d-flex justify-content-between align-items-center py-2">
+              <small class="text-muted"><?= $totalPostings ?> total</small>
+              <nav>
+                <ul class="pagination pagination-sm mb-0">
+                  <li class="page-item <?= $curPage <= 1 ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage-1])) ?>">«</a>
+                  </li>
+                  <?php for ($i = max(1,$curPage-2); $i <= min($totalPages,$curPage+2); $i++): ?>
+                  <li class="page-item <?= $i === $curPage ? 'active' : '' ?>">
+                    <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+                  </li>
+                  <?php endfor; ?>
+                  <li class="page-item <?= $curPage >= $totalPages ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage+1])) ?>">»</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+            <?php endif; ?>
           </div>
         </div>
       </div>

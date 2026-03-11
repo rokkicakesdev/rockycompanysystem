@@ -18,6 +18,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Auth guard — must be logged in with admin or management role
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
+    header('Location: ' . BASE_URL . '/index.php?error=access_denied');
+    exit;
+}
+
 // Dynamic counters
 $pendingLeaves = 0;
 if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {

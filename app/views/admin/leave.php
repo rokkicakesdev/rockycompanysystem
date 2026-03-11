@@ -1,4 +1,9 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../../../config/config.php';
+// Admin and management only
+if (!in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) { header('Location: ' . BASE_URL . '/index.php'); exit; }
+
 $pageTitle = 'Leave Management';
 require_once __DIR__ . '/../layouts/admin_header.php';
 
