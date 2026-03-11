@@ -63,9 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 
         if (!$user || !password_verify($currentPw, $user['password'])) {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Current password is incorrect.</div>";
-        } elseif (strlen($newPw) < 6) {
-            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New password must be at least 6 characters.</div>";
-        } elseif ($newPw !== $confirmPw) {
+        } elseif (strlen($newPw) < 8) {
+            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New password must be at least 8 characters.</div>";
+        } elseif (!hash_equals($newPw, $confirmPw)) {
             $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New passwords do not match.</div>";
         } else {
             Model::updateUserPassword($_SESSION['user_id'], $newPw);
@@ -294,7 +294,7 @@ $leaveBalances = [
               <div class="form-group">
                 <label>New Password</label>
                 <input type="password" name="new_password" id="newPw" class="form-control" required
-                  minlength="6" placeholder="Min. 6 characters">
+                  minlength="8" placeholder="Min. 8 characters">
               </div>
             </div>
             <div class="col-md-4">
@@ -317,6 +317,11 @@ $leaveBalances = [
 <?php
 $extraJs = <<<'JS'
 // Confirm password match visual feedback
+document.getElementById('newPw').addEventListener('input', function() {
+  const ok = this.value.length >= 8;
+  this.classList.toggle('is-invalid', !ok && this.value.length > 0);
+  this.classList.toggle('is-valid',   ok);
+});
 document.getElementById('confirmPw').addEventListener('input', function() {
   const match = this.value === document.getElementById('newPw').value;
   this.classList.toggle('is-invalid', !match && this.value.length > 0);

@@ -49,6 +49,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Model::log($_SESSION['user_id'], 'CREATE_POSITION', 'Created: ' . $positionName);
             $msg = "<div class='alert alert-success alert-auto-dismiss'>Position created.</div>";
         }
+    } elseif (isset($_POST['delete_dept'])) {
+        $deptId = (int)($_POST['dept_id'] ?? 0);
+        if ($deptId) {
+            $active = Model::countEmployeesInDepartment($deptId);
+            if ($active > 0) {
+                $msg = "<div class='alert alert-danger'>Cannot delete: {$active} active employee(s) are assigned to this department.</div>";
+            } else {
+                $dept = Model::findDepartmentById($deptId);
+                Model::deleteDepartment($deptId);
+                Model::log($_SESSION['user_id'], 'DELETE_DEPARTMENT', 'Deleted: ' . ($dept['name'] ?? "ID:{$deptId}"));
+                $msg = "<div class='alert alert-success alert-auto-dismiss'>Department deleted.</div>";
+            }
+        }
+    } elseif (isset($_POST['delete_position'])) {
+        $posId = (int)($_POST['position_id'] ?? 0);
+        if ($posId) {
+            $active = Model::countEmployeesInPosition($posId);
+            if ($active > 0) {
+                $msg = "<div class='alert alert-danger'>Cannot delete: {$active} active employee(s) hold this position.</div>";
+            } else {
+                Model::deletePosition($posId);
+                Model::log($_SESSION['user_id'], 'DELETE_POSITION', "Deleted position ID:{$posId}");
+                $msg = "<div class='alert alert-success alert-auto-dismiss'>Position deleted.</div>";
+            }
+        }
     }
 }
 
@@ -79,13 +104,12 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
           </div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
-              <thead><tr><th>#</th><th>Name</th><th>Employees</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Employees</th><th></th></tr></thead>
               <tbody>
                 <?php foreach ($departments as $d):
                   $count = count($posByDept[$d['id']] ?? []);
                 ?>
                 <tr>
-                  <td><?= $d['id'] ?></td>
                   <td><strong><?= htmlspecialchars($d['name']) ?></strong></td>
                   <td><span class="badge badge-secondary"><?= count(Model::getEmployeesByDepartment($d['id'])) ?> active</span></td>
                   <td>
@@ -94,6 +118,15 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
                       data-name="<?= htmlspecialchars($d['name'], ENT_QUOTES, 'UTF-8') ?>">
                       <i class="fas fa-edit"></i>
                     </button>
+                    <form method="POST" class="d-inline">
+                      <input type="hidden" name="delete_dept" value="1">
+                      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                      <input type="hidden" name="dept_id" value="<?= $d['id'] ?>">
+                      <button type="submit" class="btn btn-xs btn-outline-danger"
+                        onclick="return confirm('Delete department: <?= htmlspecialchars($d['name'], ENT_QUOTES) ?>?\nThis cannot be undone.')">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </form>
                   </td>
                 </tr>
                 <?php endforeach; ?>
@@ -123,6 +156,15 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
               <?php foreach ($posByDept[$d['id']] as $pos): ?>
               <div class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
                 <span style="font-size:.85rem;"><?= htmlspecialchars($pos['name']) ?></span>
+                <form method="POST" class="d-inline ml-2">
+                  <input type="hidden" name="delete_position" value="1">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                  <input type="hidden" name="position_id" value="<?= $pos['id'] ?>">
+                  <button type="submit" class="btn btn-xs btn-outline-danger"
+                    onclick="return confirm('Delete position: <?= htmlspecialchars($pos['name'], ENT_QUOTES) ?>?\nThis cannot be undone.')">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
               </div>
               <?php endforeach; ?>
               <?php endif; ?>
