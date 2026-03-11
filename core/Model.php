@@ -1003,6 +1003,21 @@ class Model {
         return $stmt->fetchAll();
     }
 
+    public static function getActivityLogsPaginated(int $limit, int $offset): array {
+        $stmt = self::db()->prepare('
+            SELECT al.*, u.name AS user_name, u.role
+            FROM activity_logs al LEFT JOIN users u ON u.id = al.user_id
+            ORDER BY al.created_at DESC LIMIT ? OFFSET ?
+        ');
+        $stmt->execute([$limit, $offset]);
+        return $stmt->fetchAll();
+    }
+
+    public static function countActivityLogs(): int {
+        $row = self::db()->query('SELECT COUNT(*) AS cnt FROM activity_logs')->fetch();
+        return (int) $row['cnt'];
+    }
+
     // ════════════════════════════════════════════════════════
     //  DASHBOARD STATS
     // ════════════════════════════════════════════════════════

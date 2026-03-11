@@ -97,6 +97,18 @@ define('LEAVE_BALANCE_FIELDS', [
 // ── Security / Misc ──────────────────────────────────────────────
 define('SESSION_TIMEOUT_MINUTES', 30); // auto-logout after inactivity
 
+// ── Error Reporting ───────────────────────────────────────────────
+if (APP_ENV === 'production') {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    error_reporting(E_ALL);                    // still log everything
+    ini_set('log_errors', '1');                // just don't show on screen
+} else {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
+
 // ── Safety Check (dev only) ──────────────────────────────────────
 if (APP_ENV === 'development' && (empty(BASE_URL) || empty(APP_NAME))) {
     die('Critical configuration missing. Check .env or config/config.php');

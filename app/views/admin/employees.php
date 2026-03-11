@@ -109,9 +109,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Fetch data ────────────────────────────────────────────────────────────────
 $search       = $_GET['q']      ?? '';
 $filterStatus = $_GET['status'] ?? '';
-$employees    = $search ? Model::searchEmployees($search) : Model::getAllEmployees($filterStatus);
+$allEmployees = $search ? Model::searchEmployees($search) : Model::getAllEmployees($filterStatus);
 $departments  = Model::getAllDepartments();
 $positions    = Model::getAllPositions();
+
+// Pagination
+$perPage      = RECORDS_PER_PAGE;
+$totalEmps    = count($allEmployees);
+$totalPages   = (int) ceil($totalEmps / $perPage);
+$curPage      = max(1, min((int)($_GET['page'] ?? 1), max(1, $totalPages)));
+$employees    = array_slice($allEmployees, ($curPage - 1) * $perPage, $perPage);
 
 // ── Edit mode ─────────────────────────────────────────────────────────────────
 $editEmp = null;
@@ -503,8 +510,30 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
       </table>
     </div>
   </div>
-  <div class="card-footer d-flex justify-content-between align-items-center">
-    <span class="text-muted" style="font-size:.82rem;"><?= count($employees) ?> employee(s) found</span>
+  <div class="card-footer d-flex justify-content-between align-items-center flex-wrap" style="gap:.5rem;">
+    <span class="text-muted" style="font-size:.82rem;">
+      Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalEmps)) ?> of <?= number_format($totalEmps) ?> employee(s)
+    </span>
+    <?php if ($totalPages > 1): ?>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item <?= $curPage <= 1 ? 'disabled' : '' ?>">
+          <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage-1])) ?>">«</a>
+        </li>
+        <?php
+          $start = max(1, $curPage - 2);
+          $end   = min($totalPages, $curPage + 2);
+          for ($i = $start; $i <= $end; $i++): ?>
+          <li class="page-item <?= $i === $curPage ? 'active' : '' ?>">
+            <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+          </li>
+        <?php endfor; ?>
+        <li class="page-item <?= $curPage >= $totalPages ? 'disabled' : '' ?>">
+          <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage+1])) ?>">»</a>
+        </li>
+      </ul>
+    </nav>
+    <?php endif; ?>
   </div>
 </div>
 
