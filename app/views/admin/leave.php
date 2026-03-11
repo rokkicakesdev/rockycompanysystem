@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['new_leave'])) {
 }
 
 $filterStatus = $_GET['status'] ?? '';
-$leaves       = Model::getAllLeaveRequests($filterStatus);
+$allLeaves    = Model::getAllLeaveRequests($filterStatus);
 $employees    = Model::getAllEmployees('active');
 $leaveTypes   = LEAVE_TYPES;
 
@@ -75,6 +75,13 @@ $statusCounts = [
     'approved' => count(Model::getAllLeaveRequests('approved')),
     'rejected' => count(Model::getAllLeaveRequests('rejected')),
 ];
+
+// Pagination
+$perPage    = RECORDS_PER_PAGE;
+$totalLeaves = count($allLeaves);
+$totalPages  = (int) ceil($totalLeaves / $perPage);
+$curPage     = max(1, min((int)($_GET['page'] ?? 1), max(1, $totalPages)));
+$leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
 ?>
 
 <div class="page-title-bar">
@@ -172,6 +179,31 @@ $statusCounts = [
           </table>
         </div>
       </div>
+      <?php if ($totalPages > 1): ?>
+      <div class="card-footer d-flex justify-content-between align-items-center flex-wrap" style="gap:.5rem;">
+        <span class="text-muted" style="font-size:.82rem;">
+          Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalLeaves)) ?> of <?= number_format($totalLeaves) ?> request(s)
+        </span>
+        <nav>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item <?= $curPage <= 1 ? 'disabled' : '' ?>">
+              <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage-1])) ?>">«</a>
+            </li>
+            <?php
+              $start = max(1, $curPage - 2);
+              $end   = min($totalPages, $curPage + 2);
+              for ($i = $start; $i <= $end; $i++): ?>
+              <li class="page-item <?= $i === $curPage ? 'active' : '' ?>">
+                <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $i])) ?>"><?= $i ?></a>
+              </li>
+            <?php endfor; ?>
+            <li class="page-item <?= $curPage >= $totalPages ? 'disabled' : '' ?>">
+              <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $curPage+1])) ?>">»</a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+      <?php endif; ?>
     </div>
 </div>
 

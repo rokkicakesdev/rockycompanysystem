@@ -3,7 +3,12 @@ $pageTitle = 'Activity Logs';
 require_once __DIR__ . '/../layouts/admin_header.php';
 if ($_SESSION['role'] !== ROLE_ADMIN) { header('Location: dashboard.php'); exit; }
 
-$logs = Model::getActivityLogs(200);
+$perPage    = RECORDS_PER_PAGE;
+$totalLogs  = Model::countActivityLogs();
+$totalPages = (int) ceil($totalLogs / $perPage);
+$curPage    = max(1, min((int)($_GET['page'] ?? 1), max(1, $totalPages)));
+$offset     = ($curPage - 1) * $perPage;
+$logs       = Model::getActivityLogsPaginated($perPage, $offset);
 $actionColors = [
     'LOGIN'             => '#22c55e',
     'LOGOUT'            => '#94a3b8',
@@ -25,7 +30,7 @@ $actionColors = [
 <div class="page-title-bar">
     <i class="fas fa-history" class="text-primary"></i>
     <h1>Activity Logs</h1>
-    <small class="text-muted ml-auto">Last 200 entries</small>
+    <small class="text-muted ml-auto">Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalLogs)) ?> of <?= number_format($totalLogs) ?> entries</small>
   </div>
 
 <div class="card">
@@ -64,6 +69,28 @@ $actionColors = [
         </div>
       </div>
     </div>
-  </div>
+<?php if ($totalPages > 1): ?>
+<div class="d-flex justify-content-center mt-3">
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item <?= $curPage <= 1 ? 'disabled' : '' ?>">
+        <a class="page-link" href="?page=<?= $curPage-1 ?>">«</a>
+      </li>
+      <?php
+        $start = max(1, $curPage - 2);
+        $end   = min($totalPages, $curPage + 2);
+        for ($i = $start; $i <= $end; $i++): ?>
+        <li class="page-item <?= $i === $curPage ? 'active' : '' ?>">
+          <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+        </li>
+      <?php endfor; ?>
+      <li class="page-item <?= $curPage >= $totalPages ? 'disabled' : '' ?>">
+        <a class="page-link" href="?page=<?= $curPage+1 ?>">»</a>
+      </li>
+    </ul>
+  </nav>
+</div>
+<?php endif; ?>
+</div>
 </div>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
