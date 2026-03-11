@@ -1088,6 +1088,25 @@ class Model {
         return $stmt->fetch() ?: null;
     }
 
+    public static function createHoliday(array $d): bool {
+        $stmt = self::db()->prepare(
+            "INSERT INTO holidays (name, date, type, is_recurring) VALUES (?, ?, ?, ?)"
+        );
+        return $stmt->execute([$d['name'], $d['date'], $d['type'], $d['is_recurring']]);
+    }
+
+    public static function updateHoliday(int $id, array $d): bool {
+        $stmt = self::db()->prepare(
+            "UPDATE holidays SET name=?, date=?, type=?, is_recurring=? WHERE id=?"
+        );
+        return $stmt->execute([$d['name'], $d['date'], $d['type'], $d['is_recurring'], $id]);
+    }
+
+    public static function deleteHoliday(int $id): bool {
+        $stmt = self::db()->prepare("DELETE FROM holidays WHERE id=?");
+        return $stmt->execute([$id]);
+    }
+
     // ════════════════════════════════════════════════════════
     //  ACTIVITY LOG
     // ════════════════════════════════════════════════════════
