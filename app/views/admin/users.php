@@ -75,6 +75,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     }
 }
 
+// Handle toggle status
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
+    } else {
+        $toggleId  = (int)($_POST['user_id'] ?? 0);
+        $newStatus = $_POST['new_status'] ?? '';
+        if ($toggleId && in_array($newStatus, ['active', 'inactive'], true) && $toggleId !== (int)$_SESSION['user_id']) {
+            Model::updateUserStatus($toggleId, $newStatus);
+            $label = ucfirst($newStatus);
+            Model::log($_SESSION['user_id'], 'TOGGLE_USER_STATUS', "Set user ID:{$toggleId} to {$label}");
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>User status updated to {$label}.</div>";
+        }
+    }
+}
+
 $users = Model::getAllUsers();
 ?>
 
@@ -113,6 +129,17 @@ $users = Model::getAllUsers();
                     data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
                     <i class="fas fa-edit"></i> Edit
                   </button>
+                  <form method="POST" class="d-inline">
+                    <input type="hidden" name="toggle_status" value="1">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+                    <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                    <input type="hidden" name="new_status" value="<?= $u['status'] === 'active' ? 'inactive' : 'active' ?>">
+                    <button type="submit" class="btn btn-xs <?= $u['status'] === 'active' ? 'btn-outline-danger' : 'btn-outline-success' ?>"
+                      onclick="return confirm('<?= $u['status'] === 'active' ? 'Deactivate' : 'Activate' ?> this user?')">
+                      <i class="fas <?= $u['status'] === 'active' ? 'fa-ban' : 'fa-check-circle' ?>"></i>
+                      <?= $u['status'] === 'active' ? 'Deactivate' : 'Activate' ?>
+                    </button>
+                  </form>
                 </div>
                 <?php else: ?>
                 <span class="text-muted" style="font-size:.75rem;">(You)</span>

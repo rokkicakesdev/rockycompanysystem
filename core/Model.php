@@ -161,6 +161,28 @@ class Model {
         return (bool) $stmt->execute([$deptId, $name]);
     }
 
+    public static function deleteDepartment(int $id): bool {
+        $stmt = self::db()->prepare('DELETE FROM departments WHERE id = ?');
+        return (bool) $stmt->execute([$id]);
+    }
+
+    public static function deletePosition(int $id): bool {
+        $stmt = self::db()->prepare('DELETE FROM positions WHERE id = ?');
+        return (bool) $stmt->execute([$id]);
+    }
+
+    public static function countEmployeesInDepartment(int $deptId): int {
+        $stmt = self::db()->prepare("SELECT COUNT(*) AS cnt FROM employees WHERE department_id = ? AND status = 'active'");
+        $stmt->execute([$deptId]);
+        return (int) $stmt->fetch()['cnt'];
+    }
+
+    public static function countEmployeesInPosition(int $positionId): int {
+        $stmt = self::db()->prepare("SELECT COUNT(*) AS cnt FROM employees WHERE position_id = ? AND status = 'active'");
+        $stmt->execute([$positionId]);
+        return (int) $stmt->fetch()['cnt'];
+    }
+
     // ════════════════════════════════════════════════════════
     //  EMPLOYEES
     // ════════════════════════════════════════════════════════
@@ -634,6 +656,17 @@ class Model {
     public static function updateJobPostingStatus(int $id, string $status): bool {
         $stmt = self::db()->prepare('UPDATE job_postings SET status = ? WHERE id = ?');
         return (bool) $stmt->execute([$status, $id]);
+    }
+
+    public static function deleteJobPosting(int $id): bool {
+        $stmt = self::db()->prepare('DELETE FROM job_postings WHERE id = ?');
+        return (bool) $stmt->execute([$id]);
+    }
+
+    public static function countApplicantsForJob(int $jobId): int {
+        $stmt = self::db()->prepare('SELECT COUNT(*) AS cnt FROM applicants WHERE job_posting_id = ?');
+        $stmt->execute([$jobId]);
+        return (int) $stmt->fetch()['cnt'];
     }
 
     public static function getApplicantsByJob(int $jobId): array {

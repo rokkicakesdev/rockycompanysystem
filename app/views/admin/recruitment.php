@@ -74,6 +74,25 @@ if (isset($_GET['toggle_job']) && is_numeric($_GET['toggle_job'])) {
     $msg = "<div class='alert alert-success alert-auto-dismiss'>Job posting updated.</div>";
 }
 
+// Handle job posting delete
+if (isset($_GET['delete_job']) && is_numeric($_GET['delete_job'])) {
+    if (!hash_equals($csrf_token, $_GET['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
+    } else {
+        $delJobId   = (int)$_GET['delete_job'];
+        $appCount   = Model::countApplicantsForJob($delJobId);
+        if ($appCount > 0) {
+            $msg = "<div class='alert alert-danger'>Cannot delete: this posting has {$appCount} applicant(s). Close it instead.</div>";
+        } else {
+            $job = Model::findJobPostingById($delJobId);
+            Model::deleteJobPosting($delJobId);
+            Model::log($_SESSION['user_id'], 'DELETE_JOB_POSTING', 'Deleted: ' . ($job['title'] ?? "ID:{$delJobId}"));
+            $msg = "<div class='alert alert-success alert-auto-dismiss'>Job posting deleted.</div>";
+            $selectedJobId = null;
+        }
+    }
+}
+
 $selectedJobId = isset($_GET['job_id']) ? (int)$_GET['job_id'] : null;
 $postings      = Model::getAllJobPostings();
 $departments   = Model::getAllDepartments();
@@ -156,6 +175,13 @@ $applicantStatuses = [
                 <a href="recruitment.php?toggle_job=<?= $selectedJob['id'] ?>&new_status=closed&job_id=<?= $selectedJob['id'] ?>" class="btn btn-xs btn-secondary ml-1">Close Posting</a>
               <?php else: ?>
                 <a href="recruitment.php?toggle_job=<?= $selectedJob['id'] ?>&new_status=open&job_id=<?= $selectedJob['id'] ?>" class="btn btn-xs btn-success ml-1">Reopen</a>
+              <?php endif; ?>
+              <?php if (Model::countApplicantsForJob($selectedJob['id']) === 0): ?>
+                <a href="recruitment.php?delete_job=<?= $selectedJob['id'] ?>&csrf_token=<?= urlencode($csrf_token) ?>"
+                  class="btn btn-xs btn-outline-danger ml-1"
+                  onclick="return confirm('Delete this job posting? This cannot be undone.')">
+                  <i class="fas fa-trash mr-1"></i>Delete
+                </a>
               <?php endif; ?>
             </div>
           </div>
