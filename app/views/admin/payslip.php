@@ -78,11 +78,9 @@ if ($selectedEmp && $selectedPeriod) {
         <table class="table table-sm mb-0">
           <thead><tr><th>Employee</th><th>Period</th><th>Net Pay</th><th>Status</th></tr></thead>
           <tbody>
-          <?php foreach(Model::getAllPayroll() as $p):
-            $e = Model::findEmployeeById($p['employee_id']);
-          ?>
+          <?php foreach(Model::getAllPayroll() as $p): ?>
             <tr class="payslip-history-row">
-              <td><?= $e ? htmlspecialchars(explode(' ',$e['name'])[0]) : 'N/A' ?></td>
+              <td><?= htmlspecialchars(explode(' ', $p['employee_name'] ?? 'N/A')[0]) ?></td>
               <td><?= $p['period'] ?></td>
               <td>₱<?= number_format($p['net_pay'],0) ?></td>
               <td>

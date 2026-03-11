@@ -35,9 +35,15 @@ class AuthController extends Controller
         $errorParam = $_GET['error'] ?? null;
         $msgParam   = $_GET['msg']   ?? null;
 
+        $wait = (int)($_GET['wait'] ?? 15);
+        $remaining = (int)($_GET['remaining'] ?? 0);
+
         $error = match ($errorParam) {
             'empty'         => 'Please enter both username and password.',
-            'invalid'       => 'Invalid username or password.',
+            'invalid'       => $remaining > 0
+                                ? "Invalid username or password. {$remaining} attempt(s) remaining before lockout."
+                                : 'Invalid username or password.',
+            'locked'        => "Too many failed attempts. Please wait {$wait} minute(s) before trying again.",
             'inactive'      => 'Your account has been deactivated. Please contact your administrator.',
             'unauthorized'  => 'You are not authorized to access this system.',
             'not_logged_in' => 'Please sign in to continue.',
@@ -80,17 +86,41 @@ class AuthController extends Controller
             $this->redirect('index.php?error=empty');
         }
 
+        // ── Brute force protection — max 5 attempts, 15-minute lockout ───────
+        $attemptKey  = 'login_attempts_' . md5($username);
+        $lockoutKey  = 'login_lockout_'  . md5($username);
+        $maxAttempts = 5;
+        $lockoutSecs = 900; // 15 minutes
+
+        if (!empty($_SESSION[$lockoutKey]) && $_SESSION[$lockoutKey] > time()) {
+            $wait = ceil(($_SESSION[$lockoutKey] - time()) / 60);
+            $this->redirect("index.php?error=locked&wait={$wait}");
+        }
+
         // ── Find user ────────────────────────────────────────────────────────
         $user = Model::findUserByUsername($username);
 
         if (!$user || !password_verify($password, $user['password'])) {
-            $this->redirect('index.php?error=invalid');
+            $_SESSION[$attemptKey] = ($_SESSION[$attemptKey] ?? 0) + 1;
+            if ($_SESSION[$attemptKey] >= $maxAttempts) {
+                $_SESSION[$lockoutKey] = time() + $lockoutSecs;
+                unset($_SESSION[$attemptKey]);
+                $this->redirect('index.php?error=locked&wait=15');
+            }
+            $remaining = $maxAttempts - $_SESSION[$attemptKey];
+            $this->redirect("index.php?error=invalid&remaining={$remaining}");
         }
+
+        // ── Clear failed attempts on success ─────────────────────────────────
+        unset($_SESSION[$attemptKey], $_SESSION[$lockoutKey]);
 
         // ── Account status check ─────────────────────────────────────────────
         if ($user['status'] !== 'active') {
             $this->redirect('index.php?error=inactive');
         }
+
+        // ── Regenerate session ID to prevent session fixation attacks ─────────
+        session_regenerate_id(true);
 
         // ── Set core session variables ───────────────────────────────────────
         $_SESSION['user_id']       = $user['id'];
