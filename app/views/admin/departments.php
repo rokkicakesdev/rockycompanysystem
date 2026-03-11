@@ -21,8 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($v->fails()) {
             $msg = $v->errorHtml();
         } else {
-            Model::createDepartment(trim($_POST['dept_name']));
-            Model::log($_SESSION['user_id'], 'CREATE_DEPARTMENT', "Created: " . $_POST['dept_name']);
+            $deptName = trim($_POST['dept_name']);
+            Model::createDepartment($deptName);
+            Model::log($_SESSION['user_id'], 'CREATE_DEPARTMENT', 'Created: ' . $deptName);
             $msg = "<div class='alert alert-success alert-auto-dismiss'>Department created.</div>";
         }
     } elseif (isset($_POST['edit_dept'])) {
@@ -43,8 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($v->fails()) {
             $msg = $v->errorHtml();
         } else {
-            Model::createPosition((int)$_POST['position_dept_id'], trim($_POST['position_name']));
-            Model::log($_SESSION['user_id'], 'CREATE_POSITION', "Created: " . $_POST['position_name']);
+            $positionName = trim($_POST['position_name']);
+            Model::createPosition((int)$_POST['position_dept_id'], $positionName);
+            Model::log($_SESSION['user_id'], 'CREATE_POSITION', 'Created: ' . $positionName);
             $msg = "<div class='alert alert-success alert-auto-dismiss'>Position created.</div>";
         }
     }
@@ -69,9 +71,9 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
       <!-- Departments -->
       <div class="col-md-5">
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="fas fa-building mr-2"></i>Departments</span>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#newDeptModal">
+          <div class="card-header d-flex align-items-center">
+            <span class="flex-grow-1"><i class="fas fa-building mr-2"></i>Departments</span>
+            <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#newDeptModal">
               <i class="fas fa-plus mr-1"></i>Add
             </button>
           </div>
@@ -104,9 +106,9 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
       <!-- Positions -->
       <div class="col-md-7">
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="fas fa-user-tag mr-2"></i>Positions</span>
-            <button class="btn btn-sm btn-primary" data-toggle="modal" data-target="#newPositionModal">
+          <div class="card-header d-flex align-items-center">
+            <span class="flex-grow-1"><i class="fas fa-user-tag mr-2"></i>Positions</span>
+            <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#newPositionModal">
               <i class="fas fa-plus mr-1"></i>Add
             </button>
           </div>
