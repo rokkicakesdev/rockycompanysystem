@@ -183,6 +183,12 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
               <p>Payslips</p>
             </a>
           </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/thirteenth_month.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'thirteenth_month.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-gift"></i>
+              <p>13th Month Pay</p>
+            </a>
+          </li>
 
           <!-- ADMINISTRATION -->
           <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
