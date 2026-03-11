@@ -2,3 +2,7 @@
 vendor/
 *.log
 /tmp/
+
+# Debug/recovery utility files — localhost only, never commit
+reset_password.php
+clear_session.php

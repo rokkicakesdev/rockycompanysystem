@@ -1532,6 +1532,36 @@ ALTER TABLE `salary_history`
 --
 ALTER TABLE `users`
   ADD CONSTRAINT `fk_users_employee` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE SET NULL;
+--
+-- Table structure for table `thirteenth_month_pay`
+--
+
+CREATE TABLE `thirteenth_month_pay` (
+  `id`                  int(10) UNSIGNED    NOT NULL AUTO_INCREMENT,
+  `employee_id`         int(10) UNSIGNED    NOT NULL,
+  `year`                year(4)             NOT NULL,
+  `total_basic_earned`  decimal(12,2)       NOT NULL DEFAULT 0.00 COMMENT 'Sum of basic_salary from payroll_records for this year',
+  `months_worked`       tinyint(4)          NOT NULL DEFAULT 0 COMMENT 'Number of payroll periods processed for employee in this year',
+  `amount`              decimal(12,2)       NOT NULL DEFAULT 0.00 COMMENT 'total_basic_earned / 12 — PD 851 formula',
+  `status`              enum('pending','released') NOT NULL DEFAULT 'pending',
+  `processed_by`        int(10) UNSIGNED    DEFAULT NULL,
+  `released_at`         timestamp           NULL DEFAULT NULL,
+  `created_at`          timestamp           NOT NULL DEFAULT current_timestamp(),
+  `updated_at`          timestamp           NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_employee_year` (`employee_id`,`year`),
+  KEY `idx_year` (`year`),
+  KEY `idx_status` (`status`),
+  KEY `idx_processed_by` (`processed_by`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='13th Month Pay records per employee per year (PD 851)';
+
+--
+-- Constraints for table `thirteenth_month_pay`
+--
+ALTER TABLE `thirteenth_month_pay`
+  ADD CONSTRAINT `thirteenth_month_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `thirteenth_month_ibfk_2` FOREIGN KEY (`processed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

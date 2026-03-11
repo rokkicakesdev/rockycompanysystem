@@ -109,7 +109,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
           </div>
           <div class="card-body p-0">
             <table class="table table-hover mb-0">
-              <thead><tr><th>Name</th><th>Employees</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Employees</th><th class="text-right"></th></tr></thead>
               <tbody>
                 <?php foreach ($departments as $d):
                   $count = count($posByDept[$d['id']] ?? []);
@@ -117,7 +117,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
                 <tr>
                   <td><strong><?= htmlspecialchars($d['name']) ?></strong></td>
                   <td><span class="badge badge-secondary"><?= count(Model::getEmployeesByDepartment($d['id'])) ?> active</span></td>
-                  <td>
+                  <td class="text-right" style="white-space:nowrap">
                     <button class="btn btn-xs btn-outline-warning edit-dept-btn"
                       data-id="<?= $d['id'] ?>"
                       data-name="<?= htmlspecialchars($d['name'], ENT_QUOTES, 'UTF-8') ?>">
