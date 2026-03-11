@@ -877,6 +877,112 @@ class Model {
     }
 
     // ════════════════════════════════════════════════════════
+    //  13TH MONTH PAY
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Compute 13th month pay for all active employees for a given year.
+     * Formula (PD 851): Total basic salary earned in the year ÷ 12
+     * Pro-rated: only months where employee was employed in that year count.
+     * We approximate monthly basic salary from payroll_records (actual periods worked).
+     */
+    public static function compute13thMonth(int $year): array {
+        // Sum basic_salary from payroll_records for each employee within the year
+        $stmt = self::db()->prepare("
+            SELECT
+                e.id            AS employee_id,
+                e.name          AS employee_name,
+                e.employee_no,
+                d.name          AS department,
+                p.name          AS position,
+                e.basic_salary  AS current_basic,
+                e.date_hired,
+                e.status        AS emp_status,
+                COALESCE(pr.total_basic, 0)       AS total_basic_earned,
+                COALESCE(pr.months_worked, 0)     AS months_worked,
+                COALESCE(pr.total_basic, 0) / 12  AS thirteenth_month_pay
+            FROM employees e
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions   p ON p.id = e.position_id
+            LEFT JOIN (
+                SELECT
+                    employee_id,
+                    SUM(basic_salary)   AS total_basic,
+                    COUNT(*)            AS months_worked
+                FROM payroll_records
+                WHERE period LIKE ?
+                GROUP BY employee_id
+            ) pr ON pr.employee_id = e.id
+            WHERE e.status IN ('active','on_leave')
+            ORDER BY e.name
+        ");
+        $stmt->execute([$year . '-%']);
+        return $stmt->fetchAll();
+    }
+
+    public static function get13thMonthByYear(int $year): array {
+        $stmt = self::db()->prepare("
+            SELECT tm.*, e.name AS employee_name, e.employee_no,
+                   d.name AS department, p.name AS position
+            FROM thirteenth_month_pay tm
+            JOIN employees e ON e.id = tm.employee_id
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions p ON p.id = e.position_id
+            WHERE tm.year = ?
+            ORDER BY e.name
+        ");
+        $stmt->execute([$year]);
+        return $stmt->fetchAll();
+    }
+
+    public static function thirteenthMonthExists(int $year): bool {
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM thirteenth_month_pay WHERE year = ?");
+        $stmt->execute([$year]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function thirteenthMonthExistsForEmployee(int $employeeId, int $year): bool {
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM thirteenth_month_pay WHERE employee_id = ? AND year = ?");
+        $stmt->execute([$employeeId, $year]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function save13thMonthRecord(array $d): bool {
+        // Upsert — update if already exists
+        $stmt = self::db()->prepare("
+            INSERT INTO thirteenth_month_pay
+                (employee_id, year, total_basic_earned, months_worked, amount, status, processed_by)
+            VALUES
+                (:employee_id, :year, :total_basic_earned, :months_worked, :amount, :status, :processed_by)
+            ON DUPLICATE KEY UPDATE
+                total_basic_earned = VALUES(total_basic_earned),
+                months_worked      = VALUES(months_worked),
+                amount             = VALUES(amount),
+                processed_by       = VALUES(processed_by),
+                updated_at         = NOW()
+        ");
+        return (bool) $stmt->execute([
+            ':employee_id'       => $d['employee_id'],
+            ':year'              => $d['year'],
+            ':total_basic_earned'=> $d['total_basic_earned'],
+            ':months_worked'     => $d['months_worked'],
+            ':amount'            => $d['amount'],
+            ':status'            => $d['status'] ?? 'pending',
+            ':processed_by'      => $d['processed_by'] ?? null,
+        ]);
+    }
+
+    public static function release13thMonth(int $id): bool {
+        $stmt = self::db()->prepare("UPDATE thirteenth_month_pay SET status = 'released', released_at = NOW() WHERE id = ?");
+        return (bool) $stmt->execute([$id]);
+    }
+
+    public static function releaseAll13thMonth(int $year): bool {
+        $stmt = self::db()->prepare("UPDATE thirteenth_month_pay SET status = 'released', released_at = NOW() WHERE year = ? AND status = 'pending'");
+        return (bool) $stmt->execute([$year]);
+    }
+
+    // ════════════════════════════════════════════════════════
     //  SALARY HISTORY
     // ════════════════════════════════════════════════════════
 
