@@ -1,0 +1,45 @@
+# Rocky Company HRIS — Apache Security Rules
+# Place this file in the project root (same folder as index.php)
+
+# ── Disable directory listing ─────────────────────────────────────
+Options -Indexes
+
+# ── Block direct access to sensitive files and folders ────────────
+<FilesMatch "\.(env|log|sql|sh|bak|swp|gitignore|md|lock|json|map)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Allow .sql only from database/ subfolder? No — block all .sql at root level
+# The database/ folder should never be web-accessible anyway
+
+# ── Block access to specific sensitive PHP utility files ──────────
+<FilesMatch "^(reset_password|clear_session)\.php$">
+    Order allow,deny
+    Deny from all
+    # If you need localhost access, uncomment below and remove the Deny line:
+    # Allow from 127.0.0.1 ::1
+</FilesMatch>
+
+# ── Block direct access to sensitive directories ──────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block access to config/, core/, database/ directories
+    RewriteRule ^config/.*$   - [F,L]
+    RewriteRule ^core/.*$     - [F,L]
+    RewriteRule ^database/.*$ - [F,L]
+
+    # Block access to hidden files (.env, .git, etc.)
+    RewriteRule (^|/)\. - [F,L]
+</IfModule>
+
+# ── PHP error display (extra safety net on top of config.php) ─────
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+</IfModule>

@@ -109,6 +109,33 @@ if (APP_ENV === 'production') {
     error_reporting(E_ALL);
 }
 
+// ── Session Cookie Security ───────────────────────────────────────
+// Must be called BEFORE session_start() — index.php calls session_start()
+// after config.php, so these ini_set calls take effect correctly.
+if (session_status() === PHP_SESSION_NONE) {
+    ini_set('session.cookie_httponly', '1');   // Block JS access to session cookie
+    ini_set('session.cookie_samesite', 'Strict'); // CSRF mitigation
+    ini_set('session.use_strict_mode', '1');   // Reject uninitialized session IDs
+    // Note: cookie_secure should be '1' on HTTPS production servers.
+    // On localhost HTTP (XAMPP), setting this to '1' will break sessions.
+    if (APP_ENV === 'production') {
+        ini_set('session.cookie_secure', '1');
+    }
+}
+
+// ── Security Headers ─────────────────────────────────────────────
+// Sent once per request. Guard against clickjacking, MIME sniffing,
+// and information leakage. Safe to set on every page load.
+if (!headers_sent()) {
+    header('X-Frame-Options: DENY');                        // Prevent clickjacking
+    header('X-Content-Type-Options: nosniff');              // Prevent MIME sniffing
+    header('Referrer-Policy: strict-origin-when-cross-origin'); // Limit referrer leakage
+    header('X-XSS-Protection: 1; mode=block');             // Legacy browser XSS filter
+    if (APP_ENV === 'production') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains'); // HSTS (HTTPS only)
+    }
+}
+
 // ── Safety Check (dev only) ──────────────────────────────────────
 if (APP_ENV === 'development' && (empty(BASE_URL) || empty(APP_NAME))) {
     die('Critical configuration missing. Check .env or config/config.php');
