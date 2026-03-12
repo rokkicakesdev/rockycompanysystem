@@ -258,8 +258,11 @@ if ($employeeId) {
         <button type="button" class="btn btn-secondary" data-dismiss="modal">
           <i class="fas fa-times mr-1"></i> Close
         </button>
+        <a id="ps-pdf-link" href="#" target="_blank" class="btn btn-success">
+          <i class="fas fa-file-pdf mr-1"></i> Download PDF
+        </a>
         <button type="button" class="btn btn-info" onclick="printPayslip()">
-          <i class="fas fa-print mr-1"></i> Print Payslip
+          <i class="fas fa-print mr-1"></i> Print
         </button>
       </div>
 
@@ -310,6 +313,10 @@ $('.view-payslip-btn').on('click', function() {
 
   // Processed by
   $('#ps-processedby').text(d.processedby || '—');
+
+  // Set PDF download link for this period
+  const pdfUrl = 'payslip_pdf.php?period=' + period;
+  $('#ps-pdf-link').attr('href', pdfUrl);
 
   $('#payslipModal').modal('show');
 });
