@@ -14,14 +14,20 @@
 # ── Disable directory listing ─────────────────────────────────────
 Options -Indexes
 
-# ── Block direct access to sensitive files and folders ────────────
-<FilesMatch "\.(env|log|sql|sh|bak|swp|gitignore|md|lock|json|map)$">
+# ── Block direct access to sensitive file types ───────────────────
+# NOTE: .json and .lock are intentionally NOT blocked here.
+# Composer needs to read/write composer.json and composer.lock via the CLI.
+# These files have no sensitive data and are not directly useful to attackers.
+<FilesMatch "\.(env|log|sql|sh|bak|swp|map)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Allow .sql only from database/ subfolder? No — block all .sql at root level
-# The database/ folder should never be web-accessible anyway
+# Block dotfiles and markdown by exact name
+<FilesMatch "^(\.gitignore|\.gitattributes|README\.md|CHANGELOG\.md|LICENSE\.md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
 
 # ── Block access to specific sensitive PHP utility files ──────────
 <FilesMatch "^(reset_password|clear_session)\.php$">
@@ -35,13 +41,25 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Block access to config/, core/, database/ directories
+    # Block access to config/, core/, database/, vendor/ directories
     RewriteRule ^config/.*$   - [F,L]
     RewriteRule ^core/.*$     - [F,L]
     RewriteRule ^database/.*$ - [F,L]
+    RewriteRule ^vendor/.*$   - [F,L]
 
     # Block access to hidden files (.env, .git, etc.)
     RewriteRule (^|/)\. - [F,L]
+</IfModule>
+
+# ── Security Headers ──────────────────────────────────────────────
+# Requires mod_headers. On XAMPP this is usually already enabled.
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "DENY"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-XSS-Protection "1; mode=block"
+    # Uncomment ONLY on HTTPS production — breaks localhost if enabled:
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
 # ── PHP error display (extra safety net on top of config.php) ─────

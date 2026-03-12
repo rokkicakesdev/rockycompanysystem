@@ -109,6 +109,51 @@ $typeBadge = [
 
 <?= $msg ?>
 
+
+<!-- Quick Stats -->
+<?php
+  $byType   = array_count_values(array_column($holidays, 'type'));
+  $upcoming = array_filter($holidays, fn($h) => strtotime($h['date']) >= strtotime(date('Y-m-d')));
+?>
+<div class="row mb-3">
+  <div class="col-xl-3 col-md-6 mb-3">
+    <div class="stat-card">
+      <div class="icon-box" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-calendar-day"></i></div>
+      <div class="stat-info">
+        <div class="stat-value"><?= $byType['regular'] ?? 0 ?></div>
+        <div class="stat-label">Regular Holidays</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    <div class="stat-card">
+      <div class="icon-box" style="background:#fef3c7;color:#d97706;"><i class="fas fa-umbrella-beach"></i></div>
+      <div class="stat-info">
+        <div class="stat-value"><?= $byType['special_non_working'] ?? 0 ?></div>
+        <div class="stat-label">Special Non-Working</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    <div class="stat-card">
+      <div class="icon-box" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-briefcase"></i></div>
+      <div class="stat-info">
+        <div class="stat-value"><?= $byType['special_working'] ?? 0 ?></div>
+        <div class="stat-label">Special Working</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6 mb-3">
+    <div class="stat-card">
+      <div class="icon-box" style="background:#dcfce7;color:#16a34a;"><i class="fas fa-clock"></i></div>
+      <div class="stat-info">
+        <div class="stat-value"><?= count($upcoming) ?></div>
+        <div class="stat-label">Upcoming in <?= $year ?></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Year Selector -->
 <div class="card mb-3">
   <div class="card-body py-2">
@@ -210,50 +255,6 @@ $typeBadge = [
   </div>
 </div>
 
-<!-- Quick Stats -->
-<?php if (!empty($holidays)):
-  $byType = array_count_values(array_column($holidays, 'type'));
-  $upcoming = array_filter($holidays, fn($h) => strtotime($h['date']) >= strtotime(date('Y-m-d')));
-?>
-<div class="row mt-3">
-  <div class="col-xl-3 col-md-6 mb-3">
-    <div class="stat-card">
-      <div class="icon-box" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-calendar-day"></i></div>
-      <div class="stat-info">
-        <div class="stat-value"><?= $byType['regular'] ?? 0 ?></div>
-        <div class="stat-label">Regular Holidays</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    <div class="stat-card">
-      <div class="icon-box" style="background:#fef3c7;color:#d97706;"><i class="fas fa-umbrella-beach"></i></div>
-      <div class="stat-info">
-        <div class="stat-value"><?= $byType['special_non_working'] ?? 0 ?></div>
-        <div class="stat-label">Special Non-Working</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    <div class="stat-card">
-      <div class="icon-box" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-briefcase"></i></div>
-      <div class="stat-info">
-        <div class="stat-value"><?= $byType['special_working'] ?? 0 ?></div>
-        <div class="stat-label">Special Working</div>
-      </div>
-    </div>
-  </div>
-  <div class="col-xl-3 col-md-6 mb-3">
-    <div class="stat-card">
-      <div class="icon-box" style="background:#dcfce7;color:#16a34a;"><i class="fas fa-clock"></i></div>
-      <div class="stat-info">
-        <div class="stat-value"><?= count($upcoming) ?></div>
-        <div class="stat-label">Upcoming in <?= $year ?></div>
-      </div>
-    </div>
-  </div>
-</div>
-<?php endif; ?>
 
 <!-- ══ ADD / EDIT MODAL ════════════════════════════════════════ -->
 <div class="modal fade" id="holidayModal" tabindex="-1">
