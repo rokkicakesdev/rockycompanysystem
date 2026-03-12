@@ -1088,6 +1088,18 @@ class Model {
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Returns all holidays that fall within a date range (inclusive).
+     * Used to warn when a leave request overlaps with holidays.
+     */
+    public static function getHolidaysInRange(string $dateFrom, string $dateTo): array {
+        $stmt = self::db()->prepare(
+            "SELECT * FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date"
+        );
+        $stmt->execute([$dateFrom, $dateTo]);
+        return $stmt->fetchAll();
+    }
+
     public static function createHoliday(array $d): bool {
         $stmt = self::db()->prepare(
             "INSERT INTO holidays (name, date, type, is_recurring) VALUES (?, ?, ?, ?)"

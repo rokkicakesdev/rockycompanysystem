@@ -112,6 +112,9 @@ if ($viewMode === 'daily') {
     foreach ($recs as $r) $existingRecords[$r['employee_id'] . '_' . $r['date']] = $r;
 }
 
+// ── Holiday detection for selected date ──────────────────────────
+$holidayInfo = ($viewMode === 'daily') ? Model::isHoliday($selectedDate) : null;
+
 $statusOptions = [
     'present'  => ['label' => 'Present',  'color' => '#22c55e'],
     'absent'   => ['label' => 'Absent',   'color' => '#ef4444'],
@@ -161,7 +164,18 @@ $statusOptions = [
     <i class="fas fa-clipboard-list mr-2"></i>
     Daily Attendance — <?= date('l, F j, Y', strtotime($selectedDate)) ?>
     <span class="badge badge-primary ml-2"><?= count($employees) ?> employees</span>
+    <?php if ($holidayInfo): ?>
+      <span class="badge badge-teal ml-2"><i class="fas fa-calendar-day mr-1"></i><?= htmlspecialchars($holidayInfo['name']) ?></span>
+    <?php endif; ?>
   </div>
+  <?php if ($holidayInfo): ?>
+  <div class="alert alert-teal mb-0 border-0 rounded-0" style="background:#f0fdfa;border-left:4px solid #14b8a6!important;border-radius:0;">
+    <i class="fas fa-calendar-day mr-2" style="color:#14b8a6;"></i>
+    <strong><?= htmlspecialchars($holidayInfo['name']) ?></strong> is a
+    <strong><?= $holidayInfo['type'] === 'regular' ? 'Regular Holiday' : ($holidayInfo['type'] === 'special_non_working' ? 'Special Non-Working Holiday' : 'Special Working Holiday') ?></strong>.
+    All employees have been pre-set to <strong>Holiday</strong>. You can still override individual records below.
+  </div>
+  <?php endif; ?>
   <div class="card-body p-0">
     <form method="POST" onsubmit="return confirm('Save attendance changes for all <?= count($employees) ?> employees on <?= date('M j, Y', strtotime($selectedDate)) ?>?');">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
@@ -183,7 +197,8 @@ $statusOptions = [
           <tbody>
             <?php foreach ($employees as $emp):
               $rec    = $existingRecords[$emp['id']] ?? null;
-              $status = $rec['status'] ?? 'present';
+              // Pre-select 'holiday' if the day is a holiday and no existing record
+              $status = $rec['status'] ?? ($holidayInfo ? 'holiday' : 'present');
             ?>
             <tr>
               <td>
