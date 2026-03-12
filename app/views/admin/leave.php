@@ -290,6 +290,12 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
             <label>Reason</label>
             <textarea name="reason" class="form-control" rows="2" placeholder="Reason for leave..."></textarea>
           </div>
+
+          <!-- Holiday overlap warning — populated by JS -->
+          <div id="holidayLeaveWarning" class="alert mb-0" style="display:none;background:#f0fdfa;border:1px solid #99f6e4;color:#0f766e;">
+            <i class="fas fa-calendar-day mr-2"></i>
+            <strong>Holiday Notice:</strong> <span id="holidayLeaveText"></span>
+          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
@@ -330,6 +336,24 @@ function calcDays() {
   }
 }
 $('#newDateFrom, #newDateTo').on('change', calcDays);
+
+// Holiday overlap check
+function checkHolidayOverlap() {
+  const from = $('#newDateFrom').val();
+  const to   = $('#newDateTo').val();
+  if (!from || !to) return;
+  $.getJSON('<?= BASE_URL ?>/app/ajax/check_holidays.php', { date_from: from, date_to: to }, function(data) {
+    if (data.holidays && data.holidays.length > 0) {
+      const names = data.holidays.map(h => h.name + ' (' + h.date + ')').join(', ');
+      $('#holidayLeaveText').text('This leave period overlaps with: ' + names + '. These days are typically not counted as leave days.');
+      $('#holidayLeaveWarning').slideDown(200);
+    } else {
+      $('#holidayLeaveWarning').slideUp(200);
+    }
+  });
+}
+$('#newDateFrom, #newDateTo').on('change', checkHolidayOverlap);
+$('#newLeaveModal').on('hide.bs.modal', function() { $('#holidayLeaveWarning').hide(); });
 
 // Refresh badge immediately after approve/reject
 $(document).ready(function() {
