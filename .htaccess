@@ -1,6 +1,16 @@
 # Rocky Company HRIS — Apache Security Rules
 # Place this file in the project root (same folder as index.php)
 
+# ── Force HTTPS (enable on production — disable on localhost) ─────
+# Uncomment the 4 lines below when deploying to a live HTTPS server.
+# Leave commented out for local XAMPP development (HTTP only).
+#
+# <IfModule mod_rewrite.c>
+#     RewriteEngine On
+#     RewriteCond %{HTTPS} off
+#     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+# </IfModule>
+
 # ── Disable directory listing ─────────────────────────────────────
 Options -Indexes
 
