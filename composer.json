@@ -1,0 +1,17 @@
+{
+    "name": "rocky-company/hris-payroll",
+    "description": "Rocky Company HRIS and Payroll System",
+    "type": "project",
+    "require": {
+        "php": ">=8.0",
+        "phpoffice/phpspreadsheet": "^5.5"
+    },
+    "config": {
+        "optimize-autoloader": true
+    },
+    "autoload": {
+        "psr-4": {
+            "RockyCompany\\": "src/"
+        }
+    }
+}
