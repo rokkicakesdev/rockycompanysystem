@@ -74,6 +74,74 @@ class Model {
         ]);
     }
 
+    // ── Period Helpers ───────────────────────────────────────────────
+    // Period format: YYYY-MM-C where C = 1 (1st–15th) or 2 (16th–end)
+    // e.g. "2026-12-1" = December 1–15, "2026-12-2" = December 16–31
+
+    /**
+     * Convert a period string to a human-readable label.
+     * "2026-02-1" → "February 2026 (1st–15th)"
+     * "2026-02-2" → "February 2026 (16th–End)"
+     */
+    public static function periodLabel(string $period): string {
+        if (preg_match('/^(\d{4}-\d{2})-(\d)$/', $period, $m)) {
+            $monthLabel = date('F Y', strtotime($m[1] . '-01'));
+            $cutoff     = $m[2] === '1' ? '1st–15th' : '16th–End';
+            return "{$monthLabel} ({$cutoff})";
+        }
+        // Fallback for old YYYY-MM format
+        return date('F Y', strtotime($period . '-01'));
+    }
+
+    /**
+     * Extract the YYYY-MM base from a period string.
+     * "2026-02-1" → "2026-02"
+     */
+    public static function periodBase(string $period): string {
+        return preg_match('/^(\d{4}-\d{2})-\d$/', $period, $m) ? $m[1] : $period;
+    }
+
+    /**
+     * Extract just the year from a period string.
+     * "2026-12-2" → 2026
+     */
+    public static function periodYear(string $period): int {
+        return (int)substr($period, 0, 4);
+    }
+
+    /**
+     * Extract the cutoff number (1 or 2) from a period string.
+     */
+    public static function periodCutoff(string $period): int {
+        return preg_match('/-(\d)$/', $period, $m) ? (int)$m[1] : 1;
+    }
+
+    /**
+     * Returns true if this period is the December 1st cutoff
+     * (the period when 13th month pay is disbursed — 1st cutoff per business rule).
+     */
+    public static function isDecember1stCutoff(string $period): bool {
+        return preg_match('/^\d{4}-12-1$/', $period) === 1;
+    }
+
+    /**
+     * Returns true if this period is the December 2nd cutoff
+     * (the period when year-end tax reconciliation runs).
+     */
+    public static function isDecember2ndCutoff(string $period): bool {
+        return preg_match('/^\d{4}-12-2$/', $period) === 1;
+    }
+
+    /**
+     * Generate the two period strings for a given YYYY-MM base.
+     * Returns ["YYYY-MM-1", "YYYY-MM-2"]
+     */
+    public static function periodsForMonth(string $yearMonth): array {
+        return ["{$yearMonth}-1", "{$yearMonth}-2"];
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+
     public static function getPayrollRecordsByEmployee(int $employeeId): array {
         $stmt = self::db()->prepare("
             SELECT 
@@ -81,7 +149,7 @@ class Model {
             FROM v_payroll
             WHERE employee_id = ?
             ORDER BY period DESC
-            LIMIT 24  -- last 2 years monthly
+            LIMIT 48  -- last 2 years semi-monthly (24 periods/year)
         ");
         $stmt->execute([$employeeId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -876,6 +944,85 @@ class Model {
         );
     }
 
+    // ════════════════════════════════════════════════════════════
+    //  EMPLOYEE PAYROLL SETTINGS (semi-monthly)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Get per-employee payroll settings (the 3 new columns).
+     * Returns defaults if columns not yet migrated.
+     */
+    public static function getEmployeePayrollSettings(int $employeeId): array {
+        $stmt = self::db()->prepare(
+            "SELECT cutoff1_fixed_amount, tax_method, gov_deduction_mode
+             FROM employees WHERE id = ? LIMIT 1"
+        );
+        $stmt->execute([$employeeId]);
+        $row = $stmt->fetch();
+        return [
+            'cutoff1_fixed_amount' => $row['cutoff1_fixed_amount'] ?? null,
+            'tax_method'           => $row['tax_method']           ?? 'half_monthly',
+            'gov_deduction_mode'   => $row['gov_deduction_mode']   ?? 'second_cutoff',
+        ];
+    }
+
+    public static function updateEmployeePayrollSettings(int $employeeId, array $s): bool {
+        $stmt = self::db()->prepare(
+            "UPDATE employees
+             SET cutoff1_fixed_amount = :c1,
+                 tax_method           = :tm,
+                 gov_deduction_mode   = :gm
+             WHERE id = :id"
+        );
+        return $stmt->execute([
+            ':c1' => $s['cutoff1_fixed_amount'] !== '' ? (float)$s['cutoff1_fixed_amount'] : null,
+            ':tm' => in_array($s['tax_method'], ['half_monthly','bir_table']) ? $s['tax_method'] : 'half_monthly',
+            ':gm' => in_array($s['gov_deduction_mode'], ['second_cutoff','split']) ? $s['gov_deduction_mode'] : 'second_cutoff',
+            ':id' => $employeeId,
+        ]);
+    }
+
+    /**
+     * Get total withholding tax paid by an employee in a year.
+     * Used for year-end reconciliation.
+     */
+    public static function getTotalWithholdingTaxByYear(int $employeeId, int $year): float {
+        $stmt = self::db()->prepare(
+            "SELECT COALESCE(SUM(withholding_tax), 0)
+             FROM payroll_records
+             WHERE employee_id = ? AND period LIKE ?"
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float)$stmt->fetchColumn();
+    }
+
+    /**
+     * Get total government deductions (EE side) paid by employee in a year.
+     * Used for year-end reconciliation.
+     */
+    public static function getTotalGovDedsByYear(int $employeeId, int $year): float {
+        $stmt = self::db()->prepare(
+            "SELECT COALESCE(SUM(sss_ee + philhealth_ee + pagibig_ee), 0)
+             FROM payroll_records
+             WHERE employee_id = ? AND period LIKE ?"
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float)$stmt->fetchColumn();
+    }
+
+    /**
+     * Get total basic salary paid to employee in a year (all periods).
+     */
+    public static function getTotalBasicByYear(int $employeeId, int $year): float {
+        $stmt = self::db()->prepare(
+            "SELECT COALESCE(SUM(basic_salary), 0)
+             FROM payroll_records
+             WHERE employee_id = ? AND period LIKE ?"
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float)$stmt->fetchColumn();
+    }
+
     // ════════════════════════════════════════════════════════
     //  13TH MONTH PAY
     // ════════════════════════════════════════════════════════
@@ -907,10 +1054,11 @@ class Model {
             LEFT JOIN (
                 SELECT
                     employee_id,
-                    SUM(basic_salary)   AS total_basic,
-                    COUNT(*)            AS months_worked
+                    SUM(basic_salary)                    AS total_basic,
+                    COUNT(*) / 2.0                       AS months_worked
                 FROM payroll_records
                 WHERE period LIKE ?
+                  AND period NOT LIKE '%-0'
                 GROUP BY employee_id
             ) pr ON pr.employee_id = e.id
             WHERE e.status IN ('active','on_leave')
@@ -945,6 +1093,18 @@ class Model {
         $stmt = self::db()->prepare("SELECT COUNT(*) FROM thirteenth_month_pay WHERE employee_id = ? AND year = ?");
         $stmt->execute([$employeeId, $year]);
         return (bool) $stmt->fetchColumn();
+    }
+
+    /**
+     * Get the 13th month pay record for a specific employee and year.
+     * Returns null if no record exists yet.
+     */
+    public static function get13thMonthByEmployee(int $employeeId, int $year): ?array {
+        $stmt = self::db()->prepare(
+            "SELECT * FROM thirteenth_month_pay WHERE employee_id = ? AND year = ? LIMIT 1"
+        );
+        $stmt->execute([$employeeId, $year]);
+        return $stmt->fetch() ?: null;
     }
 
     public static function save13thMonthRecord(array $d): bool {

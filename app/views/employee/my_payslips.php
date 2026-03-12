@@ -24,6 +24,16 @@ if ($employeeId) {
         $fullRecords[$r['period']] = $r;
     }
 }
+
+// Build 13th month records keyed by year
+$thirteenthRecords = [];
+if ($employeeId) {
+    $years = array_unique(array_map(fn($p) => substr($p, 0, 4), array_keys($fullRecords)));
+    foreach ($years as $yr) {
+        $rec13 = Model::get13thMonthByEmployee($employeeId, (int)$yr);
+        if ($rec13) $thirteenthRecords[$yr] = $rec13;
+    }
+}
 ?>
 
 <div class="page-title-bar">
@@ -58,7 +68,7 @@ if ($employeeId) {
             $payrollId = $full['id'] ?? 0;
           ?>
           <tr>
-            <td><strong><?= htmlspecialchars(date('F Y', strtotime($row['period'] . '-01'))) ?></strong></td>
+            <td><strong><?= htmlspecialchars(Model::periodLabel($row['period'])) ?></strong></td>
             <td>&#8369; <?= number_format($employee['basic_salary'] ?? 0, 2) ?></td>
             <td>&#8369; <?= number_format($row['gross_pay'] ?? 0, 2) ?></td>
             <td class="text-danger">&#8369; <?= number_format($row['total_deductions'] ?? 0, 2) ?></td>
@@ -83,7 +93,11 @@ if ($employeeId) {
                 data-absences="<?= $full['absent_deduction'] ?? 0 ?>"
                 data-late="<?= $full['late_deduction'] ?? 0 ?>"
                 data-processedby="<?= htmlspecialchars($row['processed_by_name'] ?? '—') ?>"
-                data-status="<?= htmlspecialchars($row['status']) ?>">
+                data-status="<?= htmlspecialchars($row['status']) ?>"
+                data-thirteenth="<?= $thirteenthRecords[substr($row['period'],0,4)]['amount'] ?? '' ?>"
+                data-thirteenthstatus="<?= $thirteenthRecords[substr($row['period'],0,4)]['status'] ?? '' ?>"
+                data-cutoff="<?= Model::periodCutoff($row['period']) ?>"
+                data-reconciliation="<?= round(($full['other_deductions'] ?? 0) - ($full['absent_deduction'] ?? 0), 2) ?>">
                 <i class="fas fa-eye mr-1"></i> View
               </button>
               <?php else: ?>
@@ -180,6 +194,10 @@ if ($employeeId) {
                 <span>Allowance</span>
                 <span>&#8369; <?= number_format($employee['allowance'] ?? 0, 2) ?></span>
               </div>
+              <div class="comp-row" id="ps-thirteenth-row" style="display:none;">
+                <span>13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1" style="font-size:.65rem;"></span></span>
+                <span class="text-info font-weight-bold" id="ps-thirteenth">&#8369; 0.00</span>
+              </div>
               <div class="comp-row total text-success">
                 <span>Gross Pay</span>
                 <span id="ps-gross">&#8369; 0.00</span>
@@ -189,21 +207,31 @@ if ($employeeId) {
             <!-- Deductions -->
             <div class="col-6">
               <h6 class="payslip-section-title">Deductions</h6>
-              <div class="comp-row">
-                <span>SSS</span>
-                <span class="text-danger" id="ps-sss">− &#8369; 0.00</span>
+              <div id="ps-gov-rows">
+                <div class="comp-row">
+                  <span>SSS</span>
+                  <span class="text-danger" id="ps-sss">− &#8369; 0.00</span>
+                </div>
+                <div class="comp-row">
+                  <span>PhilHealth</span>
+                  <span class="text-danger" id="ps-philhealth">− &#8369; 0.00</span>
+                </div>
+                <div class="comp-row">
+                  <span>Pag-IBIG</span>
+                  <span class="text-danger" id="ps-pagibig">− &#8369; 0.00</span>
+                </div>
               </div>
-              <div class="comp-row">
-                <span>PhilHealth</span>
-                <span class="text-danger" id="ps-philhealth">− &#8369; 0.00</span>
-              </div>
-              <div class="comp-row">
-                <span>Pag-IBIG</span>
-                <span class="text-danger" id="ps-pagibig">− &#8369; 0.00</span>
+              <div id="ps-no-gov-row" class="comp-row text-muted" style="display:none;font-size:.78rem;">
+                <span><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span>
+                <span>1st cutoff — none</span>
               </div>
               <div class="comp-row">
                 <span>Withholding Tax</span>
                 <span class="text-danger" id="ps-tax">− &#8369; 0.00</span>
+              </div>
+              <div id="ps-reconcile-row" class="comp-row" style="display:none;">
+                <span id="ps-reconcile-label">Year-End Tax Adjustment</span>
+                <span id="ps-reconcile">&#8369; 0.00</span>
               </div>
               <div class="comp-row" id="ps-absences-row">
                 <span>Absences / Late</span>
@@ -293,10 +321,30 @@ $('.view-payslip-btn').on('click', function() {
   // Earnings
   $('#ps-gross').text(fmt(d.gross));
 
-  // Deductions
+  // Gov deductions — show/hide based on cutoff
+  const cutoff = parseInt(d.cutoff || 2);
+  if (cutoff === 1) {
+    $('#ps-gov-rows').hide();
+    $('#ps-no-gov-row').show();
+  } else {
+    $('#ps-gov-rows').show();
+    $('#ps-no-gov-row').hide();
+  }
   $('#ps-sss').text('− ' + fmt(d.sss));
   $('#ps-philhealth').text('− ' + fmt(d.philhealth));
   $('#ps-pagibig').text('− ' + fmt(d.pagibig));
+
+  // Year-end reconciliation
+  const reconcile = parseFloat(d.reconciliation || 0);
+  if (reconcile !== 0) {
+    const sign = reconcile > 0 ? '− ' : '+ ';
+    const color = reconcile > 0 ? '#dc2626' : '#16a34a';
+    $('#ps-reconcile').text(sign + fmt(Math.abs(reconcile))).css('color', color);
+    $('#ps-reconcile-label').text(reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)');
+    $('#ps-reconcile-row').show();
+  } else {
+    $('#ps-reconcile-row').hide();
+  }
   $('#ps-tax').text('− ' + fmt(d.tax));
 
   if (absences > 0) {
@@ -313,6 +361,20 @@ $('.view-payslip-btn').on('click', function() {
 
   // Processed by
   $('#ps-processedby').text(d.processedby || '—');
+
+  // 13th Month Pay
+  const thirteenth = parseFloat(d.thirteenth || 0);
+  if (thirteenth > 0) {
+    $('#ps-thirteenth').text(fmt(thirteenth));
+    const t13Status = d.thirteenthstatus || '';
+    const t13Badge  = t13Status === 'released'
+      ? '<span style="background:#dcfce7;color:#15803d;padding:1px 5px;border-radius:4px;font-size:.65rem;">Released</span>'
+      : '<span style="background:#fef9c3;color:#b45309;padding:1px 5px;border-radius:4px;font-size:.65rem;">Pending</span>';
+    $('#ps-thirteenth-badge').html(t13Badge);
+    $('#ps-thirteenth-row').show();
+  } else {
+    $('#ps-thirteenth-row').hide();
+  }
 
   // Set PDF download link for this period
   const pdfUrl = 'payslip_pdf.php?period=' + period;
