@@ -189,6 +189,12 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
               <p>13th Month Pay</p>
             </a>
           </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/payroll_settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'payroll_settings.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-sliders-h"></i>
+              <p>Payroll Settings</p>
+            </a>
+          </li>
 
           <!-- ADMINISTRATION -->
           <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>

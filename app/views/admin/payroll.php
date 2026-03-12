@@ -34,11 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
     } else {
         $genPeriod      = trim($_POST['gen_period'] ?? '');
         $selectedEmpIds = $_POST['employee_ids'] ?? [];
-        $maxAllowed     = date('Y-m', strtotime('+1 month'));
+        $maxAllowed     = date('Y-m', strtotime('+1 month')); // compare against period base
 
-        if (!preg_match('/^\d{4}-\d{2}$/', $genPeriod)) {
+        if (!preg_match('/^\d{4}-\d{2}-[12]$/', $genPeriod)) {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid payroll period format.</div>";
-        } elseif ($genPeriod > $maxAllowed) {
+        } elseif (Model::periodBase($genPeriod) > $maxAllowed) {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Cannot generate payroll more than one month in the future.</div>";
         } elseif (empty($selectedEmpIds)) {
             $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>No employees selected.</div>";
@@ -72,21 +72,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         continue;
                     }
 
-                    $deductions      = PhilippineDeductions::computeAll((float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0));
-                    $attendance      = Model::getAttendanceSummary($empId, $genPeriod);
+                    // ── Load per-employee payroll settings ──────────────
+                    $settings        = Model::getEmployeePayrollSettings($empId);
+                    $fixedAmount     = $settings['cutoff1_fixed_amount'] !== null ? (float)$settings['cutoff1_fixed_amount'] : null;
+                    $taxMethod       = $settings['tax_method'];
+                    $govMode         = $settings['gov_deduction_mode'];
+                    $cutoffNum       = Model::periodCutoff($genPeriod);
+
+                    // ── Attendance absent deduction (based on half-month rate) ──
+                    $attendance      = Model::getAttendanceSummary($empId, Model::periodBase($genPeriod));
                     $daysAbsent      = (int)($attendance['days_absent'] ?? 0);
                     $daysHalf        = (int)($attendance['days_half']   ?? 0);
-                    $dailyRate       = $workingDays > 0 ? (float)$emp['basic_salary'] / $workingDays : 0.0;
+                    // Daily rate based on half-month (11 working days per cutoff)
+                    $halfMonthDays   = round($workingDays / 2);
+                    $dailyRate       = $halfMonthDays > 0 ? (float)$emp['basic_salary'] / $workingDays : 0.0;
                     $absentDeduction = round(($daysAbsent * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
-                    $adjustedGross   = round(max(0.0, $deductions['gross_pay'] - $absentDeduction), 2);
-                    $adjustedNet     = round(max(0.0, $deductions['net_pay']   - $absentDeduction), 2);
+
+                    // ── 13th Month Pay — December 1st cutoff only ──────────
+                    $thirteenthAmount = 0.0;
+                    if (Model::isDecember1stCutoff($genPeriod)) {
+                        $rec13 = Model::get13thMonthByEmployee($empId, Model::periodYear($genPeriod));
+                        if ($rec13 && $rec13['status'] === 'pending') {
+                            $thirteenthAmount = (float)$rec13['amount'];
+                        }
+                    }
+
+                    // ── Year-end reconciliation — December 2nd cutoff ──────
+                    $reconciliation = 0.0;
+                    if (Model::isDecember2ndCutoff($genPeriod)) {
+                        $year          = Model::periodYear($genPeriod);
+                        $annualBasic   = Model::getTotalBasicByYear($empId, $year) + ((float)$emp['basic_salary'] / 2);
+                        $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year);
+                        $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year);
+                        $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
+                            $annualBasic, $annualGovDeds, $annualTaxPaid
+                        );
+                    }
+
+                    // ── Compute cutoff deductions ───────────────────────────
+                    if ($cutoffNum === 1) {
+                        $deductions = PhilippineDeductions::computeFirstCutoff(
+                            (float)$emp['basic_salary'],
+                            (float)($emp['allowance'] ?? 0),
+                            $fixedAmount,
+                            $taxMethod,
+                            $thirteenthAmount,
+                            $absentDeduction
+                        );
+                    } else {
+                        $deductions = PhilippineDeductions::computeSecondCutoff(
+                            (float)$emp['basic_salary'],
+                            (float)($emp['allowance'] ?? 0),
+                            $fixedAmount,
+                            $taxMethod,
+                            $govMode,
+                            $absentDeduction,
+                            $reconciliation
+                        );
+                    }
 
                     $record = [
                         'employee_id'      => $empId,
                         'period'           => $genPeriod,
                         'basic_salary'     => $deductions['basic_salary'],
                         'allowance'        => $deductions['allowance'],
-                        'gross_pay'        => $adjustedGross,
+                        'gross_pay'        => $deductions['gross_pay'],
                         'sss_msc'          => $deductions['sss_msc'],
                         'sss_ee'           => $deductions['sss_ee'],
                         'sss_er'           => $deductions['sss_er'],
@@ -98,9 +148,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         'pagibig_er'       => $deductions['pagibig_er'],
                         'taxable_income'   => $deductions['taxable_income'],
                         'withholding_tax'  => $deductions['withholding_tax'],
-                        'other_deductions' => $absentDeduction,
-                        'total_deductions' => round($deductions['total_deductions'] + $absentDeduction, 2),
-                        'net_pay'          => $adjustedNet,
+                        'other_deductions' => round($deductions['absent_deduction'] + ($deductions['reconciliation'] ?? 0), 2),
+                        'total_deductions' => $deductions['total_deductions'],
+                        'net_pay'          => $deductions['net_pay'],
+                        'remarks'          => ($thirteenthAmount > 0 ? '13th month included. ' : '')
+                                           . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
                         'status'           => 'pending',
                         'processed_by'     => $_SESSION['user_id'],
                     ];
@@ -180,15 +232,22 @@ $msg = '';
 // ===========================================================================
 //  SETUP: Period selection and data
 // ===========================================================================
-$selectedPeriod  = $_GET['period'] ?? date('Y-m');
+// Default to the current cutoff based on today's date
+$todayCutoff     = date('j') <= 15 ? '1' : '2';
+$selectedPeriod  = $_GET['period'] ?? (date('Y-m') . '-' . $todayCutoff);
 $existingPeriods = Model::getPayrollPeriods();
 
+// Build semi-monthly period options: last 6 months × 2 cutoffs = 12 options
 $periodOptions = [];
-for ($i = 0; $i < 12; $i++) {
-    $periodOptions[] = date('Y-m', strtotime("-{$i} months"));
+for ($i = 0; $i < 6; $i++) {
+    $base = date('Y-m', strtotime("-{$i} months"));
+    $periodOptions[] = $base . '-2';  // 16th–end
+    $periodOptions[] = $base . '-1';  // 1st–15th
 }
+// Merge in any existing periods from DB that may be older
 $periodOptions = array_unique(array_merge($periodOptions, $existingPeriods));
-rsort($periodOptions);
+// Sort descending (newest first) — works because YYYY-MM-C sorts correctly as string
+usort($periodOptions, fn($a, $b) => strcmp($b, $a));
 
 // Flash messages from redirect
 if (!$msg) {
@@ -209,7 +268,7 @@ if (!$msg) {
             }
             $skipNote = " <strong>{$skipped} skipped</strong>{$reasonHtml}";
         }
-        $periodLabel = date('F Y', strtotime($selectedPeriod . '-01'));
+        $periodLabel = Model::periodLabel($selectedPeriod);
         $autoDismiss = $skipped === 0 ? 'alert-auto-dismiss' : '';
         $msg = "<div class='alert alert-success {$autoDismiss}'><i class='fas fa-check-circle mr-2'></i><strong>{$count}</strong> payroll record(s) created for <strong>{$periodLabel}</strong>.{$skipNote}</div>";
     } elseif ($msgParam === 'released') {
@@ -242,7 +301,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
               onchange="window.location='payroll.php?period='+this.value">
         <?php foreach ($periodOptions as $p): ?>
           <option value="<?= $p ?>" <?= $p === $selectedPeriod ? 'selected' : '' ?>>
-            <?= date('F Y', strtotime($p . '-01')) ?><?= in_array($p, $existingPeriods) ? ' (done)' : '' ?>
+            <?= Model::periodLabel($p) ?><?= in_array($p, $existingPeriods) ? ' ✓' : '' ?>
           </option>
         <?php endforeach; ?>
       </select>
@@ -444,16 +503,21 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
           </div>
           <div class="form-group row align-items-center mb-3">
             <label class="col-sm-3 col-form-label font-weight-bold">Payroll Period</label>
-            <div class="col-sm-4">
-              <input type="month" name="gen_period" id="genPeriod"
-                     class="form-control"
-                     value="<?= $selectedPeriod ?>"
-                     min="2020-01"
-                     max="<?= date('Y-m', strtotime('+1 month')) ?>"
-                     required>
-            </div>
-            <div class="col-sm-5">
-              <small class="text-muted">Periods marked (done) already have records.</small>
+            <div class="col-sm-6">
+              <div class="input-group">
+                <input type="month" id="genPeriodMonth"
+                       class="form-control"
+                       value="<?= Model::periodBase($selectedPeriod) ?>"
+                       min="2020-01"
+                       max="<?= date('Y-m', strtotime('+1 month')) ?>"
+                       required>
+                <select id="genPeriodCutoff" class="form-control" style="max-width:175px;">
+                  <option value="1" <?= Model::periodCutoff($selectedPeriod) === 1 ? 'selected' : '' ?>>1st Cutoff (1–15)</option>
+                  <option value="2" <?= Model::periodCutoff($selectedPeriod) === 2 ? 'selected' : '' ?>>2nd Cutoff (16–End)</option>
+                </select>
+              </div>
+              <input type="hidden" name="gen_period" id="genPeriodFinal" value="<?= htmlspecialchars($selectedPeriod) ?>">
+              <small class="text-muted mt-1 d-block">13th month pay is automatically included in the <strong>December 2nd cutoff</strong>.</small>
             </div>
           </div>
           <div class="table-responsive" style="max-height:360px;overflow-y:auto;">
@@ -555,22 +619,38 @@ document.querySelectorAll('.emp-check').forEach(function(cb) {
         document.getElementById('checkAll').checked = (all === checked);
     });
 });
-document.getElementById('genPeriod').addEventListener('change', function () {
+
+// Semi-monthly period builder — combine month + cutoff into YYYY-MM-C
+function buildPeriod() {
+    var month  = document.getElementById('genPeriodMonth').value;   // YYYY-MM
+    var cutoff = document.getElementById('genPeriodCutoff').value;  // 1 or 2
+    if (!month) return '';
+    return month + '-' + cutoff;  // e.g. 2026-12-2
+}
+function syncPeriod() {
+    var period = buildPeriod();
+    document.getElementById('genPeriodFinal').value = period;
     var existingPeriods = $existingPeriodsJson;
     var btn = document.getElementById('generateBtn');
-    if (existingPeriods.indexOf(this.value) !== -1) {
+    if (period && existingPeriods.indexOf(period) !== -1) {
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-ban mr-1"></i> Already Generated';
     } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-play mr-1"></i> Confirm & Generate';
     }
-});
+}
+document.getElementById('genPeriodMonth').addEventListener('change', syncPeriod);
+document.getElementById('genPeriodCutoff').addEventListener('change', syncPeriod);
+syncPeriod();
+
 function confirmGenerate() {
-    var period  = document.getElementById('genPeriod').value;
+    var period  = buildPeriod();
     var checked = document.querySelectorAll('.emp-check:checked').length;
+    if (!period) { alert('Please select a payroll period.'); return false; }
     if (checked === 0) { alert('Please select at least one employee.'); return false; }
-    return confirm('Generate payroll for ' + checked + ' employee(s) for ' + period + '?\\nThis cannot be undone.');
+    var cutoffLabel = document.getElementById('genPeriodCutoff').selectedOptions[0].text;
+    return confirm('Generate payroll for ' + checked + ' employee(s)?\\nPeriod: ' + period + ' (' + cutoffLabel + ')\\nThis cannot be undone.');
 }
 JSEOF;
 
