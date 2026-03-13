@@ -53,16 +53,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['file_leave'])) {
 
 $leaveRequests = $employeeId ? Model::getLeaveRequestsByEmployee($employeeId) : [];
 
-// Leave balance map
-$balanceMap = [
+// Gender of the logged-in employee
+$empGender = strtolower($employee['gender'] ?? '');
+
+// Leave type → gender restriction map
+// 'all' = anyone, 'female' = female only, 'male' = male only
+$leaveGenderMap = [
+    'sick'        => 'all',
+    'vacation'    => 'all',
+    'bereavement' => 'all',
+    'emergency'   => 'all',
+    'sil'         => 'all',
+    'solo_parent' => 'all',
+    'unpaid'      => 'all',
+    'maternity'   => 'female',
+    'vawc'        => 'female',
+    'magna_carta' => 'female',
+    'paternity'   => 'male',
+];
+
+// Filter the full LEAVE_TYPES list down to what this employee can use
+$availableLeaveTypes = array_filter($leaveTypes, function($key) use ($leaveGenderMap, $empGender) {
+    $restriction = $leaveGenderMap[$key] ?? 'all';
+    if ($restriction === 'all')    return true;
+    if ($empGender === '')         return true; // unknown gender — show all
+    return $restriction === $empGender;
+}, ARRAY_FILTER_USE_KEY);
+
+// Leave balance map — filter out gender-inapplicable types
+$allBalanceMap = [
     'sick'        => ['label' => 'Sick Leave',      'field' => 'sick_leave_balance'],
     'vacation'    => ['label' => 'Vacation Leave',   'field' => 'vacation_leave_balance'],
     'emergency'   => ['label' => 'Emergency Leave',  'field' => 'emergency_leave_balance'],
     'sil'         => ['label' => 'SIL',              'field' => 'sil_balance'],
     'bereavement' => ['label' => 'Bereavement',      'field' => 'bereavement_leave_balance'],
-    'paternity'   => ['label' => 'Paternity',        'field' => 'paternity_leave_balance'],
-    'maternity'   => ['label' => 'Maternity',        'field' => 'maternity_leave_balance'],
+    'maternity'   => ['label' => 'Maternity',        'field' => 'maternity_leave_balance',  'gender' => 'female'],
+    'paternity'   => ['label' => 'Paternity',        'field' => 'paternity_leave_balance',  'gender' => 'male'],
+    'vawc'        => ['label' => 'VAWC',             'field' => 'vawc_leave_balance',        'gender' => 'female'],
+    'magna_carta' => ['label' => 'Magna Carta',      'field' => 'magna_carta_leave_balance', 'gender' => 'female'],
+    'solo_parent' => ['label' => 'Solo Parent',      'field' => 'solo_parent_leave_balance'],
 ];
+$balanceMap = array_filter($allBalanceMap, function($meta) use ($empGender) {
+    if (!isset($meta['gender'])) return true;
+    if ($empGender === '')        return true; // unknown gender — show all
+    return $meta['gender'] === $empGender;
+});
 ?>
 
 <div class="page-title-bar">
@@ -158,7 +193,7 @@ $balanceMap = [
             <label>Leave Type <span class="text-danger">*</span></label>
             <select name="leave_type" class="form-control" required>
               <option value="">-- Select Leave Type --</option>
-              <?php foreach ($leaveTypes as $key => $label): ?>
+              <?php foreach ($availableLeaveTypes as $key => $label): ?>
                 <option value="<?= $key ?>"><?= $label ?></option>
               <?php endforeach; ?>
             </select>
