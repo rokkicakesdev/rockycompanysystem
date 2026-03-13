@@ -254,20 +254,35 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
         <div class="modal-body">
           <div class="form-group">
             <label>Employee <span class="text-danger">*</span></label>
-            <select name="employee_id" class="form-control" required>
+            <select name="employee_id" id="newLeaveEmployee" class="form-control" required>
               <option value="">-- Select Employee --</option>
               <?php foreach ($employees as $emp): ?>
-                <option value="<?= $emp['id'] ?>"><?= htmlspecialchars($emp['name']) ?> (<?= $emp['employee_no'] ?>)</option>
+                <option value="<?= $emp['id'] ?>" data-gender="<?= htmlspecialchars($emp['gender'] ?? '') ?>">
+                  <?= htmlspecialchars($emp['name']) ?> (<?= $emp['employee_no'] ?>)
+                </option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="form-group">
             <label>Leave Type <span class="text-danger">*</span></label>
-            <select name="leave_type" class="form-control" required>
-              <?php foreach ($leaveTypes as $k => $v): ?>
-                <option value="<?= $k ?>"><?= $v ?></option>
+            <select name="leave_type" id="newLeaveType" class="form-control" required>
+              <option value="">-- Select Leave Type --</option>
+              <?php
+              $adminLeaveGenderMap = [
+                  'sick'        => 'all',    'vacation'    => 'all',
+                  'bereavement' => 'all',    'emergency'   => 'all',
+                  'sil'         => 'all',    'solo_parent' => 'all',
+                  'unpaid'      => 'all',    'maternity'   => 'female',
+                  'vawc'        => 'female', 'magna_carta' => 'female',
+                  'paternity'   => 'male',
+              ];
+              foreach ($leaveTypes as $k => $v):
+                  $g = $adminLeaveGenderMap[$k] ?? 'all';
+              ?>
+                <option value="<?= $k ?>" data-gender="<?= $g ?>"><?= $v ?></option>
               <?php endforeach; ?>
             </select>
+            <small id="newLeaveGenderHint" class="text-muted" style="display:none;"></small>
           </div>
           <div class="row">
             <div class="col-6">
@@ -363,6 +378,41 @@ $(document).ready(function() {
   if ($('.alert-success').length) {
     if (typeof refreshPendingBadge === 'function') refreshPendingBadge();
   }
+});
+
+// ── Gender-based leave type filtering ───────────────────────────────────────
+// When admin selects an employee, hide leave types not applicable to their gender.
+// female-only: maternity, vawc, magna_carta
+// male-only:   paternity
+$('#newLeaveEmployee').on('change', function() {
+  const gender = $(this).find(':selected').data('gender') || '';
+  const \$typeSelect = $('#newLeaveType');
+  const \$hint       = $('#newLeaveGenderHint');
+
+  \$typeSelect.find('option').each(function() {
+    const optGender = $(this).data('gender') || 'all';
+    let show = true;
+    if (optGender === 'female' && gender === 'male')   show = false;
+    if (optGender === 'male'   && gender === 'female') show = false;
+    $(this).toggle(show);
+    // If currently selected option becomes hidden, reset
+    if (!show && $(this).is(':selected')) {
+      \$typeSelect.val('');
+    }
+  });
+
+  if (gender === 'male' || gender === 'female') {
+    const label = gender === 'male' ? 'Male' : 'Female';
+    \$hint.text('Showing leave types applicable to ' + label + ' employees only.').show();
+  } else {
+    \$hint.hide();
+  }
+});
+
+// Reset leave type filter when modal closes
+$('#newLeaveModal').on('hide.bs.modal', function() {
+  $('#newLeaveType option').show();
+  $('#newLeaveGenderHint').hide();
 });
 JS;
 require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

@@ -181,6 +181,11 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
 ?>
 
 <!-- Page Title Bar -->
+<style>
+  .badge-pink { background-color:#f472b6; color:#fff; font-size:.7rem; }
+  .badge-blue { background-color:#60a5fa; color:#fff; font-size:.7rem; }
+  .leave-field-wrap { transition: opacity .2s; }
+</style>
 <div class="page-title-bar">
   <i class="fas fa-users text-primary"></i>
   <h1>Employees Management</h1>
@@ -766,27 +771,41 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
             <div class="tab-pane fade" id="tabLeaveB">
               <div class="row">
                 <?php
+                // gender: 'all' = no restriction, 'female' = female only, 'male' = male only
                 $leaveFields = [
-                  'sick_leave_balance'        => ['label' => 'Sick Leave',         'default' => 10],
-                  'vacation_leave_balance'    => ['label' => 'Vacation Leave',     'default' => 10],
-                  'bereavement_leave_balance' => ['label' => 'Bereavement Leave',  'default' => 5],
-                  'emergency_leave_balance'   => ['label' => 'Emergency Leave',    'default' => 5],
-                  'sil_balance'               => ['label' => 'Service Incentive',  'default' => 5],
-                  'maternity_leave_balance'   => ['label' => 'Maternity Leave',    'default' => 105],
-                  'paternity_leave_balance'   => ['label' => 'Paternity Leave',    'default' => 7],
-                  'solo_parent_leave_balance' => ['label' => 'Solo Parent Leave',  'default' => 7],
-                  'vawc_leave_balance'        => ['label' => 'VAWC Leave',         'default' => 10],
-                  'magna_carta_leave_balance' => ['label' => 'Magna Carta Leave',  'default' => 60],
+                  'sick_leave_balance'        => ['label' => 'Sick Leave',         'default' => 10,  'gender' => 'all'],
+                  'vacation_leave_balance'    => ['label' => 'Vacation Leave',     'default' => 10,  'gender' => 'all'],
+                  'bereavement_leave_balance' => ['label' => 'Bereavement Leave',  'default' => 5,   'gender' => 'all'],
+                  'emergency_leave_balance'   => ['label' => 'Emergency Leave',    'default' => 5,   'gender' => 'all'],
+                  'sil_balance'               => ['label' => 'Service Incentive',  'default' => 5,   'gender' => 'all'],
+                  'solo_parent_leave_balance' => ['label' => 'Solo Parent Leave',  'default' => 7,   'gender' => 'all'],
+                  'maternity_leave_balance'   => ['label' => 'Maternity Leave',    'default' => 105, 'gender' => 'female'],
+                  'vawc_leave_balance'        => ['label' => 'VAWC Leave',         'default' => 10,  'gender' => 'female'],
+                  'magna_carta_leave_balance' => ['label' => 'Magna Carta Leave',  'default' => 60,  'gender' => 'female'],
+                  'paternity_leave_balance'   => ['label' => 'Paternity Leave',    'default' => 7,   'gender' => 'male'],
                 ];
                 foreach ($leaveFields as $field => $info): ?>
-                <div class="col-md-4">
+                <div class="col-md-4 leave-field-wrap" data-gender="<?= $info['gender'] ?>">
                   <div class="form-group">
-                    <label><?= $info['label'] ?></label>
+                    <label>
+                      <?= $info['label'] ?>
+                      <?php if ($info['gender'] === 'female'): ?>
+                        <span class="badge badge-pink ml-1" title="Female employees only"><i class="fas fa-venus"></i> Female</span>
+                      <?php elseif ($info['gender'] === 'male'): ?>
+                        <span class="badge badge-blue ml-1" title="Male employees only"><i class="fas fa-mars"></i> Male</span>
+                      <?php endif; ?>
+                    </label>
                     <input type="number" step="0.5" min="0" name="<?= $field ?>"
-                           id="f_<?= $field ?>" class="form-control" value="<?= $info['default'] ?>">
+                           id="f_<?= $field ?>" class="form-control leave-gender-field"
+                           value="<?= $info['default'] ?>">
                   </div>
                 </div>
                 <?php endforeach; ?>
+              </div>
+              <div id="leaveGenderNotice" class="alert alert-info mt-2 py-2" style="display:none;font-size:.85rem;">
+                <i class="fas fa-info-circle mr-1"></i>
+                <span id="leaveGenderNoticeText"></span>
+                Gender-restricted leave fields are grayed out and set to 0.
               </div>
             </div>
 
@@ -889,6 +908,9 @@ $(document).ready(function () {
     document.getElementById('fEcPhone').value           = emp.emergency_contact_phone    ?? '';
     document.getElementById('fEcRelation').value        = emp.emergency_contact_relation ?? '';
 
+    // Apply gender restrictions after populating
+    applyLeaveGenderRules(emp.gender ?? '');
+
     $('#employeeModal .nav-tabs a:first').tab('show');
     $('#employeeModal').modal('show');
   };
@@ -899,9 +921,66 @@ $(document).ready(function () {
     document.getElementById('empModalTitle').innerHTML = '<i class="fas fa-user-plus mr-2"></i>Add Employee';
     document.getElementById('empSubmitBtn').innerHTML  = '<i class="fas fa-save mr-1"></i>Save Employee';
     filterPositions('', '');
+    applyLeaveGenderRules('');  // Reset — no gender selected yet
     $('#employeeModal .nav-tabs a:first').tab('show');
     $('#employeeModal').modal('show');
   };
+
+  // ── Gender-based leave restriction ──────────────────────────────────────────
+  // female-only: maternity, vawc, magna_carta
+  // male-only:   paternity
+  // all:         everything else
+  const LEAVE_DEFAULTS = {
+    'maternity_leave_balance':   105,
+    'vawc_leave_balance':        10,
+    'magna_carta_leave_balance': 60,
+    'paternity_leave_balance':   7,
+  };
+
+  function applyLeaveGenderRules(gender) {
+    const notice     = document.getElementById('leaveGenderNotice');
+    const noticeText = document.getElementById('leaveGenderNoticeText');
+
+    document.querySelectorAll('.leave-field-wrap').forEach(function(wrap) {
+      const fieldGender = wrap.getAttribute('data-gender');
+      const input       = wrap.querySelector('input');
+
+      if (fieldGender === 'all') return; // always enabled
+
+      let disabled = false;
+      if (gender === 'male'   && fieldGender === 'female') disabled = true;
+      if (gender === 'female' && fieldGender === 'male')   disabled = true;
+
+      if (disabled) {
+        input.value    = 0;
+        input.disabled = true;
+        wrap.style.opacity = '0.45';
+        wrap.title     = 'Not applicable for selected gender';
+      } else {
+        // Restore default value only if currently 0 or empty (don't overwrite edited values)
+        if (!input.value || parseFloat(input.value) === 0) {
+          input.value = LEAVE_DEFAULTS[input.name] ?? input.value;
+        }
+        input.disabled = false;
+        wrap.style.opacity = '1';
+        wrap.title     = '';
+      }
+    });
+
+    // Show notice banner only when a gender is selected
+    if (gender === 'male' || gender === 'female') {
+      const label = gender === 'male' ? 'Male' : 'Female';
+      noticeText.textContent = label + ' selected. ';
+      notice.style.display = 'block';
+    } else {
+      notice.style.display = 'none';
+    }
+  }
+
+  // Live: update leave fields when gender dropdown changes
+  document.getElementById('fGender').addEventListener('change', function() {
+    applyLeaveGenderRules(this.value);
+  });
 
   $('#fDeptId').on('change', function () {
     filterPositions($(this).val(), '');
