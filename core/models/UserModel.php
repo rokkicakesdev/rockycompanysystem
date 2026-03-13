@@ -28,21 +28,51 @@ class UserModel extends BaseModel
         return $stmt->fetch() ?: null;
     }
 
+    public static function findByEmployeeId(int $employeeId): ?array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM users WHERE employee_id = ? LIMIT 1');
+        $stmt->execute([$employeeId]);
+        return $stmt->fetch() ?: null;
+    }
+
     public static function create(array $data): bool
     {
         $stmt = self::db()->prepare('
-            INSERT INTO users (name, username, email, password, role, status, created_by)
-            VALUES (:name, :username, :email, :password, :role, :status, :created_by)
+            INSERT INTO users (name, username, email, password, role, employee_id, status, created_by)
+            VALUES (:name, :username, :email, :password, :role, :employee_id, :status, :created_by)
         ');
         return (bool) $stmt->execute([
-            ':name'       => $data['name'],
-            ':username'   => $data['username'],
-            ':email'      => $data['email'],
-            ':password'   => password_hash($data['password'], PASSWORD_BCRYPT),
-            ':role'       => $data['role']       ?? 'admin',
-            ':status'     => $data['status']     ?? 'active',
-            ':created_by' => $data['created_by'] ?? null,
+            ':name'        => $data['name'],
+            ':username'    => $data['username'],
+            ':email'       => $data['email'],
+            ':password'    => password_hash($data['password'], PASSWORD_BCRYPT),
+            ':role'        => $data['role']        ?? 'employee',
+            ':employee_id' => $data['employee_id'] ?? null,
+            ':status'      => $data['status']      ?? 'active',
+            ':created_by'  => $data['created_by']  ?? null,
         ]);
+    }
+
+    /**
+     * Generate a unique username from a full name.
+     * Format: firstname.emp  (e.g. "Juan dela Cruz" → "juan.emp")
+     * If taken, appends a number: juan.emp2, juan.emp3, ...
+     */
+    public static function generateEmployeeUsername(string $fullName): string
+    {
+        $firstName = strtolower(explode(' ', trim($fullName))[0]);
+        // Strip non-alphanumeric characters for safety
+        $firstName = preg_replace('/[^a-z0-9]/', '', $firstName);
+        $base      = $firstName . '.emp';
+        $username  = $base;
+        $suffix    = 2;
+
+        while (self::findByUsername($username) !== null) {
+            $username = $base . $suffix;
+            $suffix++;
+        }
+
+        return $username;
     }
 
     public static function update(int $id, array $data): bool

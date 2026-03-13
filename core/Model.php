@@ -47,10 +47,12 @@ class Model
     public static function getAllUsers(): array                           { return UserModel::getAll(); }
     public static function findUserByUsername(string $u): ?array         { return UserModel::findByUsername($u); }
     public static function findUserById(int $id): ?array                 { return UserModel::findById($id); }
+    public static function findUserByEmployeeId(int $id): ?array         { return UserModel::findByEmployeeId($id); }
     public static function createUser(array $data): bool                 { return UserModel::create($data); }
     public static function updateUser(int $id, array $data): bool        { return UserModel::update($id, $data); }
     public static function updateUserPassword(int $id, string $pw): bool { return UserModel::updatePassword($id, $pw); }
     public static function updateUserStatus(int $id, string $s): bool    { return UserModel::updateStatus($id, $s); }
+    public static function generateEmployeeUsername(string $n): string   { return UserModel::generateEmployeeUsername($n); }
 
     // ════════════════════════════════════════════════════════
     //  DEPARTMENTS & POSITIONS  →  DepartmentModel
@@ -74,6 +76,7 @@ class Model
 
     public static function getAllEmployees(string $status = ''): array       { return EmployeeModel::getAll($status); }
     public static function findEmployeeById(int $id): ?array                 { return EmployeeModel::findById($id); }
+    public static function generateNextEmployeeNo(): string                  { return EmployeeModel::generateNextEmployeeNo(); }
     public static function countActiveEmployees(): int                       { return EmployeeModel::countActive(); }
     public static function countEmployeesByStatus(): array                   { return EmployeeModel::countByStatus(); }
     public static function createEmployee(array $data): bool                 { return EmployeeModel::create($data); }

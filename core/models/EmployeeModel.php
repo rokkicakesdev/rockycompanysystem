@@ -9,6 +9,33 @@ require_once __DIR__ . '/BaseModel.php';
 
 class EmployeeModel extends BaseModel
 {
+    // ── Employee No Generator ────────────────────────────────────────────────
+
+    /**
+     * Generate the next sequential employee number in EMP-XXX format.
+     * Scans the max numeric suffix currently in the table and increments by 1.
+     * Thread-safe enough for a small-to-medium system (no concurrent batch inserts).
+     */
+    public static function generateNextEmployeeNo(): string
+    {
+        $row = self::db()->query(
+            "SELECT MAX(CAST(SUBSTRING(employee_no, 5) AS UNSIGNED)) AS max_seq
+             FROM employees
+             WHERE employee_no REGEXP '^EMP-[0-9]+$'"
+        )->fetch();
+
+        $next = (int)($row['max_seq'] ?? 0) + 1;
+        return 'EMP-' . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Return the auto-increment ID of the last inserted employee row.
+     */
+    public static function getLastInsertId(): int
+    {
+        return (int) self::db()->lastInsertId();
+    }
+
     // ── Employee CRUD ────────────────────────────────────────────────────────
 
     public static function getAll(string $status = ''): array
@@ -57,9 +84,14 @@ class EmployeeModel extends BaseModel
 
     public static function create(array $data): bool
     {
+        // Auto-generate employee_no if not explicitly provided
+        if (empty($data['employee_no'])) {
+            $data['employee_no'] = self::generateNextEmployeeNo();
+        }
+
         $stmt = self::db()->prepare('
             INSERT INTO employees
-              (name, gender, civil_status, birthdate, address,
+              (employee_no, name, gender, civil_status, birthdate, address,
                email, phone, sss_no, philhealth_no, pagibig_no, tin_no,
                department_id, position_id, basic_salary, allowance,
                date_hired, employment_type, status,
@@ -69,7 +101,7 @@ class EmployeeModel extends BaseModel
                solo_parent_leave_balance, vawc_leave_balance, magna_carta_leave_balance,
                emergency_contact_name, emergency_contact_phone, emergency_contact_relation)
             VALUES
-              (:name, :gender, :civil_status, :birthdate, :address,
+              (:employee_no, :name, :gender, :civil_status, :birthdate, :address,
                :email, :phone, :sss_no, :philhealth_no, :pagibig_no, :tin_no,
                :department_id, :position_id, :basic_salary, :allowance,
                :date_hired, :employment_type, :status,
@@ -80,6 +112,7 @@ class EmployeeModel extends BaseModel
                :emergency_contact_name, :emergency_contact_phone, :emergency_contact_relation)
         ');
         return (bool) $stmt->execute([
+            ':employee_no'               => $data['employee_no'],
             ':name'                      => $data['name'],
             ':gender'                    => $data['gender']                    ?? null,
             ':civil_status'              => $data['civil_status']              ?? null,

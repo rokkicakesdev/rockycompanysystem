@@ -169,6 +169,7 @@ $users = Model::getAllUsers();
           <select name="role" class="form-control">
             <option value="admin">Admin</option>
             <option value="management">Management</option>
+            <option value="employee">Employee</option>
           </select>
         </div>
         <div class="form-group"><label>Password *</label><input type="password" name="password" class="form-control" required minlength="8"></div>
@@ -197,6 +198,7 @@ $users = Model::getAllUsers();
           <select name="role" id="editUserRole" class="form-control">
             <option value="admin">Admin</option>
             <option value="management">Management</option>
+            <option value="employee">Employee</option>
           </select>
         </div>
         <div class="form-group">

@@ -95,12 +95,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
             </div>';
         } else {
+            // ── Auto-generate employee number ─────────────────────────────
+            // generateNextEmployeeNo() scans MAX(employee_no) and increments
+            $data['employee_no'] = Model::generateNextEmployeeNo();
+
+            // ── Create the employee record ────────────────────────────────
             Model::createEmployee($data);
-            Model::log($_SESSION['user_id'], 'CREATE_EMPLOYEE', 'Created employee: ' . $data['name']);
-            $msg = '<div class="alert alert-success alert-dismissible fade show" role="alert">
-                Employee created successfully.
-                <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
-            </div>';
+            $newEmpId = EmployeeModel::getLastInsertId();
+
+            // ── Auto-create linked user account ───────────────────────────
+            // Format:   username = firstname.emp  (unique, suffixed if taken)
+            // Password: Rocky@2026  (employee must change on first login)
+            $autoUsername = Model::generateEmployeeUsername($data['name']);
+            $userCreated  = false;
+            if ($newEmpId > 0) {
+                $userCreated = Model::createUser([
+                    'name'        => $data['name'],
+                    'username'    => $autoUsername,
+                    'email'       => $data['email'] ?? ($autoUsername . '@rocky.com'),
+                    'password'    => 'Rocky@2026',
+                    'role'        => 'employee',
+                    'employee_id' => $newEmpId,
+                    'status'      => 'active',
+                    'created_by'  => $_SESSION['user_id'] ?? null,
+                ]);
+            }
+
+            Model::log(
+                $_SESSION['user_id'],
+                'CREATE_EMPLOYEE',
+                "Created employee: {$data['name']} ({$data['employee_no']})" .
+                ($userCreated ? " | User account: {$autoUsername}" : '')
+            );
+
+            $userNote = $userCreated
+                ? "<br><small><i class=\"fas fa-user-check mr-1\"></i>
+                   User account created &mdash;
+                   Username: <strong>{$autoUsername}</strong> &nbsp;|&nbsp;
+                   Default password: <strong>Rocky@2026</strong></small>"
+                : '';
+
+            $msg = "<div class=\"alert alert-success alert-dismissible fade show\" role=\"alert\">
+                <i class=\"fas fa-check-circle mr-1\"></i>
+                Employee <strong>" . htmlspecialchars($data['name']) . "</strong>
+                created successfully with ID <strong>{$data['employee_no']}</strong>.
+                {$userNote}
+                <button type=\"button\" class=\"close\" data-dismiss=\"alert\"><span>×</span></button>
+            </div>";
         }
         } // end validation else
     }
