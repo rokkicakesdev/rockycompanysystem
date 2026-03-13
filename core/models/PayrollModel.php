@@ -1,0 +1,397 @@
+<?php
+// core/models/PayrollModel.php
+// ─────────────────────────────────────────────────────────────────────────────
+//  Handles all payroll operations:
+//    - Payroll records (CRUD, release)
+//    - Period string helpers
+//    - Employee payroll settings (semi-monthly)
+//    - Year-to-date aggregates (tax, gov deductions, basic)
+//    - 13th month pay
+//  Extracted from Model.php (God Class split).
+// ─────────────────────────────────────────────────────────────────────────────
+
+require_once __DIR__ . '/BaseModel.php';
+
+if (!class_exists('PhilippineDeductions')) {
+    require_once __DIR__ . '/../PhilippineDeductions.php';
+}
+
+class PayrollModel extends BaseModel
+{
+    // ════════════════════════════════════════════════════════
+    //  PERIOD HELPERS
+    //  Period format: YYYY-MM-C  (C = 1 or 2)
+    //  e.g. "2026-12-1" = December 1–15
+    //       "2026-12-2" = December 16–31
+    // ════════════════════════════════════════════════════════
+
+    /** "2026-02-1" → "February 2026 (1st–15th)" */
+    public static function periodLabel(string $period): string
+    {
+        if (preg_match('/^(\d{4}-\d{2})-(\d)$/', $period, $m)) {
+            $monthLabel = date('F Y', strtotime($m[1] . '-01'));
+            $cutoff     = $m[2] === '1' ? '1st–15th' : '16th–End';
+            return "{$monthLabel} ({$cutoff})";
+        }
+        // Fallback for legacy YYYY-MM format
+        return date('F Y', strtotime($period . '-01'));
+    }
+
+    /** "2026-02-1" → "2026-02" */
+    public static function periodBase(string $period): string
+    {
+        return preg_match('/^(\d{4}-\d{2})-\d$/', $period, $m) ? $m[1] : $period;
+    }
+
+    /** "2026-12-2" → 2026 */
+    public static function periodYear(string $period): int
+    {
+        return (int) substr($period, 0, 4);
+    }
+
+    /** "2026-12-2" → 2 */
+    public static function periodCutoff(string $period): int
+    {
+        return preg_match('/-(\d)$/', $period, $m) ? (int) $m[1] : 1;
+    }
+
+    /** True when period is the December 1st cutoff (13th month disbursal). */
+    public static function isDecember1stCutoff(string $period): bool
+    {
+        return preg_match('/^\d{4}-12-1$/', $period) === 1;
+    }
+
+    /** True when period is the December 2nd cutoff (year-end tax reconciliation). */
+    public static function isDecember2ndCutoff(string $period): bool
+    {
+        return preg_match('/^\d{4}-12-2$/', $period) === 1;
+    }
+
+    /** Returns ["YYYY-MM-1", "YYYY-MM-2"] for a given YYYY-MM base. */
+    public static function periodsForMonth(string $yearMonth): array
+    {
+        return ["{$yearMonth}-1", "{$yearMonth}-2"];
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  PAYROLL RECORDS
+    // ════════════════════════════════════════════════════════
+
+    public static function getAll(): array
+    {
+        return self::db()->query('SELECT * FROM v_payroll ORDER BY period DESC, employee_name')->fetchAll();
+    }
+
+    public static function getByPeriod(string $period): array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE period = ? ORDER BY employee_name');
+        $stmt->execute([$period]);
+        return $stmt->fetchAll();
+    }
+
+    public static function getByEmployee(int $employeeId): array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE employee_id = ? ORDER BY period DESC');
+        $stmt->execute([$employeeId]);
+        return $stmt->fetchAll();
+    }
+
+    /** Returns last 2 years of records (48 semi-monthly periods). */
+    public static function getRecentByEmployee(int $employeeId): array
+    {
+        $stmt = self::db()->prepare('
+            SELECT period, gross_pay, total_deductions, net_pay, status, processed_by_name
+            FROM v_payroll
+            WHERE employee_id = ?
+            ORDER BY period DESC
+            LIMIT 48
+        ');
+        $stmt->execute([$employeeId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public static function findById(int $id): ?array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public static function periodExists(string $period): bool
+    {
+        $stmt = self::db()->prepare('SELECT COUNT(*) FROM payroll_records WHERE period = ?');
+        $stmt->execute([$period]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function employeeExistsInPeriod(int $employeeId, string $period): bool
+    {
+        $stmt = self::db()->prepare('SELECT COUNT(*) FROM payroll_records WHERE employee_id = ? AND period = ?');
+        $stmt->execute([$employeeId, $period]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function getTotalNetPayForPeriod(string $period): float
+    {
+        $stmt = self::db()->prepare('SELECT COALESCE(SUM(net_pay), 0) AS total FROM payroll_records WHERE period = ?');
+        $stmt->execute([$period]);
+        return (float) $stmt->fetch()['total'];
+    }
+
+    public static function getPeriods(): array
+    {
+        return self::db()->query('SELECT DISTINCT period FROM payroll_records ORDER BY period DESC')->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    public static function create(array $d): bool
+    {
+        $stmt = self::db()->prepare('
+            INSERT INTO payroll_records
+              (employee_id, period, basic_salary, allowance, gross_pay,
+               sss_msc, sss_ee, sss_er,
+               philhealth_mbs, philhealth_ee, philhealth_er,
+               pagibig_mfs, pagibig_ee, pagibig_er,
+               taxable_income, withholding_tax,
+               other_deductions, total_deductions, net_pay,
+               status, processed_by)
+            VALUES
+              (:employee_id, :period, :basic_salary, :allowance, :gross_pay,
+               :sss_msc, :sss_ee, :sss_er,
+               :philhealth_mbs, :philhealth_ee, :philhealth_er,
+               :pagibig_mfs, :pagibig_ee, :pagibig_er,
+               :taxable_income, :withholding_tax,
+               :other_deductions, :total_deductions, :net_pay,
+               :status, :processed_by)
+        ');
+        return (bool) $stmt->execute([
+            ':employee_id'      => $d['employee_id'],
+            ':period'           => $d['period'],
+            ':basic_salary'     => $d['basic_salary'],
+            ':allowance'        => $d['allowance'],
+            ':gross_pay'        => $d['gross_pay'],
+            ':sss_msc'          => $d['sss_msc'],
+            ':sss_ee'           => $d['sss_ee'],
+            ':sss_er'           => $d['sss_er'],
+            ':philhealth_mbs'   => $d['philhealth_mbs'],
+            ':philhealth_ee'    => $d['philhealth_ee'],
+            ':philhealth_er'    => $d['philhealth_er'],
+            ':pagibig_mfs'      => $d['pagibig_mfs'],
+            ':pagibig_ee'       => $d['pagibig_ee'],
+            ':pagibig_er'       => $d['pagibig_er'],
+            ':taxable_income'   => $d['taxable_income'],
+            ':withholding_tax'  => $d['withholding_tax'],
+            ':other_deductions' => $d['other_deductions'] ?? 0,
+            ':total_deductions' => $d['total_deductions'],
+            ':net_pay'          => $d['net_pay'],
+            ':status'           => $d['status']        ?? 'pending',
+            ':processed_by'     => $d['processed_by']  ?? null,
+        ]);
+    }
+
+    public static function release(int $payrollId): bool
+    {
+        $stmt = self::db()->prepare("UPDATE payroll_records SET status = 'released', released_at = NOW() WHERE id = ?");
+        return (bool) $stmt->execute([$payrollId]);
+    }
+
+    public static function releaseAllForPeriod(string $period): bool
+    {
+        $stmt = self::db()->prepare("UPDATE payroll_records SET status = 'released', released_at = NOW() WHERE period = ? AND status = 'pending'");
+        return (bool) $stmt->execute([$period]);
+    }
+
+    /** Convenience wrapper around PhilippineDeductions::computeAll() */
+    public static function computeForEmployee(array $employee): array
+    {
+        return PhilippineDeductions::computeAll(
+            (float) $employee['basic_salary'],
+            (float) ($employee['allowance'] ?? 0)
+        );
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  EMPLOYEE PAYROLL SETTINGS (semi-monthly)
+    // ════════════════════════════════════════════════════════
+
+    public static function getSettings(int $employeeId): array
+    {
+        $stmt = self::db()->prepare(
+            'SELECT cutoff1_fixed_amount, tax_method, gov_deduction_mode FROM employees WHERE id = ? LIMIT 1'
+        );
+        $stmt->execute([$employeeId]);
+        $row = $stmt->fetch();
+        return [
+            'cutoff1_fixed_amount' => $row['cutoff1_fixed_amount'] ?? null,
+            'tax_method'           => $row['tax_method']           ?? 'half_monthly',
+            'gov_deduction_mode'   => $row['gov_deduction_mode']   ?? 'second_cutoff',
+        ];
+    }
+
+    public static function updateSettings(int $employeeId, array $s): bool
+    {
+        $stmt = self::db()->prepare(
+            'UPDATE employees
+             SET cutoff1_fixed_amount = :c1,
+                 tax_method           = :tm,
+                 gov_deduction_mode   = :gm
+             WHERE id = :id'
+        );
+        return $stmt->execute([
+            ':c1' => $s['cutoff1_fixed_amount'] !== '' ? (float) $s['cutoff1_fixed_amount'] : null,
+            ':tm' => in_array($s['tax_method'], ['half_monthly', 'bir_table']) ? $s['tax_method'] : 'half_monthly',
+            ':gm' => in_array($s['gov_deduction_mode'], ['second_cutoff', 'split']) ? $s['gov_deduction_mode'] : 'second_cutoff',
+            ':id' => $employeeId,
+        ]);
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  YEAR-TO-DATE AGGREGATES
+    // ════════════════════════════════════════════════════════
+
+    public static function getTotalWithholdingTaxByYear(int $employeeId, int $year): float
+    {
+        $stmt = self::db()->prepare(
+            'SELECT COALESCE(SUM(withholding_tax), 0) FROM payroll_records WHERE employee_id = ? AND period LIKE ?'
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float) $stmt->fetchColumn();
+    }
+
+    public static function getTotalGovDedsByYear(int $employeeId, int $year): float
+    {
+        $stmt = self::db()->prepare(
+            'SELECT COALESCE(SUM(sss_ee + philhealth_ee + pagibig_ee), 0) FROM payroll_records WHERE employee_id = ? AND period LIKE ?'
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float) $stmt->fetchColumn();
+    }
+
+    public static function getTotalBasicByYear(int $employeeId, int $year): float
+    {
+        $stmt = self::db()->prepare(
+            'SELECT COALESCE(SUM(basic_salary), 0) FROM payroll_records WHERE employee_id = ? AND period LIKE ?'
+        );
+        $stmt->execute([$employeeId, $year . '-%']);
+        return (float) $stmt->fetchColumn();
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  13TH MONTH PAY
+    // ════════════════════════════════════════════════════════
+
+    /**
+     * Compute 13th month pay for all active employees for a given year.
+     * Formula (PD 851): Total basic salary earned in the year ÷ 12
+     */
+    public static function compute13thMonth(int $year): array
+    {
+        $stmt = self::db()->prepare('
+            SELECT
+                e.id            AS employee_id,
+                e.name          AS employee_name,
+                e.employee_no,
+                d.name          AS department,
+                p.name          AS position,
+                e.basic_salary  AS current_basic,
+                e.date_hired,
+                e.status        AS emp_status,
+                COALESCE(pr.total_basic, 0)       AS total_basic_earned,
+                COALESCE(pr.months_worked, 0)     AS months_worked,
+                COALESCE(pr.total_basic, 0) / 12  AS thirteenth_month_pay
+            FROM employees e
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions   p ON p.id = e.position_id
+            LEFT JOIN (
+                SELECT
+                    employee_id,
+                    SUM(basic_salary)   AS total_basic,
+                    COUNT(*) / 2.0      AS months_worked
+                FROM payroll_records
+                WHERE period LIKE ?
+                  AND period NOT LIKE \'%-0\'
+                GROUP BY employee_id
+            ) pr ON pr.employee_id = e.id
+            WHERE e.status IN (\'active\', \'on_leave\')
+            ORDER BY e.name
+        ');
+        $stmt->execute([$year . '-%']);
+        return $stmt->fetchAll();
+    }
+
+    public static function get13thMonthByYear(int $year): array
+    {
+        $stmt = self::db()->prepare('
+            SELECT tm.*, e.name AS employee_name, e.employee_no,
+                   d.name AS department, p.name AS position
+            FROM thirteenth_month_pay tm
+            JOIN employees e ON e.id = tm.employee_id
+            JOIN departments d ON d.id = e.department_id
+            JOIN positions p ON p.id = e.position_id
+            WHERE tm.year = ?
+            ORDER BY e.name
+        ');
+        $stmt->execute([$year]);
+        return $stmt->fetchAll();
+    }
+
+    public static function get13thMonthByEmployee(int $employeeId, int $year): ?array
+    {
+        $stmt = self::db()->prepare(
+            'SELECT * FROM thirteenth_month_pay WHERE employee_id = ? AND year = ? LIMIT 1'
+        );
+        $stmt->execute([$employeeId, $year]);
+        return $stmt->fetch() ?: null;
+    }
+
+    public static function thirteenthMonthExists(int $year): bool
+    {
+        $stmt = self::db()->prepare('SELECT COUNT(*) FROM thirteenth_month_pay WHERE year = ?');
+        $stmt->execute([$year]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    public static function thirteenthMonthExistsForEmployee(int $employeeId, int $year): bool
+    {
+        $stmt = self::db()->prepare('SELECT COUNT(*) FROM thirteenth_month_pay WHERE employee_id = ? AND year = ?');
+        $stmt->execute([$employeeId, $year]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    /** Upsert a 13th month record (insert or update if already exists). */
+    public static function save13thMonth(array $d): bool
+    {
+        $stmt = self::db()->prepare('
+            INSERT INTO thirteenth_month_pay
+                (employee_id, year, total_basic_earned, months_worked, amount, status, processed_by)
+            VALUES
+                (:employee_id, :year, :total_basic_earned, :months_worked, :amount, :status, :processed_by)
+            ON DUPLICATE KEY UPDATE
+                total_basic_earned = VALUES(total_basic_earned),
+                months_worked      = VALUES(months_worked),
+                amount             = VALUES(amount),
+                processed_by       = VALUES(processed_by),
+                updated_at         = NOW()
+        ');
+        return (bool) $stmt->execute([
+            ':employee_id'        => $d['employee_id'],
+            ':year'               => $d['year'],
+            ':total_basic_earned' => $d['total_basic_earned'],
+            ':months_worked'      => $d['months_worked'],
+            ':amount'             => $d['amount'],
+            ':status'             => $d['status']        ?? 'pending',
+            ':processed_by'       => $d['processed_by']  ?? null,
+        ]);
+    }
+
+    public static function release13thMonth(int $id): bool
+    {
+        $stmt = self::db()->prepare("UPDATE thirteenth_month_pay SET status = 'released', released_at = NOW() WHERE id = ?");
+        return (bool) $stmt->execute([$id]);
+    }
+
+    public static function releaseAll13thMonth(int $year): bool
+    {
+        $stmt = self::db()->prepare("UPDATE thirteenth_month_pay SET status = 'released', released_at = NOW() WHERE year = ? AND status = 'pending'");
+        return (bool) $stmt->execute([$year]);
+    }
+}
