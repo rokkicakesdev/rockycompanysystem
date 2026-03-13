@@ -236,8 +236,9 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
           <button type="submit" class="btn" id="reviewSubmitBtn">Confirm</button>
         </div>
       </form>
-    </div>
-</div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /#reviewModal -->
 
 <!-- New Leave Modal -->
 <div class="modal fade" id="newLeaveModal" tabindex="-1">
@@ -307,12 +308,14 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
 </div>
 
 <?php
+$baseUrl = BASE_URL;
 $extraJs = <<<JS
 $('#reviewModal').on('show.bs.modal', function(e) {
   const btn    = $(e.relatedTarget);
   const id     = btn.data('id');
   const action = btn.data('action');
   const name   = btn.data('name');
+  if (!action) return; // guard: fired by wrong button, bail out
   $('#reviewLeaveId').val(id);
   $('#reviewAction').val(action);
   $('#reviewDesc').text('You are about to ' + action.toUpperCase() + ' the leave request for ' + name + '.');
@@ -342,7 +345,7 @@ function checkHolidayOverlap() {
   const from = $('#newDateFrom').val();
   const to   = $('#newDateTo').val();
   if (!from || !to) return;
-  $.getJSON('<?= BASE_URL ?>/app/ajax/check_holidays.php', { date_from: from, date_to: to }, function(data) {
+  $.getJSON('$baseUrl/app/ajax/check_holidays.php', { date_from: from, date_to: to }, function(data) {
     if (data.holidays && data.holidays.length > 0) {
       const names = data.holidays.map(h => h.name + ' (' + h.date + ')').join(', ');
       $('#holidayLeaveText').text('This leave period overlaps with: ' + names + '. These days are typically not counted as leave days.');
