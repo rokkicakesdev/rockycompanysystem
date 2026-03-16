@@ -1,0 +1,409 @@
+/* ============================================================
+   Rocky HRIS + Payroll System — Admin Stylesheet
+   File: assets/css/admin.css
+   Extracted from inline styles across all admin view files.
+   ============================================================ */
+
+/* ════════════════════════════════════════════════════════════
+   LAYOUTS — admin_header / admin_footer
+   ════════════════════════════════════════════════════════════ */
+.main-footer {
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 20px;
+}
+.footer-text {
+  font-size: .78rem;
+  color: #94a3b8;
+}
+.sidebar-brand-icon {
+  color: #60a5fa;
+  font-size: 1.3rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   SHARED ADMIN UTILITIES
+   ════════════════════════════════════════════════════════════ */
+.text-xs   { font-size: .75rem; }
+.text-sm   { font-size: .82rem; }
+.text-sm2  { font-size: .85rem; }
+.text-sm3  { font-size: .88rem; }
+.text-md   { font-size: .9rem; }
+.text-muted-xs { font-size: .78rem; color: #64748b; }
+.form-inline-gap {
+  display: inline-flex;
+  gap: 8px;
+}
+.action-form-inline {
+  display: inline;
+}
+.whitespace-nowrap {
+  white-space: nowrap;
+}
+.opacity-faint {
+  opacity: .15;
+}
+.opacity-light {
+  opacity: .2;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ICON BOXES — dashboard stat cards
+   ════════════════════════════════════════════════════════════ */
+.icon-box-blue    { background: #dbeafe; color: #1d4ed8; }
+.icon-box-yellow  { background: #fef3c7; color: #d97706; }
+.icon-box-green   { background: #dcfce7; color: #16a34a; }
+.icon-box-purple  { background: #f3e8ff; color: #7c3aed; }
+.icon-box-red     { background: #fee2e2; color: #dc2626; }
+.icon-box-blue2   { background: #dbeafe; color: #2563eb; }
+
+/* ════════════════════════════════════════════════════════════
+   DASHBOARD
+   ════════════════════════════════════════════════════════════ */
+.dash-progress-cell {
+  width: 120px;
+}
+.dash-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.dash-pending-icon {
+  color: #d97706;
+}
+.dash-pending-icon-sm {
+  color: #d97706;
+  font-size: .7rem;
+}
+.dash-no-pending-icon {
+  color: #86efac;
+}
+.dash-announcement-border {
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #f8fafc;
+}
+.dash-pin-icon {
+  color: #d97706;
+  font-size: .7rem;
+}
+.dash-ann-title {
+  font-size: .85rem;
+}
+.dash-ann-excerpt {
+  font-size: .78rem;
+  color: #64748b;
+  margin: 4px 0 0;
+}
+.dash-activity-name {
+  font-weight: 600;
+  font-size: .82rem;
+}
+.dash-activity-role {
+  font-size: .65rem;
+}
+.dash-activity-action {
+  font-size: .8rem;
+  color: #374151;
+}
+.dash-activity-icon {
+  color: #64748b;
+}
+.dash-announcements-icon {
+  color: #7c3aed;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ANNOUNCEMENTS (admin)
+   ════════════════════════════════════════════════════════════ */
+.ann-empty-icon {
+  opacity: .15;
+}
+.ann-pin-icon {
+  color: #d97706;
+}
+.ann-content-text {
+  font-size: .85rem;
+  white-space: pre-wrap;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ATTENDANCE (admin)
+   ════════════════════════════════════════════════════════════ */
+.att-view-toggle {
+  display: inline-flex;
+  gap: 8px;
+}
+.att-holiday-banner {
+  background: #f0fdfa;
+  border-left: 4px solid #14b8a6 !important;
+  border-radius: 0;
+}
+.att-weekend-banner {
+  background: #f8fafc;
+  border-left: 4px solid #94a3b8 !important;
+  border-radius: 0;
+}
+.att-holiday-icon {
+  color: #14b8a6;
+}
+.att-weekend-icon {
+  color: #94a3b8;
+}
+.att-emp-name {
+  font-size: .85rem;
+}
+.att-col-status  { width: 120px; }
+.att-col-timein  { width: 95px; }
+.att-col-timeout { width: 95px; }
+.att-col-ot      { width: 80px; }
+.att-col-remarks { width: 150px; }
+.att-leave-select {
+  font-size: .75rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   DEPARTMENTS
+   ════════════════════════════════════════════════════════════ */
+.dept-actions-cell {
+  white-space: nowrap;
+}
+.dept-pos-section-label {
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #64748b;
+}
+.dept-pos-name {
+  font-size: .85rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   EMPLOYEES (admin)
+   ════════════════════════════════════════════════════════════ */
+.emp-filter-select {
+  min-width: 220px;
+}
+.emp-empty-icon {
+  color: #cbd5e1;
+}
+.emp-view-name {
+  font-size: .9rem;
+}
+.emp-view-no {
+  font-size: .82rem;
+}
+.emp-view-position {
+  font-size: .88rem;
+}
+.emp-view-table-label {
+  font-size: .82rem;
+}
+.emp-view-table-value {
+  font-size: .82rem;
+}
+.emp-leave-type-cell {
+  font-size: .85rem;
+}
+.emp-footer-actions {
+  gap: .5rem;
+}
+.emp-footer-count {
+  font-size: .82rem;
+}
+.emp-gender-notice {
+  display: none;
+  font-size: .85rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   HOLIDAYS
+   ════════════════════════════════════════════════════════════ */
+.holiday-page-icon {
+  color: var(--accent);
+}
+.holiday-legend-gap {
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.holiday-legend-badge {
+  font-size: .75rem;
+}
+.holiday-legend-dot {
+  font-size: .5rem;
+}
+.holiday-empty-icon {
+  opacity: .15;
+}
+.holiday-col-date      { width: 120px; }
+.holiday-col-recurring { width: 80px; }
+.holiday-col-actions   { width: 90px; }
+.holiday-year-select   { width: 100px; }
+.holiday-filter-gap    { gap: .5rem; }
+.holiday-name-border {
+  border-left: 3px solid currentColor;
+  padding-left: .5rem;
+}
+.holiday-actions-cell {
+  white-space: nowrap;
+}
+.holiday-help-text {
+  font-size: .8rem;
+}
+.holiday-dot-sm {
+  font-size: .5rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   LEAVE (admin)
+   ════════════════════════════════════════════════════════════ */
+.leave-footer-gap {
+  gap: .5rem;
+}
+.leave-footer-count {
+  font-size: .82rem;
+}
+.leave-gender-hint {
+  display: none;
+}
+.leave-holiday-warning {
+  display: none;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  color: #0f766e;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL
+   ════════════════════════════════════════════════════════════ */
+.payroll-skip-list {
+  font-size: .82rem;
+}
+.payroll-period-select-md {
+  max-width: 200px;
+}
+.payroll-summary-badge {
+  font-size: .82rem;
+}
+.payroll-actions-cell {
+  white-space: nowrap;
+}
+.payroll-cutoff-select {
+  max-width: 175px;
+}
+.payroll-scroll-table {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.payroll-cb-col {
+  width: 36px;
+}
+.payroll-employee-col {
+  max-width: 200px;
+}
+.payroll-name-col {
+  max-width: 175px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL SETTINGS
+   ════════════════════════════════════════════════════════════ */
+.ps-header-note {
+  font-size: .82rem;
+}
+.ps-info-alert {
+  font-size: .82rem;
+}
+.ps-table {
+  font-size: .82rem;
+}
+.ps-col-employee    { min-width: 180px; }
+.ps-col-fixed       { min-width: 160px; }
+.ps-col-tax         { min-width: 160px; }
+.ps-col-govmode     { min-width: 180px; }
+.ps-col-net1        { min-width: 120px; }
+.ps-col-net2        { min-width: 120px; }
+.ps-col-total       { min-width: 110px; }
+
+/* ════════════════════════════════════════════════════════════
+   PAYSLIP (admin)
+   ════════════════════════════════════════════════════════════ */
+.payslip-company-name {
+  font-weight: 700;
+}
+.payslip-header-sub {
+  font-size: .75rem;
+  opacity: .7;
+}
+.payslip-period-label-text {
+  font-size: .75rem;
+  opacity: .7;
+}
+.payslip-period-value {
+  font-size: 1rem;
+}
+.payslip-13th-amount {
+  color: #0369a1;
+}
+.payslip-reconcile-row {
+  /* color is set dynamically via PHP/JS — class is a structural hook */
+}
+.payslip-gov-note {
+  font-size: .78rem;
+}
+.payslip-processed-label {
+  font-size: .75rem;
+}
+.payslip-empty-icon {
+  opacity: .2;
+}
+
+/* ════════════════════════════════════════════════════════════
+   RECRUITMENT (admin)
+   ════════════════════════════════════════════════════════════ */
+.recruitment-job-row {
+  cursor: pointer;
+}
+.recruitment-empty-icon {
+  color: #cbd5e1;
+}
+.recruitment-no-selection-icon {
+  color: #cbd5e1;
+}
+
+/* ════════════════════════════════════════════════════════════
+   13TH MONTH
+   ════════════════════════════════════════════════════════════ */
+.thirteenth-controls-gap {
+  gap: .75rem;
+}
+.thirteenth-year-select {
+  max-width: 120px;
+}
+.thirteenth-summary-badge {
+  font-size: .82rem;
+}
+.thirteenth-emp-name {
+  font-size: .85rem;
+}
+.thirteenth-empty-icon {
+  color: #cbd5e1;
+}
+.thirteenth-info-table {
+  font-size: .85rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACTIVITY LOG
+   ════════════════════════════════════════════════════════════ */
+.activity-user-name {
+  font-size: .82rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   USERS
+   ════════════════════════════════════════════════════════════ */
+.user-you-label {
+  font-size: .75rem;
+}

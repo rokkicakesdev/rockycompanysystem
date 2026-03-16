@@ -28,14 +28,14 @@ $actionColors = [
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-history" class="text-primary"></i>
+    <i class="fas fa-history text-primary"></i>
     <h1>Activity Logs</h1>
     <small class="text-muted ml-auto">Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalLogs)) ?> of <?= number_format($totalLogs) ?> entries</small>
   </div>
 
 <div class="card">
       <div class="card-body p-0">
-        <div class="table-responsive" class="activity-table-wrap">
+        <div class="table-responsive activity-table-wrap">
           <table class="table table-hover table-sm mb-0">
             <thead >
               <tr>
@@ -53,10 +53,10 @@ $actionColors = [
               ?>
               <tr>
                 <td><small><?= date('M d H:i:s', strtotime($log['created_at'])) ?></small></td>
-                <td><strong style="font-size:.82rem;"><?= htmlspecialchars($log['user_name'] ?? 'System') ?></strong></td>
+                <td><strong class="activity-user-name"><?= htmlspecialchars($log['user_name'] ?? 'System') ?></strong></td>
                 <td><small><?= ucfirst($log['role'] ?? '') ?></small></td>
                 <td>
-                  <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;background:<?= $color ?>18;color:<?= $color ?>;">
+                  <span class="activity-action-badge" style="background:<?= $color ?>18;color:<?= $color ?>">
                     <?= str_replace('_', ' ', $log['action']) ?>
                   </span>
                 </td>

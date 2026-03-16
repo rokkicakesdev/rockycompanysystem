@@ -38,7 +38,7 @@ if ($employeeId) {
 
 <div class="page-title-bar">
   <i class="fas fa-file-invoice-dollar text-primary"></i>
-  <h1>My Payslips <small class="text-muted" style="font-size:.55em;">View &amp; print your payroll history</small></h1>
+  <h1>My Payslips <small class="text-muted my-payslips-subtitle">View &amp; print your payroll history</small></h1>
 </div>
 
 <!-- Payslip Table -->
@@ -101,7 +101,7 @@ if ($employeeId) {
                 <i class="fas fa-eye mr-1"></i> View
               </button>
               <?php else: ?>
-                <span class="text-muted" style="font-size:.8rem;">—</span>
+                <span class="text-muted my-payslips-empty-dash">—</span>
               <?php endif; ?>
             </td>
           </tr>
@@ -131,12 +131,12 @@ if ($employeeId) {
         <div class="payslip-header-bar d-flex justify-content-between align-items-start px-4 py-3">
           <div>
             <h5 class="mb-0 font-weight-bold"><?= htmlspecialchars(COMPANY_NAME) ?></h5>
-            <small style="opacity:.7;"><?= htmlspecialchars(COMPANY_ADDRESS) ?></small><br>
-            <small style="opacity:.6;">Official Payroll Slip</small>
+            <small class="ps-modal-company-address"><?= htmlspecialchars(COMPANY_ADDRESS) ?></small><br>
+            <small class="ps-modal-company-sub">Official Payroll Slip</small>
           </div>
           <div class="text-right">
-            <small style="opacity:.7;">Pay Period</small><br>
-            <strong id="ps-period-label" style="font-size:1rem;"></strong><br>
+            <small class="ps-modal-company-address">Pay Period</small><br>
+            <strong id="ps-period-label" class="ps-modal-period-value"></strong><br>
             <span id="ps-status-badge" class="status-badge mt-1 d-inline-block"></span>
           </div>
         </div>
@@ -146,7 +146,7 @@ if ($employeeId) {
           <!-- Employee Info -->
           <div class="row mb-3">
             <div class="col-6">
-              <table class="table table-sm table-borderless mb-0" style="font-size:.85rem;">
+              <table class="table table-sm table-borderless mb-0 ps-modal-emp-table">
                 <tr>
                   <td class="text-muted pl-0" width="40%">Employee No.</td>
                   <td><code><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></code></td>
@@ -162,7 +162,7 @@ if ($employeeId) {
               </table>
             </div>
             <div class="col-6">
-              <table class="table table-sm table-borderless mb-0" style="font-size:.85rem;">
+              <table class="table table-sm table-borderless mb-0 ps-modal-emp-table">
                 <tr>
                   <td class="text-muted pl-0" width="40%">Position</td>
                   <td><?= htmlspecialchars($employee['position'] ?? '—') ?></td>
@@ -173,7 +173,7 @@ if ($employeeId) {
                 </tr>
                 <tr>
                   <td class="text-muted pl-0">Employment</td>
-                  <td><span class="badge badge-success" style="font-size:.75rem;">Active</span></td>
+                  <td><span class="badge badge-success ps-modal-active-badge">Active</span></td>
                 </tr>
               </table>
             </div>
@@ -194,8 +194,8 @@ if ($employeeId) {
                 <span>Allowance</span>
                 <span>&#8369; <?= number_format($employee['allowance'] ?? 0, 2) ?></span>
               </div>
-              <div class="comp-row" id="ps-thirteenth-row" style="display:none;">
-                <span>13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1" style="font-size:.65rem;"></span></span>
+              <div class="comp-row ps-modal-13th-row" id="ps-thirteenth-row" style="display:none">
+                <span>13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
                 <span class="text-info font-weight-bold" id="ps-thirteenth">&#8369; 0.00</span>
               </div>
               <div class="comp-row total text-success">
@@ -221,7 +221,7 @@ if ($employeeId) {
                   <span class="text-danger" id="ps-pagibig">− &#8369; 0.00</span>
                 </div>
               </div>
-              <div id="ps-no-gov-row" class="comp-row text-muted" style="display:none;font-size:.78rem;">
+              <div id="ps-no-gov-row" class="comp-row text-muted ps-modal-gov-note">
                 <span><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span>
                 <span>1st cutoff — none</span>
               </div>
@@ -229,7 +229,7 @@ if ($employeeId) {
                 <span>Withholding Tax</span>
                 <span class="text-danger" id="ps-tax">− &#8369; 0.00</span>
               </div>
-              <div id="ps-reconcile-row" class="comp-row" style="display:none;">
+              <div id="ps-reconcile-row" class="comp-row ps-modal-reconcile-row" style="display:none">
                 <span id="ps-reconcile-label">Year-End Tax Adjustment</span>
                 <span id="ps-reconcile">&#8369; 0.00</span>
               </div>
@@ -249,13 +249,13 @@ if ($employeeId) {
           <!-- Net Pay Box -->
           <div class="payslip-net-box">
             <div>
-              <p class="mb-1 text-muted" style="font-size:.78rem; text-transform:uppercase; letter-spacing:.5px;">
+              <p class="mb-1 text-muted ps-modal-net-label">
                 Net Pay for <span id="ps-net-period"></span>
               </p>
-              <h2 class="mb-0 font-weight-bold" style="color:#1e3a5f;" id="ps-net">&#8369; 0.00</h2>
+              <h2 class="mb-0 font-weight-bold ps-modal-net-amount" id="ps-net">&#8369; 0.00</h2>
             </div>
             <div class="text-right">
-              <p class="mb-0 text-muted" style="font-size:.75rem;">Processed by</p>
+              <p class="mb-0 text-muted ps-modal-processed-label">Processed by</p>
               <strong id="ps-processedby"></strong><br>
               <small class="text-muted">Payroll Administrator</small>
             </div>
@@ -273,7 +273,7 @@ if ($employeeId) {
 
           <!-- Generated timestamp (print only) -->
           <div class="print-only text-right mt-3">
-            <small style="color:#999; font-size:7.5pt;">
+            <small class="ps-modal-generated-note">
               Generated: <?= date('F d, Y h:i A') ?> &mdash; <?= htmlspecialchars(COMPANY_NAME) ?> HRIS
             </small>
           </div>
@@ -300,34 +300,15 @@ if ($employeeId) {
 
 <?php
 $extraJs = <<<JS
-<script>
 function fmt(val) {
   return '₱ ' + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-// BUG FIX: Parse YYYY-MM-C period format correctly for display.
-// The period string is e.g. "2026-02-1" — appending '-02' produced "2026-02-1-02"
-// which is an invalid date. We extract only the YYYY-MM base for the Date constructor.
-function periodLabel(period) {
-  const base = period.substring(0, 7); // "2026-02"
-  const cutoff = parseInt(period.slice(-1)) || 2;
-  // Use the 2nd of the month to avoid timezone-boundary day-shift issues
-  const dt = new Date(base + '-02');
-  const monthYear = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
-  const cutoffStr = cutoff === 1 ? '(1st–15th)' : '(16th–End)';
-  return monthYear + ' ' + cutoffStr;
 }
 
 $('.view-payslip-btn').on('click', function() {
   const d = $(this).data();
   const period    = d.period;
-  const periodLbl = periodLabel(period);
-
-  // BUG FIX: d.absences already holds the combined absent_deduction value from the DB.
-  // The original code added d.late on top, but late_deduction is not a separate column —
-  // it was already folded into absent_deduction server-side. Adding d.late (which is
-  // always undefined/0 from data attributes) caused stale double-counting.
-  const absences = parseFloat(d.absences || 0);
+  const periodLbl = new Date(period + '-02').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  const absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
 
   // Period labels
   $('#ps-period-label').text(periodLbl);
@@ -366,13 +347,11 @@ $('.view-payslip-btn').on('click', function() {
   }
   $('#ps-tax').text('− ' + fmt(d.tax));
 
-  // BUG FIX: always reset the absences row first to prevent stale state
-  // from a previous modal open bleeding into the current one.
-  $('#ps-absences-row').hide();
-  $('#ps-absences').text('− ' + fmt(0));
   if (absences > 0) {
     $('#ps-absences').text('− ' + fmt(absences));
     $('#ps-absences-row').show();
+  } else {
+    $('#ps-absences-row').hide();
   }
 
   $('#ps-deductions').text(fmt(d.deductions));
@@ -389,8 +368,8 @@ $('.view-payslip-btn').on('click', function() {
     $('#ps-thirteenth').text(fmt(thirteenth));
     const t13Status = d.thirteenthstatus || '';
     const t13Badge  = t13Status === 'released'
-      ? '<span style="background:#dcfce7;color:#15803d;padding:1px 5px;border-radius:4px;font-size:.65rem;">Released</span>'
-      : '<span style="background:#fef9c3;color:#b45309;padding:1px 5px;border-radius:4px;font-size:.65rem;">Pending</span>';
+      ? '<span class="ps-badge-released">Released</span>'
+      : '<span class="ps-badge-pending">Pending</span>';
     $('#ps-thirteenth-badge').html(t13Badge);
     $('#ps-thirteenth-row').show();
   } else {
@@ -405,90 +384,8 @@ $('.view-payslip-btn').on('click', function() {
 });
 
 function printPayslip() {
-  const content = document.getElementById('payslipPrintArea').innerHTML;
-
-  const styles = `
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',Arial,sans-serif; font-size:11pt; color:#111; background:#fff; padding:14mm 16mm; }
-    @page { size:A4 portrait; margin:14mm 16mm; }
-
-    .payslip-header-bar {
-      background:#1e2433 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;
-      color:#fff !important; padding:16px 22px; border-radius:6px 6px 0 0;
-      display:flex; justify-content:space-between; align-items:flex-start;
-    }
-    .payslip-header-bar h5  { font-size:14pt; font-weight:700; margin:0; color:#fff !important; }
-    .payslip-header-bar small, .payslip-header-bar strong { color:#fff !important; }
-    .payslip-header-bar small { font-size:8pt; opacity:.75; }
-    .payslip-header-bar strong { font-size:11pt; }
-    .payslip-header-bar .text-right { text-align:right; }
-
-    .status-badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:8pt; font-weight:600; }
-    .badge-released { background:#dbeafe !important; color:#1e40af !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .badge-pending  { background:#fef3c7 !important; color:#92400e !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-
-    .px-4 { padding-left:20px; padding-right:20px; }
-    .py-3 { padding-top:14px; padding-bottom:14px; }
-
-    .row    { display:flex; flex-wrap:wrap; }
-    .col-6  { width:50%; flex:0 0 50%; max-width:50%; padding:0 8px; }
-    .mb-3   { margin-bottom:12px; }
-    .mb-0   { margin-bottom:0; }
-    .mb-1   { margin-bottom:4px; }
-    .mt-1   { margin-top:4px; }
-    .mt-4   { margin-top:18px; }
-    .pt-3   { padding-top:14px; }
-    .pl-0   { padding-left:0 !important; }
-    .d-flex { display:flex; }
-    .d-inline-block { display:inline-block; }
-    .justify-content-between { justify-content:space-between; }
-    .align-items-start { align-items:flex-start; }
-    .text-right  { text-align:right; }
-    .text-center { text-align:center; }
-    .font-weight-bold { font-weight:700; }
-    strong { font-weight:700; }
-    small  { font-size:80%; }
-
-    .table { width:100%; border-collapse:collapse; }
-    .table-sm td { padding:2px 4px; font-size:8.5pt; }
-    .table-borderless td { border:none; }
-    code { font-family:monospace; font-size:8.5pt; background:none; }
-    .badge-success { background:#dcfce7 !important; color:#166534 !important; padding:1px 6px; border-radius:10px; font-size:8pt; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-
-    .payslip-divider { border-top:1.5px dashed #aaa; margin:10px 0; }
-
-    .payslip-section-title { font-size:7.5pt; text-transform:uppercase; letter-spacing:.08em; color:#555; margin-bottom:6px; border-bottom:1px solid #ddd; padding-bottom:3px; font-weight:600; }
-    .comp-row { display:flex; justify-content:space-between; padding:3px 0; font-size:9.5pt; }
-    .comp-row.total { font-weight:700; border-top:1.5px solid #333; padding-top:5px; margin-top:4px; font-size:10pt; }
-
-    .text-danger  { color:#c0392b !important; }
-    .text-success { color:#166534 !important; }
-    .text-info    { color:#0369a1 !important; }
-    .text-muted   { color:#666    !important; }
-
-    .payslip-net-box {
-      background:#f4f6f9 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;
-      border:1px solid #ddd; border-radius:6px; padding:12px 16px;
-      display:flex; justify-content:space-between; align-items:center; margin:10px 0 14px;
-    }
-    .payslip-net-box h2     { font-size:20pt; font-weight:700; color:#1e3a5f !important; margin:0; }
-    .payslip-net-box p      { font-size:8pt; color:#888; margin:0; }
-    .payslip-net-box strong { font-size:9.5pt; }
-    .payslip-net-box small  { font-size:8pt; color:#888; }
-
-    .print-only { display:block !important; }
-    .signature-line { border-top:1px solid #333; padding-top:6px; font-size:8.5pt; color:#333; margin-top:40px; text-align:center; }
-
-    .no-print, .modal-header, .modal-footer { display:none !important; }
-  `;
-
-  const win = window.open('', '_blank', 'width=900,height=700');
-  win.document.write('<html><head><title>Payslip</title><style>' + styles + '</style></head><body>' + content + '</body></html>');
-  win.document.close();
-  win.focus();
-  setTimeout(function() { win.print(); win.close(); }, 400);
+  window.print();
 }
-</script>
 JS;
 ?>
 

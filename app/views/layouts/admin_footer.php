@@ -2,12 +2,12 @@
   </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 
-    <footer class="main-footer" style="background:#fff;border-top:1px solid #e2e8f0;padding:12px 20px;">
-      <span style="font-size:.78rem;color:#94a3b8;">
+    <footer class="main-footer" class="main-footer">
+      <span class="footer-text">
         &copy; <?= date('Y') ?> <?= COMPANY_NAME ?> &mdash; <?= APP_NAME ?> v<?= APP_VERSION ?>
       </span>
-      <span class="float-right" style="font-size:.78rem;color:#94a3b8;">
-        Powered by <strong>Rocky HRIS</strong>
+      <span class="float-right" class="footer-text">
+        Powered by <strong>Rocky HRIS + PAYROLL</strong>
       </span>
     </footer>
   </div><!-- ./wrapper -->

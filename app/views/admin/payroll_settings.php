@@ -81,7 +81,7 @@ foreach ($employees as $emp) {
 <div class="page-title-bar">
   <i class="fas fa-sliders-h text-primary"></i>
   <h1>Payroll Settings</h1>
-  <span class="text-muted ml-auto" style="font-size:.82rem;">
+  <span class="text-muted ml-auto ps-header-note">
     Configure per-employee cutoff amounts, tax method, and government deduction schedule.
   </span>
 </div>
@@ -89,7 +89,7 @@ foreach ($employees as $emp) {
 <?= $msg ?>
 
 <!-- Legend -->
-<div class="alert alert-info mb-3" style="font-size:.82rem;">
+<div class="alert alert-info mb-3 ps-info-alert">
   <i class="fas fa-info-circle mr-2"></i>
   <strong>Semi-Monthly Payroll Rules:</strong>
   <ul class="mb-0 mt-1">
@@ -107,32 +107,32 @@ foreach ($employees as $emp) {
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span><i class="fas fa-users mr-2"></i>Employee Payroll Configuration</span>
-      <button type="submit" class="btn btn-primary btn-sm">
+      <button type="submit" class="btn btn-primary btn-sm ml-auto">
         <i class="fas fa-save mr-1"></i>Save All Changes
       </button>
     </div>
     <div class="card-body p-0">
       <div class="table-responsive">
-        <table class="table table-hover mb-0" style="font-size:.82rem;">
+        <table class="table table-hover mb-0 ps-table">
           <thead class="thead-light">
             <tr>
-              <th style="min-width:180px;">Employee</th>
+              <th class="ps-col-employee">Employee</th>
               <th>Monthly Salary</th>
-              <th style="min-width:160px;">
+              <th class="ps-col-fixed">
                 1st Cutoff Amount
                 <br><small class="text-muted font-weight-normal">Leave blank for auto (salary ÷ 2)</small>
               </th>
-              <th style="min-width:160px;">
+              <th class="ps-col-fixed">
                 Tax Method
                 <br><small class="text-muted font-weight-normal">Per cutoff</small>
               </th>
-              <th style="min-width:180px;">
+              <th class="ps-col-employee">
                 Gov. Deductions Schedule
                 <br><small class="text-muted font-weight-normal">SSS / PhilHealth / Pag-IBIG</small>
               </th>
-              <th class="text-center" style="min-width:120px;">1st Cutoff Net</th>
-              <th class="text-center" style="min-width:120px;">2nd Cutoff Net</th>
-              <th class="text-center" style="min-width:110px;">Monthly Total</th>
+              <th class="text-center ps-col-net1">1st Cutoff Net</th>
+              <th class="text-center ps-col-net1">2nd Cutoff Net</th>
+              <th class="text-center ps-col-total">Monthly Total</th>
             </tr>
           </thead>
           <tbody>
@@ -212,8 +212,8 @@ foreach ($employees as $emp) {
         </table>
       </div>
     </div>
-    <div class="card-footer d-flex justify-content-between align-items-center">
-      <small class="text-muted">Preview updates live as you change settings. Save to apply permanently.</small>
+    <div class="card-footer d-flex justify-content-end align-items-center">
+      <small class="text-muted mr-3">Preview updates live as you change settings. Save to apply permanently.</small>
       <button type="submit" class="btn btn-primary">
         <i class="fas fa-save mr-1"></i>Save All Changes
       </button>

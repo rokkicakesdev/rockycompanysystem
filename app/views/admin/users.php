@@ -95,7 +95,7 @@ $users = Model::getAllUsers();
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-user-shield" class="text-primary"></i>
+    <i class="fas fa-user-shield text-primary"></i>
     <h1>User Management</h1>
     <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#createUserModal">
       <i class="fas fa-plus mr-1"></i>Add User
@@ -142,7 +142,7 @@ $users = Model::getAllUsers();
                   </form>
                 </div>
                 <?php else: ?>
-                <span class="text-muted" style="font-size:.75rem;">(You)</span>
+                <span class="text-muted user-you-label">(You)</span>
                 <?php endif; ?>
               </td>
             </tr>

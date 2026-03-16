@@ -102,7 +102,7 @@ $typeIcons = [
 <div class="row">
   <?php if (empty($announcements)): ?>
     <div class="col-12 text-center text-muted py-5">
-      <i class="fas fa-bullhorn fa-3x mb-3 d-block" style="opacity:.15;"></i>
+      <i class="fas fa-bullhorn fa-3x mb-3 d-block ann-empty-icon"></i>
       No announcements posted yet.
     </div>
   <?php endif; ?>
@@ -112,17 +112,17 @@ $typeIcons = [
     $icon  = $typeIcons[$ann['type']]  ?? 'fa-bullhorn';
   ?>
   <div class="col-md-6 mb-3">
-    <div class="card h-100" style="border-left: 4px solid <?= $color ?> !important;">
+    <div class="card h-100" style="border-left:4px solid <?= $color ?>">
       <div class="card-body">
 
         <!-- Title row -->
         <div class="d-flex justify-content-between align-items-start mb-2">
           <div>
             <?php if ($ann['is_pinned']): ?>
-              <i class="fas fa-thumbtack mr-1" style="color:#d97706;" title="Pinned"></i>
+              <i class="fas fa-thumbtack mr-1 ann-pin-icon" title="Pinned"></i>
             <?php endif; ?>
             <strong><?= htmlspecialchars($ann['title']) ?></strong>
-            <span class="badge ml-1" style="background:<?= $color ?>20; color:<?= $color ?>; border:1px solid <?= $color ?>40;">
+            <span class="badge ml-1" style="background:<?= $color ?>20;color:<?= $color ?>;border:1px solid <?= $color ?>40">
               <i class="fas <?= $icon ?> mr-1"></i><?= ucfirst($ann['type']) ?>
             </span>
             <?php if ($ann['is_pinned']): ?>
@@ -151,7 +151,7 @@ $typeIcons = [
         </div>
 
         <!-- Content -->
-        <p class="mb-2" style="font-size:.85rem; white-space:pre-wrap;"><?= nl2br(htmlspecialchars($ann['content'])) ?></p>
+        <p class="mb-2 ann-content-text"><?= nl2br(htmlspecialchars($ann['content'])) ?></p>
 
         <!-- Meta -->
         <small class="text-muted">
@@ -220,7 +220,7 @@ $typeIcons = [
           <div class="form-check mt-1">
             <input type="checkbox" name="is_pinned" class="form-check-input" id="annPinned">
             <label class="form-check-label" for="annPinned">
-              <i class="fas fa-thumbtack mr-1" style="color:#d97706;"></i> Pin this announcement
+              <i class="fas fa-thumbtack mr-1 ann-pin-icon"></i> Pin this announcement
             </label>
           </div>
         </div>
@@ -238,6 +238,7 @@ $typeIcons = [
 
 <?php
 $extraJs = <<<'JS'
+<script>
 // New announcement — reset form to create mode
 $('#newAnnouncementBtn').on('click', function() {
   $('#announcementModalTitle').html('<i class="fas fa-bullhorn mr-2 text-primary"></i>Post Announcement');
@@ -263,6 +264,7 @@ $('.edit-ann-btn').on('click', function() {
   $('#annSubmitBtn').html('<i class="fas fa-save mr-1"></i> Save Changes');
   $('#announcementModal').modal('show');
 });
+</script>
 JS;
 
 require_once __DIR__ . '/../layouts/admin_footer.php';

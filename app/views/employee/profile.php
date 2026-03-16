@@ -104,14 +104,14 @@ $leaveBalances = [
     <div class="card text-center mb-4">
       <div class="card-body py-4">
         <!-- Avatar -->
-        <div class="employee-avatar mx-auto mb-3" style="width:80px;height:80px;font-size:2rem;">
+        <div class="employee-avatar mx-auto mb-3 emp-profile-avatar">
           <?= strtoupper(mb_substr($employee['name'] ?? 'E', 0, 1)) ?>
         </div>
         <h5 class="font-weight-bold mb-0"><?= htmlspecialchars($employee['name'] ?? '—') ?></h5>
-        <p class="text-muted mb-1" style="font-size:.85rem;"><?= htmlspecialchars($employee['position'] ?? '—') ?></p>
+        <p class="text-muted mb-1 emp-profile-position"><?= htmlspecialchars($employee['position'] ?? '—') ?></p>
         <span class="badge badge-primary px-3 py-1"><?= htmlspecialchars($employee['department'] ?? '—') ?></span>
         <hr>
-        <div class="text-left" style="font-size:.85rem;">
+        <div class="text-left emp-profile-info-block">
           <div class="d-flex justify-content-between py-1 border-bottom">
             <span class="text-muted">Employee No.</span>
             <strong><code><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></code></strong>
@@ -141,7 +141,7 @@ $leaveBalances = [
         <table class="table table-sm mb-0">
           <?php foreach ($leaveBalances as $label => $bal): ?>
           <tr>
-            <td style="font-size:.85rem;"><?= $label ?></td>
+            <td class="emp-profile-table-cell"><?= $label ?></td>
             <td class="text-right">
               <span class="font-weight-bold <?= $bal > 0 ? 'text-success' : 'text-muted' ?>">
                 <?= number_format((float)$bal, 1) ?> days
@@ -175,8 +175,8 @@ $leaveBalances = [
             ];
             foreach ($infoLeft as $label => $val): ?>
             <div class="form-group mb-2">
-              <label class="text-muted mb-0" style="font-size:.75rem; text-transform:uppercase; letter-spacing:.5px;"><?= $label ?></label>
-              <p class="mb-0 font-weight-bold" style="font-size:.9rem;"><?= htmlspecialchars($val) ?></p>
+              <label class="text-muted mb-0 emp-profile-field-label"><?= $label ?></label>
+              <p class="mb-0 font-weight-bold emp-profile-field-value"><?= htmlspecialchars($val) ?></p>
             </div>
             <?php endforeach; ?>
           </div>
@@ -190,15 +190,15 @@ $leaveBalances = [
             ];
             foreach ($infoRight as $label => $val): ?>
             <div class="form-group mb-2">
-              <label class="text-muted mb-0" style="font-size:.75rem; text-transform:uppercase; letter-spacing:.5px;"><?= $label ?></label>
-              <p class="mb-0 font-weight-bold" style="font-size:.9rem;"><?= htmlspecialchars($val) ?></p>
+              <label class="text-muted mb-0 emp-profile-field-label"><?= $label ?></label>
+              <p class="mb-0 font-weight-bold emp-profile-field-value"><?= htmlspecialchars($val) ?></p>
             </div>
             <?php endforeach; ?>
           </div>
         </div>
         <div class="form-group mb-0 mt-2">
-          <label class="text-muted mb-0" style="font-size:.75rem; text-transform:uppercase; letter-spacing:.5px;">Email</label>
-          <p class="mb-0 font-weight-bold" style="font-size:.9rem;"><?= htmlspecialchars($employee['email'] ?? '—') ?></p>
+          <label class="text-muted mb-0 emp-profile-field-label">Email</label>
+          <p class="mb-0 font-weight-bold emp-profile-field-value"><?= htmlspecialchars($employee['email'] ?? '—') ?></p>
         </div>
         <small class="text-muted mt-2 d-block"><i class="fas fa-lock mr-1"></i>Personal details can only be updated by HR/Admin.</small>
       </div>
@@ -208,7 +208,7 @@ $leaveBalances = [
     <div class="card mb-4">
       <div class="card-header">
         <h3 class="card-title"><i class="fas fa-address-book mr-2 text-info"></i>Contact &amp; Emergency Info
-          <small class="text-muted ml-2" style="font-size:.75rem;">You can update these</small>
+          <small class="text-muted ml-2 emp-profile-editable-note">You can update these</small>
         </h3>
       </div>
       <div class="card-body">
@@ -236,7 +236,7 @@ $leaveBalances = [
           </div>
 
           <hr class="my-3">
-          <h6 class="text-muted mb-3" style="font-size:.8rem; text-transform:uppercase; letter-spacing:.5px;">
+          <h6 class="text-muted mb-3 emp-profile-section-heading">
             <i class="fas fa-phone-alt mr-1"></i>Emergency Contact
           </h6>
 

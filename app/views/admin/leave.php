@@ -90,7 +90,7 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-calendar-minus" class="text-primary"></i>
+    <i class="fas fa-calendar-minus text-primary"></i>
     <h1>Leave Management</h1>
     <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#newLeaveModal">
       <i class="fas fa-plus mr-1"></i>File Leave Request
@@ -185,8 +185,8 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
         </div>
       </div>
       <?php if ($totalPages > 1): ?>
-      <div class="card-footer d-flex justify-content-between align-items-center flex-wrap" style="gap:.5rem;">
-        <span class="text-muted" style="font-size:.82rem;">
+      <div class="card-footer d-flex justify-content-between align-items-center flex-wrap leave-footer-gap">
+        <span class="text-muted leave-footer-count">
           Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalLeaves)) ?> of <?= number_format($totalLeaves) ?> request(s)
         </span>
         <nav>
@@ -282,7 +282,7 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
                 <option value="<?= $k ?>" data-gender="<?= $g ?>"><?= $v ?></option>
               <?php endforeach; ?>
             </select>
-            <small id="newLeaveGenderHint" class="text-muted" style="display:none;"></small>
+            <small id="newLeaveGenderHint" class="text-muted leave-gender-hint"></small>
           </div>
           <div class="row">
             <div class="col-6">
@@ -308,7 +308,7 @@ $leaves      = array_slice($allLeaves, ($curPage - 1) * $perPage, $perPage);
           </div>
 
           <!-- Holiday overlap warning — populated by JS -->
-          <div id="holidayLeaveWarning" class="alert mb-0" style="display:none;background:#f0fdfa;border:1px solid #99f6e4;color:#0f766e;">
+          <div id="holidayLeaveWarning" class="alert mb-0 leave-holiday-warning">
             <i class="fas fa-calendar-day mr-2"></i>
             <strong>Holiday Notice:</strong> <span id="holidayLeaveText"></span>
           </div>

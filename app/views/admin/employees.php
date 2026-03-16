@@ -207,7 +207,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
     <a href="employees.php" class="btn btn-outline-secondary btn-sm mr-3">
       <i class="fas fa-arrow-left mr-1"></i> Back to List
     </a>
-    <span class="font-weight-600" style="font-size:.9rem;">
+    <span class="font-weight-600 emp-view-name">
       Employee 201 File: <strong><?= htmlspecialchars($viewEmp['name']) ?></strong>
     </span>
     <span class="badge badge-<?= $viewEmp['status'] === 'active' ? 'success' : 'danger' ?> ml-2">
@@ -227,27 +227,27 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <?= strtoupper(substr($viewEmp['name'], 0, 1)) ?>
         </div>
         <h5 class="mb-1 font-weight-700"><?= htmlspecialchars($viewEmp['name']) ?></h5>
-        <p class="text-muted mb-1" style="font-size:.82rem;"><?= htmlspecialchars($viewEmp['employee_no'] ?? 'N/A') ?></p>
+        <p class="text-muted mb-1 emp-view-no"><?= htmlspecialchars($viewEmp['employee_no'] ?? 'N/A') ?></p>
         <p class="mb-3">
-          <strong style="font-size:.88rem;"><?= htmlspecialchars($viewEmp['position'] ?? 'N/A') ?></strong><br>
+          <strong class="emp-view-position"><?= htmlspecialchars($viewEmp['position'] ?? 'N/A') ?></strong><br>
           <small class="text-muted"><?= htmlspecialchars($viewEmp['department'] ?? 'N/A') ?></small>
         </p>
         <table class="table table-sm mb-0 text-left">
           <tr>
-            <td class="text-muted" style="font-size:.82rem;">Employment</td>
-            <td class="text-right font-weight-600" style="font-size:.82rem;"><?= ucfirst($viewEmp['employment_type'] ?? 'Regular') ?></td>
+            <td class="text-muted emp-view-table-label">Employment</td>
+            <td class="text-right font-weight-600 emp-view-table-label"><?= ucfirst($viewEmp['employment_type'] ?? 'Regular') ?></td>
           </tr>
           <tr>
-            <td class="text-muted" style="font-size:.82rem;">Date Hired</td>
-            <td class="text-right font-weight-600" style="font-size:.82rem;"><?= $viewEmp['date_hired'] ? date('M d, Y', strtotime($viewEmp['date_hired'])) : '—' ?></td>
+            <td class="text-muted emp-view-table-label">Date Hired</td>
+            <td class="text-right font-weight-600 emp-view-table-label"><?= $viewEmp['date_hired'] ? date('M d, Y', strtotime($viewEmp['date_hired'])) : '—' ?></td>
           </tr>
           <tr>
-            <td class="text-muted" style="font-size:.82rem;">Basic Salary</td>
-            <td class="text-right font-weight-600" style="font-size:.82rem;">₱<?= number_format($viewEmp['basic_salary'], 2) ?></td>
+            <td class="text-muted emp-view-table-label">Basic Salary</td>
+            <td class="text-right font-weight-600 emp-view-table-label">₱<?= number_format($viewEmp['basic_salary'], 2) ?></td>
           </tr>
           <tr>
-            <td class="text-muted" style="font-size:.82rem;">Allowance</td>
-            <td class="text-right font-weight-600" style="font-size:.82rem;">₱<?= number_format($viewEmp['allowance'], 2) ?></td>
+            <td class="text-muted emp-view-table-label">Allowance</td>
+            <td class="text-right font-weight-600 emp-view-table-label">₱<?= number_format($viewEmp['allowance'], 2) ?></td>
           </tr>
         </table>
       </div>
@@ -269,7 +269,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           ];
           foreach ($leaveBalances as $lname => $bal): ?>
           <tr>
-            <td style="font-size:.85rem;"><?= $lname ?></td>
+            <td class="emp-leave-type-cell"><?= $lname ?></td>
             <td class="text-right">
               <strong class="<?= $bal > 0 ? 'leave-balance-positive' : 'leave-balance-zero' ?>">
                 <?= $bal ?>
@@ -461,7 +461,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
   <div class="card-body py-3">
     <form method="GET" class="form-inline flex-gap-2">
       <input type="text" name="q" value="<?= htmlspecialchars($search) ?>"
-             class="form-control form-control-sm" style="min-width:220px;"
+             class="form-control form-control-sm emp-filter-select"
              placeholder="Search name, employee no, email…">
       <select name="status" class="form-control form-control-sm">
         <option value="">All Statuses</option>
@@ -481,7 +481,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span><i class="fas fa-list mr-2"></i>Employee List</span>
-    <span class="badge badge-primary"><?= count($employees) ?> records</span>
+    <span class="badge badge-primary ml-auto"><?= count($employees) ?> records</span>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -502,7 +502,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <?php if (empty($employees)): ?>
             <tr>
               <td colspan="7" class="text-center py-4 text-muted">
-                <i class="fas fa-user-slash fa-2x mb-2 d-block" style="color:#cbd5e1;"></i>
+                <i class="fas fa-user-slash fa-2x mb-2 d-block emp-empty-icon"></i>
                 No employees found.
               </td>
             </tr>
@@ -510,7 +510,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
             <?php foreach ($employees as $emp): ?>
             <tr>
               <td>
-                <strong style="font-size:.85rem;"><?= htmlspecialchars($emp['name']) ?></strong><br>
+                <strong class="text-sm2"><?= htmlspecialchars($emp['name']) ?></strong><br>
                 <small class="text-muted"><?= htmlspecialchars($emp['employee_no'] ?? '—') ?></small>
               </td>
               <td>
@@ -556,8 +556,8 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
       </table>
     </div>
   </div>
-  <div class="card-footer d-flex justify-content-between align-items-center flex-wrap" style="gap:.5rem;">
-    <span class="text-muted" style="font-size:.82rem;">
+  <div class="card-footer d-flex justify-content-between align-items-center flex-wrap emp-footer-actions">
+    <span class="text-muted emp-view-table-label">
       Showing <?= number_format(($curPage-1)*$perPage+1) ?>–<?= number_format(min($curPage*$perPage,$totalEmps)) ?> of <?= number_format($totalEmps) ?> employee(s)
     </span>
     <?php if ($totalPages > 1): ?>
@@ -802,7 +802,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 </div>
                 <?php endforeach; ?>
               </div>
-              <div id="leaveGenderNotice" class="alert alert-info mt-2 py-2" style="display:none;font-size:.85rem;">
+              <div id="leaveGenderNotice" class="alert alert-info mt-2 py-2 emp-gender-notice">
                 <i class="fas fa-info-circle mr-1"></i>
                 <span id="leaveGenderNoticeText"></span>
                 Gender-restricted leave fields are grayed out and set to 0.

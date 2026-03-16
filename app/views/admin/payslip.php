@@ -68,32 +68,6 @@ if ($selectedEmp && $selectedPeriod) {
         </button>
       </div>
     </div>
-
-    <!-- All Payroll History -->
-    <div class="card mt-2">
-      <div class="card-header">
-        <h3 class="card-title" class="payslip-employee-table"><i class="fas fa-history mr-1"></i>Payroll History</h3>
-      </div>
-      <div class="card-body p-0">
-        <table class="table table-sm mb-0">
-          <thead><tr><th>Employee</th><th>Period</th><th>Net Pay</th><th>Status</th></tr></thead>
-          <tbody>
-          <?php foreach(Model::getAllPayroll() as $p): ?>
-            <tr class="payslip-history-row">
-              <td><?= htmlspecialchars(explode(' ', $p['employee_name'] ?? 'N/A')[0]) ?></td>
-              <td><?= $p['period'] ?></td>
-              <td>₱<?= number_format($p['net_pay'],0) ?></td>
-              <td>
-                <span class="badge badge-<?= $p['status']==='released'?'success':'warning' ?>" class="payslip-history-badge">
-                  <?= ucfirst($p['status']) ?>
-                </span>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
   </div>
 
   <!-- Right: payslip -->
@@ -103,11 +77,11 @@ if ($selectedEmp && $selectedPeriod) {
       <div class="payslip-header-bar">
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <h4 class="mb-0" style="font-weight:700">Rocky Company</h4>
-            <p class="mb-0" style="font-size:.75rem; opacity:.7">Payroll Slip / Official Document</p>
+            <h4 class="mb-0 payslip-company-name">Rocky Company</h4>
+            <p class="mb-0 payslip-header-sub">Payroll Slip / Official Document</p>
           </div>
           <div class="text-right">
-            <span style="font-size:.75rem; opacity:.7">Pay Period</span><br>
+            <span class="payslip-period-label-text">Pay Period</span><br>
             <strong><?= Model::periodLabel($payrollRecord['period']) ?></strong>
           </div>
         </div>
@@ -117,14 +91,14 @@ if ($selectedEmp && $selectedPeriod) {
         <!-- Employee Info -->
         <div class="row mb-3">
           <div class="col-6">
-            <table class="table table-sm table-borderless mb-0" class="payslip-employee-table">
+            <table class="table table-sm table-borderless mb-0 payslip-employee-table">
               <tr><td class="text-muted pl-0" width="40%">Employee No.</td><td><code><?= $selectedEmp['employee_no'] ?></code></td></tr>
               <tr><td class="text-muted pl-0">Name</td><td><strong><?= htmlspecialchars($selectedEmp['name']) ?></strong></td></tr>
               <tr><td class="text-muted pl-0">Department</td><td><?= htmlspecialchars($selectedEmp['department']) ?></td></tr>
             </table>
           </div>
           <div class="col-6">
-            <table class="table table-sm table-borderless mb-0" class="payslip-employee-table">
+            <table class="table table-sm table-borderless mb-0 payslip-employee-table">
               <tr><td class="text-muted pl-0" width="40%">Position</td><td><?= htmlspecialchars($selectedEmp['position']) ?></td></tr>
               <tr><td class="text-muted pl-0">Date Hired</td><td><?= $selectedEmp['date_hired'] ?></td></tr>
               <tr><td class="text-muted pl-0">Status</td><td><span class="badge badge-success">Active</span></td></tr>
@@ -156,7 +130,7 @@ if ($selectedEmp && $selectedPeriod) {
             </div>
             <div class="comp-row"><span>Allowance</span><span>₱<?= number_format($payrollRecord['allowance'],2) ?></span></div>
             <?php if ($thirteenth13 > 0): ?>
-            <div class="comp-row" style="color:#0369a1;">
+            <div class="comp-row payslip-13th-amount">
               <span><i class="fas fa-gift mr-1"></i>13th Month Pay</span>
               <span>₱<?= number_format($thirteenth13,2) ?></span>
             </div>
@@ -171,7 +145,7 @@ if ($selectedEmp && $selectedPeriod) {
             <div class="comp-row"><span>PhilHealth</span><span class="text-danger">−₱<?= number_format($payrollRecord['philhealth_ee'],2) ?></span></div>
             <div class="comp-row"><span>Pag-IBIG</span><span class="text-danger">−₱<?= number_format($payrollRecord['pagibig_ee'],2) ?></span></div>
             <?php else: ?>
-            <div class="comp-row text-muted" style="font-size:.78rem;">
+            <div class="comp-row text-muted payslip-gov-note">
               <span><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span><span>1st cutoff — none</span>
             </div>
             <?php endif; ?>
@@ -192,13 +166,13 @@ if ($selectedEmp && $selectedPeriod) {
         <div class="payslip-divider"></div>
 
         <!-- Net Pay -->
-        <div class="d-flex justify-content-between align-items-center p-3 rounded" class="payslip-net-box">
+        <div class="d-flex justify-content-between align-items-center p-3 rounded payslip-net-box">
           <div>
-            <p class="mb-0 text-muted" class="net-label">NET PAY FOR <?= strtoupper(Model::periodLabel($payrollRecord['period'])) ?></p>
+            <p class="mb-0 text-muted net-label">NET PAY FOR <?= strtoupper(Model::periodLabel($payrollRecord['period'])) ?></p>
             <h2 class="mb-0 text-primary font-weight-bold">₱<?= number_format($payrollRecord['net_pay'],2) ?></h2>
           </div>
           <div class="text-right">
-            <p class="mb-0 text-muted" style="font-size:.75rem">Processed by</p>
+            <p class="mb-0 text-muted payslip-processed-label">Processed by</p>
             <strong class="payslip-employee-table"><?= htmlspecialchars($_SESSION['name']) ?></strong><br>
             <small class="text-muted">Administrator</small>
           </div>
@@ -215,15 +189,15 @@ if ($selectedEmp && $selectedPeriod) {
         </div>
 
       </div>
-      <div class="card-footer no-print">
-        <div class="text-muted mb-2" style="font-size:.8rem;">
+      <div class="card-footer no-print d-flex justify-content-between">
+        <span class="text-muted payslip-history-row">
           <i class="fas fa-clock mr-1"></i> Generated: <?= date('M d, Y h:i A') ?>
-        </div>
-        <div class="d-flex justify-content-end">
+        </span>
+        <div>
           <button class="btn btn-info btn-sm" onclick="window.print()">
             <i class="fas fa-print mr-1"></i> Print Payslip
           </button>
-          <button class="btn btn-success btn-sm ml-2" onclick="window.print()">
+          <button class="btn btn-success btn-sm ml-1" onclick="window.print()">
             <i class="fas fa-download mr-1"></i> Export PDF
           </button>
         </div>
@@ -232,7 +206,7 @@ if ($selectedEmp && $selectedPeriod) {
     <?php else: ?>
     <div class="card">
       <div class="card-body text-center py-5 text-muted">
-        <i class="fas fa-receipt fa-4x mb-3" style="opacity:.2"></i><br>
+        <i class="fas fa-receipt fa-4x mb-3 payslip-empty-icon"></i><br>
         <p>Select an employee and period to generate a payslip.</p>
       </div>
     </div>
