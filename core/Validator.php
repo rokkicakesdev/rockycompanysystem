@@ -180,13 +180,16 @@ class Validator
         return $this;
     }
 
-    /** Must be a valid YYYY-MM payroll period format. */
+    /** Must be a valid YYYY-MM-C semi-monthly payroll period format (C = 1 or 2). */
     public function payrollPeriod(string $field, string $label = ''): static
     {
         $label = $label ?: ucfirst(str_replace('_', ' ', $field));
         $v = $this->val($field);
-        if ($v !== '' && !preg_match('/^\d{4}-\d{2}$/', $v)) {
-            $this->addError($field, "{$label} must be in YYYY-MM format.");
+        // BUG FIX: Original regex only accepted YYYY-MM (e.g. "2026-02"), but all actual
+        // payroll records use YYYY-MM-C format (e.g. "2026-02-1" / "2026-02-2").
+        // The old rule would reject every valid period string in the system.
+        if ($v !== '' && !preg_match('/^\d{4}-\d{2}-[12]$/', $v)) {
+            $this->addError($field, "{$label} must be in YYYY-MM-1 or YYYY-MM-2 format (e.g. 2026-02-1).");
         }
         return $this;
     }
