@@ -281,12 +281,26 @@ if ($reconcile != 0) {
     $reconcileLabel = $reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)';
     $reconcileSign  = $reconcile > 0 ? '&minus;' : '+';
     $reconcileColor = $reconcile > 0 ? 'red' : '#16a34a';
-    $reconcileRow = "<tr><td>{$reconcileLabel}</td><td class="amt" style="color:{$reconcileColor}">{$reconcileSign} &#8369; {$reconcileFmt}</td></tr>";
+    // BUG FIX: Original used unescaped double-quotes inside a double-quoted string
+    // (class="amt" style="color:...") which caused PHP to silently truncate the string,
+    // producing a malformed <td> with no class or style in the rendered PDF.
+    // Use single-quoted HTML attributes inside the double-quoted PHP string.
+    $reconcileRow = "<tr><td>{$reconcileLabel}</td><td class='amt' style='color:{$reconcileColor}'>{$reconcileSign} &#8369; {$reconcileFmt}</td></tr>";
+}
+// BUG FIX: "Other Deductions" was always rendered even when zero, and also after
+// the reconciliation row which already represents the non-absence portion of other_deductions.
+// Showing both caused the same amount to appear twice. Only show this row if other_deductions
+// is non-zero AND there is no reconciliation row covering it.
+$otherDedRaw  = (float)($payrollRecord['other_deductions'] ?? 0);
+$otherDedRow  = '';
+if ($otherDedRaw > 0 && $reconcile == 0) {
+    $otherDedFmt = $p($otherDedRaw);
+    $otherDedRow = "<tr><td>Other Deductions</td><td class='amt red'>&minus; &#8369; {$otherDedFmt}</td></tr>";
 }
 $html .= <<<HTML
       <tr><td>Withholding Tax</td><td class="amt red">&minus; &#8369; {$withholdingTax}</td></tr>
       {$reconcileRow}
-      <tr><td>Other Deductions</td><td class="amt red">&minus; &#8369; {$otherDed}</td></tr>
+      {$otherDedRow}
       {$absRow}
       <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$totalDed}</td></tr>
     </table>

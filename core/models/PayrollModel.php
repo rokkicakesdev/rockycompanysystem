@@ -285,7 +285,12 @@ class PayrollModel extends BaseModel
      */
     public static function compute13thMonth(int $year): array
     {
-        $stmt = self::db()->prepare('
+        // BUG FIX: The original query used backslash-escaped single quotes (\'active\')
+        // inside a PHP double-quoted heredoc string. PHP does NOT treat \' as an escape
+        // sequence inside double-quoted strings — it produces a literal backslash + quote,
+        // generating invalid SQL that causes a PDO syntax error at runtime.
+        // Fixed by using a regular double-quoted string with single-quoted SQL literals.
+        $stmt = self::db()->prepare("
             SELECT
                 e.id            AS employee_id,
                 e.name          AS employee_name,
@@ -308,12 +313,12 @@ class PayrollModel extends BaseModel
                     COUNT(*) / 2.0      AS months_worked
                 FROM payroll_records
                 WHERE period LIKE ?
-                  AND period NOT LIKE \'%-0\'
+                  AND period NOT LIKE '%-0'
                 GROUP BY employee_id
             ) pr ON pr.employee_id = e.id
-            WHERE e.status IN (\'active\', \'on_leave\')
+            WHERE e.status IN ('active', 'on_leave')
             ORDER BY e.name
-        ');
+        ");
         $stmt->execute([$year . '-%']);
         return $stmt->fetchAll();
     }

@@ -79,7 +79,10 @@ class AuthController extends Controller
         }
 
         $username = trim($_POST['username'] ?? '');
-        $password = trim($_POST['password'] ?? '');
+        // BUG FIX: Never trim() passwords. password_hash() preserves leading/trailing
+        // spaces, so trimming before password_verify() causes a silent mismatch for
+        // any user whose password was set with surrounding whitespace.
+        $password = $_POST['password'] ?? '';
 
         // ── Empty field check ────────────────────────────────────────────────
         if (empty($username) || empty($password)) {
@@ -121,6 +124,12 @@ class AuthController extends Controller
 
         // ── Regenerate session ID to prevent session fixation attacks ─────────
         session_regenerate_id(true);
+
+        // BUG FIX: Always issue a fresh CSRF token after session ID regeneration.
+        // The old token was tied to the old session ID. Without this, the next
+        // POST form submission will fail hash_equals() because the token in the
+        // new session no longer matches what the browser cached from the login page.
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
         // ── Set core session variables ───────────────────────────────────────
         $_SESSION['user_id']       = $user['id'];

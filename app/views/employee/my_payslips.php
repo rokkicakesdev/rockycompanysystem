@@ -300,15 +300,34 @@ if ($employeeId) {
 
 <?php
 $extraJs = <<<JS
+<script>
 function fmt(val) {
   return '₱ ' + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// BUG FIX: Parse YYYY-MM-C period format correctly for display.
+// The period string is e.g. "2026-02-1" — appending '-02' produced "2026-02-1-02"
+// which is an invalid date. We extract only the YYYY-MM base for the Date constructor.
+function periodLabel(period) {
+  const base = period.substring(0, 7); // "2026-02"
+  const cutoff = parseInt(period.slice(-1)) || 2;
+  // Use the 2nd of the month to avoid timezone-boundary day-shift issues
+  const dt = new Date(base + '-02');
+  const monthYear = dt.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  const cutoffStr = cutoff === 1 ? '(1st–15th)' : '(16th–End)';
+  return monthYear + ' ' + cutoffStr;
 }
 
 $('.view-payslip-btn').on('click', function() {
   const d = $(this).data();
   const period    = d.period;
-  const periodLbl = new Date(period + '-02').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
-  const absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
+  const periodLbl = periodLabel(period);
+
+  // BUG FIX: d.absences already holds the combined absent_deduction value from the DB.
+  // The original code added d.late on top, but late_deduction is not a separate column —
+  // it was already folded into absent_deduction server-side. Adding d.late (which is
+  // always undefined/0 from data attributes) caused stale double-counting.
+  const absences = parseFloat(d.absences || 0);
 
   // Period labels
   $('#ps-period-label').text(periodLbl);
@@ -347,11 +366,13 @@ $('.view-payslip-btn').on('click', function() {
   }
   $('#ps-tax').text('− ' + fmt(d.tax));
 
+  // BUG FIX: always reset the absences row first to prevent stale state
+  // from a previous modal open bleeding into the current one.
+  $('#ps-absences-row').hide();
+  $('#ps-absences').text('− ' + fmt(0));
   if (absences > 0) {
     $('#ps-absences').text('− ' + fmt(absences));
     $('#ps-absences-row').show();
-  } else {
-    $('#ps-absences-row').hide();
   }
 
   $('#ps-deductions').text(fmt(d.deductions));
@@ -386,6 +407,7 @@ $('.view-payslip-btn').on('click', function() {
 function printPayslip() {
   window.print();
 }
+</script>
 JS;
 ?>
 

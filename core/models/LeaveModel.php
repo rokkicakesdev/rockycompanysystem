@@ -78,49 +78,66 @@ class LeaveModel extends BaseModel
     /**
      * Approve or deny a leave request.
      * On approval, deducts the leave balance from the employee record.
+     *
+     * BUG FIX: The original code ran two separate queries with no transaction.
+     * If the balance deduction query failed after the status was already set to
+     * 'approved', the leave would be marked approved but the balance never deducted —
+     * silent data corruption. Both operations are now wrapped in a transaction so
+     * either both succeed or both are rolled back.
      */
     public static function review(int $id, string $status, int $reviewedBy, string $notes = ''): bool
     {
-        $stmt = self::db()->prepare('
-            UPDATE leave_requests
-            SET status = :status, reviewed_by = :reviewed_by,
-                reviewed_at = NOW(), review_notes = :notes
-            WHERE id = :id
-        ');
-        $success = $stmt->execute([
-            ':status'      => $status,
-            ':reviewed_by' => $reviewedBy,
-            ':notes'       => $notes,
-            ':id'          => $id,
-        ]);
+        $db = self::db();
+        $db->beginTransaction();
 
-        if ((bool) $success && $status === 'approved') {
-            $leave = self::findById($id);
-            if ($leave && $leave['leave_type'] !== 'unpaid') {
-                $balanceFields = LEAVE_BALANCE_FIELDS;
-                if (isset($balanceFields[$leave['leave_type']])) {
-                    $field = $balanceFields[$leave['leave_type']];
+        try {
+            $stmt = $db->prepare('
+                UPDATE leave_requests
+                SET status = :status, reviewed_by = :reviewed_by,
+                    reviewed_at = NOW(), review_notes = :notes
+                WHERE id = :id
+            ');
+            $stmt->execute([
+                ':status'      => $status,
+                ':reviewed_by' => $reviewedBy,
+                ':notes'       => $notes,
+                ':id'          => $id,
+            ]);
 
-                    // Whitelist $field against known balance columns to prevent SQL injection
-                    // if LEAVE_BALANCE_FIELDS is ever accidentally modified.
-                    $allowedColumns = array_values(LEAVE_BALANCE_FIELDS);
-                    if (!in_array($field, $allowedColumns, true)) {
-                        error_log("LeaveModel::review: rejected unsafe column '{$field}' for employee {$leave['employee_id']}");
-                        return (bool) $success;
+            if ($status === 'approved') {
+                $leave = self::findById($id);
+                if ($leave && $leave['leave_type'] !== 'unpaid') {
+                    $balanceFields = LEAVE_BALANCE_FIELDS;
+                    if (isset($balanceFields[$leave['leave_type']])) {
+                        $field = $balanceFields[$leave['leave_type']];
+
+                        // Whitelist $field against known balance columns to prevent SQL injection
+                        $allowedColumns = array_values(LEAVE_BALANCE_FIELDS);
+                        if (!in_array($field, $allowedColumns, true)) {
+                            error_log("LeaveModel::review: rejected unsafe column '{$field}' for employee {$leave['employee_id']}");
+                            $db->rollBack();
+                            return false;
+                        }
+
+                        $deductStmt = $db->prepare("
+                            UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
+                        ");
+                        $deductStmt->execute([
+                            ':days'   => $leave['days_applied'],
+                            ':emp_id' => $leave['employee_id'],
+                        ]);
                     }
-
-                    $deductStmt = self::db()->prepare("
-                        UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
-                    ");
-                    $deductStmt->execute([
-                        ':days'   => $leave['days_applied'],
-                        ':emp_id' => $leave['employee_id'],
-                    ]);
                 }
             }
-        }
 
-        return (bool) $success;
+            $db->commit();
+            return true;
+
+        } catch (\Throwable $e) {
+            $db->rollBack();
+            error_log('LeaveModel::review failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     public static function countPending(): int
