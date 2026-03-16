@@ -8,13 +8,24 @@ $activeMenu = 'payroll';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!defined('ROLE_ADMIN')) require_once __DIR__ . '/../../../config/config.php';
+
+// Load core classes before ANY POST handler runs.
+// admin_header.php also loads these but it is included AFTER the POST blocks,
+// so Model / Database would not exist yet when Release or Generate is submitted.
+if (!class_exists('Database')) require_once __DIR__ . '/../../../config/database.php';
+if (!class_exists('Database')) require_once __DIR__ . '/../../../core/Database.php';
+if (!class_exists('Model'))    {
+    require_once __DIR__ . '/../../../core/Database.php';
+    require_once __DIR__ . '/../../../core/Model.php';
+}
+if (!class_exists('PhilippineDeductions')) {
+    require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
+}
+
 // Admin and management only — guard before any POST processing
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
     header('Location: ' . BASE_URL . '/index.php?error=access_denied'); exit;
 }
-
-// Core files (Database, Model, PhilippineDeductions) are loaded by the router
-// before this view is included — do NOT require them here directly.
 
 // CSRF token
 if (empty($_SESSION['csrf_token'])) {

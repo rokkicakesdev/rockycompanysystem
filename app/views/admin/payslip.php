@@ -215,15 +215,15 @@ if ($selectedEmp && $selectedPeriod) {
         </div>
 
       </div>
-      <div class="card-footer no-print d-flex justify-content-between">
-        <span class="text-muted" class="payslip-history-row">
+      <div class="card-footer no-print">
+        <div class="text-muted mb-2" style="font-size:.8rem;">
           <i class="fas fa-clock mr-1"></i> Generated: <?= date('M d, Y h:i A') ?>
-        </span>
-        <div>
+        </div>
+        <div class="d-flex justify-content-end">
           <button class="btn btn-info btn-sm" onclick="window.print()">
             <i class="fas fa-print mr-1"></i> Print Payslip
           </button>
-          <button class="btn btn-success btn-sm ml-1" onclick="window.print()">
+          <button class="btn btn-success btn-sm ml-2" onclick="window.print()">
             <i class="fas fa-download mr-1"></i> Export PDF
           </button>
         </div>
