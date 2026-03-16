@@ -120,7 +120,7 @@ $applicantStatuses = [
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-briefcase" class="text-primary"></i>
+    <i class="fas fa-briefcase text-primary"></i>
     <h1>Recruitment</h1>
     <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#newPostingModal">
       <i class="fas fa-plus mr-1"></i>New Job Posting
@@ -137,13 +137,12 @@ $applicantStatuses = [
             <i class="fas fa-clipboard-list mr-2"></i>Job Postings
             <span class="badge badge-primary ml-1"><?= $totalPostings ?></span>
           </div>
-          <div class="card-body p-0" class="recruitment-jobs-scroll">
+          <div class="card-body p-0 recruitment-jobs-scroll">
             <?php foreach ($postings as $post): ?>
-            <div class="p-3 border-bottom <?= ($selectedJobId===$post['id'])?'bg-light':'' ?>"
-                 style="cursor:pointer;" onclick="window.location='recruitment.php?job_id=<?= $post['id'] ?>'">
+            <div class="p-3 border-bottom <?= ($selectedJobId===$post['id'])?'bg-light':'' ?> recruitment-job-row" onclick="window.location='recruitment.php?job_id=<?= $post['id'] ?>'">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <strong style="font-size:.88rem;"><?= htmlspecialchars($post['title']) ?></strong>
+                  <strong class="recruitment-job-title"><?= htmlspecialchars($post['title']) ?></strong>
                   <br><small class="text-muted"><?= htmlspecialchars($post['department_name']) ?></small>
                 </div>
                 <div class="text-right">
@@ -215,7 +214,7 @@ $applicantStatuses = [
           <div class="card-body p-0">
             <?php if (empty($applicants)): ?>
               <div class="text-center py-5 text-muted">
-                <i class="fas fa-user-plus fa-2x mb-2 d-block" style="color:#cbd5e1;"></i>
+                <i class="fas fa-user-plus fa-2x mb-2 d-block recruitment-empty-icon"></i>
                 No applicants yet. Click "Add Applicant" to get started.
               </div>
             <?php else: ?>
@@ -227,7 +226,7 @@ $applicantStatuses = [
                   ?>
                   <tr>
                     <td>
-                      <strong style="font-size:.84rem;"><?= htmlspecialchars($app['name']) ?></strong>
+                      <strong class="recruitment-applicant-name"><?= htmlspecialchars($app['name']) ?></strong>
                       <?php if ($app['interview_date']): ?>
                         <br><small class="text-primary"><i class="fas fa-calendar-check"></i> <?= date('M d H:i', strtotime($app['interview_date'])) ?></small>
                       <?php endif; ?>
@@ -260,7 +259,7 @@ $applicantStatuses = [
         <?php else: ?>
         <div class="card">
           <div class="card-body text-center py-5 text-muted">
-            <i class="fas fa-mouse-pointer fa-2x mb-2 d-block" style="color:#cbd5e1;"></i>
+            <i class="fas fa-mouse-pointer fa-2x mb-2 d-block recruitment-empty-icon"></i>
             Select a job posting to view applicants
           </div>
         </div>

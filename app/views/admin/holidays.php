@@ -100,7 +100,7 @@ $typeBadge = [
 ?>
 
 <div class="page-title-bar">
-  <i class="fas fa-calendar-day" style="color:var(--accent);"></i>
+  <i class="fas fa-calendar-day holiday-page-icon"></i>
   <h1>Holidays</h1>
   <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#holidayModal" id="addHolidayBtn">
     <i class="fas fa-plus mr-1"></i> Add Holiday
@@ -118,7 +118,7 @@ $typeBadge = [
 <div class="row mb-3">
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#fee2e2;color:#dc2626;"><i class="fas fa-calendar-day"></i></div>
+      <div class="icon-box icon-box-red"><i class="fas fa-calendar-day"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= $byType['regular'] ?? 0 ?></div>
         <div class="stat-label">Regular Holidays</div>
@@ -127,7 +127,7 @@ $typeBadge = [
   </div>
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#fef3c7;color:#d97706;"><i class="fas fa-umbrella-beach"></i></div>
+      <div class="icon-box icon-box-yellow"><i class="fas fa-umbrella-beach"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= $byType['special_non_working'] ?? 0 ?></div>
         <div class="stat-label">Special Non-Working</div>
@@ -136,7 +136,7 @@ $typeBadge = [
   </div>
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#dbeafe;color:#2563eb;"><i class="fas fa-briefcase"></i></div>
+      <div class="icon-box icon-box-blue2"><i class="fas fa-briefcase"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= $byType['special_working'] ?? 0 ?></div>
         <div class="stat-label">Special Working</div>
@@ -145,7 +145,7 @@ $typeBadge = [
   </div>
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#dcfce7;color:#16a34a;"><i class="fas fa-clock"></i></div>
+      <div class="icon-box icon-box-green"><i class="fas fa-clock"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= count($upcoming) ?></div>
         <div class="stat-label">Upcoming in <?= $year ?></div>
@@ -157,9 +157,9 @@ $typeBadge = [
 <!-- Year Selector -->
 <div class="card mb-3">
   <div class="card-body py-2">
-    <form method="GET" class="d-flex align-items-center" style="gap:.5rem;">
+    <form method="GET" class="d-flex align-items-center holiday-filter-gap">
       <label class="mb-0 font-weight-bold">Year:</label>
-      <select name="year" class="form-control form-control-sm" style="width:100px;" onchange="this.form.submit()">
+      <select name="year" class="form-control form-control-sm holiday-year-select" onchange="this.form.submit()">
         <?php for ($y = date('Y') - 1; $y <= date('Y') + 2; $y++): ?>
           <option value="<?= $y ?>" <?= $y === $year ? 'selected' : '' ?>><?= $y ?></option>
         <?php endfor; ?>
@@ -170,10 +170,10 @@ $typeBadge = [
 </div>
 
 <!-- Legend -->
-<div class="d-flex mb-3" style="gap:.75rem; flex-wrap:wrap;">
+<div class="d-flex mb-3 holiday-legend-gap">
   <?php foreach ($typeLabels as $key => $label): ?>
-    <span class="badge badge-<?= $typeBadge[$key] ?> px-2 py-1" style="font-size:.75rem;">
-      <i class="fas fa-circle mr-1" style="font-size:.5rem;"></i><?= $label ?>
+    <span class="badge badge-<?= $typeBadge[$key] ?> px-2 py-1 holiday-legend-badge">
+      <i class="fas fa-circle mr-1 holiday-legend-dot"></i><?= $label ?>
     </span>
   <?php endforeach; ?>
 </div>
@@ -183,18 +183,18 @@ $typeBadge = [
   <div class="card-body p-0">
     <?php if (empty($holidays)): ?>
       <div class="text-center text-muted py-5">
-        <i class="fas fa-calendar-day fa-3x mb-3 d-block" style="opacity:.15;"></i>
+        <i class="fas fa-calendar-day fa-3x mb-3 d-block holiday-empty-icon"></i>
         No holidays found for <?= $year ?>. Click <strong>+ Add Holiday</strong> to get started.
       </div>
     <?php else: ?>
     <table class="table table-hover mb-0">
       <thead>
         <tr>
-          <th style="width:120px;">Date</th>
+          <th class="holiday-col-date">Date</th>
           <th>Holiday</th>
           <th>Type</th>
-          <th class="text-center" style="width:80px;">Recurring</th>
-          <th class="text-right" style="width:90px;"></th>
+          <th class="text-center holiday-col-recurring">Recurring</th>
+          <th class="text-right holiday-col-actions"></th>
         </tr>
       </thead>
       <tbody>
@@ -210,7 +210,7 @@ $typeBadge = [
             <small class="d-block text-muted"><?= date('l', strtotime($h['date'])) ?></small>
           </td>
           <td>
-            <span style="border-left:3px solid <?= $color ?>; padding-left:.5rem;">
+            <span class="holiday-name-border" style="color:<?= $color ?>">
               <?= htmlspecialchars($h['name']) ?>
             </span>
           </td>
@@ -226,7 +226,7 @@ $typeBadge = [
               <i class="fas fa-minus text-muted" title="One-time only"></i>
             <?php endif; ?>
           </td>
-          <td class="text-right" style="white-space:nowrap;">
+          <td class="text-right holiday-actions-cell">
             <button class="btn btn-xs btn-outline-warning edit-holiday-btn"
               data-id="<?= $h['id'] ?>"
               data-name="<?= htmlspecialchars($h['name'], ENT_QUOTES) ?>"
@@ -303,11 +303,11 @@ $typeBadge = [
           </div>
 
           <!-- PH Holiday type info -->
-          <div class="alert alert-light border mt-2 mb-0 py-2" style="font-size:.8rem;">
+          <div class="alert alert-light border mt-2 mb-0 py-2 holiday-help-text">
             <strong>PH Labor Code:</strong>
-            <br><i class="fas fa-circle text-danger mr-1" style="font-size:.5rem;"></i><b>Regular</b> — 100% pay even if not worked (e.g. Christmas, Independence Day)
-            <br><i class="fas fa-circle text-warning mr-1" style="font-size:.5rem;"></i><b>Special Non-Working</b> — no work, no pay unless required to work (+30%)
-            <br><i class="fas fa-circle text-primary mr-1" style="font-size:.5rem;"></i><b>Special Working</b> — treated as ordinary working day
+            <br><i class="fas fa-circle text-danger mr-1 holiday-legend-dot"></i><b>Regular</b> — 100% pay even if not worked (e.g. Christmas, Independence Day)
+            <br><i class="fas fa-circle text-warning mr-1 holiday-legend-dot"></i><b>Special Non-Working</b> — no work, no pay unless required to work (+30%)
+            <br><i class="fas fa-circle text-primary mr-1 holiday-legend-dot"></i><b>Special Working</b> — treated as ordinary working day
           </div>
         </div>
 

@@ -1,0 +1,195 @@
+/* ============================================================
+   Rocky HRIS + Payroll System — Employee Stylesheet
+   File: assets/css/employee.css
+   Extracted from inline styles across all employee view files.
+   ============================================================ */
+
+/* ════════════════════════════════════════════════════════════
+   LAYOUTS — employee_footer
+   ════════════════════════════════════════════════════════════ */
+.main-footer {
+  background: #fff;
+  border-top: 1px solid #e2e8f0;
+  padding: 12px 20px;
+}
+.footer-text {
+  font-size: .78rem;
+  color: #94a3b8;
+}
+
+/* ════════════════════════════════════════════════════════════
+   SHARED EMPLOYEE UTILITIES
+   ════════════════════════════════════════════════════════════ */
+.text-xs     { font-size: .75rem; }
+.text-sm     { font-size: .82rem; }
+.text-sm2    { font-size: .85rem; }
+.text-sm3    { font-size: .88rem; }
+.text-md     { font-size: .9rem; }
+.opacity-faint  { opacity: .15; }
+.opacity-light  { opacity: .2; }
+.opacity-soft   { opacity: .3; }
+.opacity-mid    { opacity: .6; }
+.opacity-dim    { opacity: .7; }
+.opacity-near   { opacity: .8; }
+
+/* ════════════════════════════════════════════════════════════
+   ICON BOXES — employee dashboard stat cards
+   Same colours as admin; duplicated so employee.css is self-contained
+   ════════════════════════════════════════════════════════════ */
+.icon-box-blue    { background: #dbeafe; color: #1d4ed8; }
+.icon-box-yellow  { background: #fef3c7; color: #d97706; }
+.icon-box-green   { background: #dcfce7; color: #16a34a; }
+.icon-box-purple  { background: #f3e8ff; color: #7c3aed; }
+
+/* ════════════════════════════════════════════════════════════
+   EMPLOYEE DASHBOARD
+   ════════════════════════════════════════════════════════════ */
+.emp-dash-welcome-card {
+  background: linear-gradient(135deg, #1e3a5f, #1a6e4a);
+  color: #fff;
+  border: none;
+}
+.emp-dash-welcome-sub {
+  opacity: .8;
+}
+.emp-dash-emp-no-label {
+  opacity: .7;
+  font-size: .75rem;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.emp-dash-emp-no-value {
+  font-size: 1.1rem;
+  letter-spacing: .5px;
+}
+.emp-dash-empty-icon {
+  opacity: .3;
+}
+.emp-dash-ann-badge {
+  min-width: 70px;
+  text-align: center;
+}
+
+/* ════════════════════════════════════════════════════════════
+   ANNOUNCEMENTS (employee)
+   ════════════════════════════════════════════════════════════ */
+.emp-ann-empty-icon {
+  opacity: .15;
+}
+.emp-ann-content {
+  white-space: pre-wrap;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MY ATTENDANCE / MY LEAVES
+   ════════════════════════════════════════════════════════════ */
+.emp-att-empty-icon  { opacity: .2; }
+.emp-leave-empty-icon { opacity: .2; }
+
+/* ════════════════════════════════════════════════════════════
+   MY PAYSLIPS
+   ════════════════════════════════════════════════════════════ */
+.my-payslips-subtitle {
+  font-size: .55em;
+}
+.my-payslips-empty-dash {
+  font-size: .8rem;
+}
+
+/* ── Payslip Modal ────────────────────────────────────────── */
+.ps-modal-company-address {
+  opacity: .7;
+}
+.ps-modal-company-sub {
+  opacity: .6;
+}
+.ps-modal-period-label {
+  opacity: .7;
+}
+.ps-modal-period-value {
+  font-size: 1rem;
+}
+.ps-modal-emp-table {
+  font-size: .85rem;
+}
+.ps-modal-active-badge {
+  font-size: .75rem;
+}
+.ps-modal-13th-badge {
+  font-size: .65rem;
+}
+.ps-modal-gov-note {
+  display: none;
+  font-size: .78rem;
+}
+.ps-modal-reconcile-row {
+  display: none;
+}
+.ps-modal-absences-row {
+  /* toggled by JS */
+}
+.ps-modal-net-label {
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.ps-modal-net-amount {
+  color: #1e3a5f;
+}
+.ps-modal-processed-label {
+  font-size: .75rem;
+}
+.ps-modal-generated-note {
+  color: #999;
+  font-size: 7.5pt;
+}
+
+/* ── 13th Month status pills (injected via JS) ─────────────── */
+.ps-badge-released {
+  background: #dcfce7;
+  color: #15803d;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: .65rem;
+}
+.ps-badge-pending {
+  background: #fef9c3;
+  color: #b45309;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: .65rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PROFILE (employee)
+   ════════════════════════════════════════════════════════════ */
+.emp-profile-avatar {
+  width: 80px;
+  height: 80px;
+  font-size: 2rem;
+}
+.emp-profile-position {
+  font-size: .85rem;
+}
+.emp-profile-info-block {
+  font-size: .85rem;
+}
+.emp-profile-table-cell {
+  font-size: .85rem;
+}
+.emp-profile-field-label {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.emp-profile-field-value {
+  font-size: .9rem;
+}
+.emp-profile-editable-note {
+  font-size: .75rem;
+}
+.emp-profile-section-heading {
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}

@@ -8,24 +8,13 @@ $activeMenu = 'payroll';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!defined('ROLE_ADMIN')) require_once __DIR__ . '/../../../config/config.php';
-
-// Load core classes before ANY POST handler runs.
-// admin_header.php also loads these but it is included AFTER the POST blocks,
-// so Model / Database would not exist yet when Release or Generate is submitted.
-if (!class_exists('Database')) require_once __DIR__ . '/../../../config/database.php';
-if (!class_exists('Database')) require_once __DIR__ . '/../../../core/Database.php';
-if (!class_exists('Model'))    {
-    require_once __DIR__ . '/../../../core/Database.php';
-    require_once __DIR__ . '/../../../core/Model.php';
-}
-if (!class_exists('PhilippineDeductions')) {
-    require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
-}
-
 // Admin and management only — guard before any POST processing
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
     header('Location: ' . BASE_URL . '/index.php?error=access_denied'); exit;
 }
+
+// Core files (Database, Model, PhilippineDeductions) are loaded by the router
+// before this view is included — do NOT require them here directly.
 
 // CSRF token
 if (empty($_SESSION['csrf_token'])) {
@@ -271,7 +260,7 @@ if (!$msg) {
             $reasons = array_filter(explode('|', urldecode($_GET['skipreasons'] ?? '')));
             $reasonHtml = '';
             if (!empty($reasons)) {
-                $reasonHtml = '<ul class="mb-0 mt-1" style="font-size:.82rem;">';
+                $reasonHtml = '<ul class="mb-0 mt-1 payroll-skip-list">';
                 foreach ($reasons as $r) {
                     $reasonHtml .= '<li>' . htmlspecialchars($r) . '</li>';
                 }
@@ -308,7 +297,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
   <div class="card-body py-3">
     <div class="d-flex align-items-center flex-wrap">
       <label class="mb-0 font-weight-bold mr-2">Payroll Period:</label>
-      <select id="periodSelect" class="form-control mr-3" style="max-width:200px;"
+      <select id="periodSelect" class="form-control mr-3 payroll-period-select-md"
               onchange="window.location='payroll.php?period='+this.value">
         <?php foreach ($periodOptions as $p): ?>
           <option value="<?= $p ?>" <?= $p === $selectedPeriod ? 'selected' : '' ?>>
@@ -322,7 +311,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
           <i class="fas fa-cogs mr-1"></i> Generate Payroll
         </button>
       <?php else: ?>
-        <span class="badge badge-primary px-3 py-2 mr-2" style="font-size:.82rem;">
+        <span class="badge badge-primary px-3 py-2 mr-2 payroll-skip-list">
           <i class="fas fa-check mr-1"></i> Payroll Generated
         </span>
         <?php if (count($pendingList) > 0): ?>
@@ -458,13 +447,13 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
                 ? '<span class="badge badge-success">Released</span>'
                 : '<span class="badge badge-warning">Pending</span>' ?>
             </td>
-            <td class="text-center" style="white-space:nowrap;">
+            <td class="text-center payroll-actions-cell">
               <a href="payslip.php?emp=<?= $emp['id'] ?>&period=<?= $selectedPeriod ?>"
                  class="btn btn-sm btn-info" title="View Payslip">
                 <i class="fas fa-receipt"></i>
               </a>
               <?php if ($p['status'] === 'pending'): ?>
-              <form method="POST" style="display:inline;"
+              <form method="POST" class="action-form-inline"
                     onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($emp['name'])) ?>?')">
                 <input type="hidden" name="release_single"  value="1">
                 <input type="hidden" name="payroll_id"      value="<?= $p['id'] ?>">
@@ -522,7 +511,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
                        min="2020-01"
                        max="<?= date('Y-m', strtotime('+1 month')) ?>"
                        required>
-                <select id="genPeriodCutoff" class="form-control" style="max-width:175px;">
+                <select id="genPeriodCutoff" class="form-control payroll-cutoff-select">
                   <option value="1" <?= Model::periodCutoff($selectedPeriod) === 1 ? 'selected' : '' ?>>1st Cutoff (1–15)</option>
                   <option value="2" <?= Model::periodCutoff($selectedPeriod) === 2 ? 'selected' : '' ?>>2nd Cutoff (16–End)</option>
                 </select>
@@ -531,11 +520,11 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
               <small class="text-muted mt-1 d-block">13th month pay is automatically included in the <strong>December 2nd cutoff</strong>.</small>
             </div>
           </div>
-          <div class="table-responsive" style="max-height:360px;overflow-y:auto;">
+          <div class="table-responsive payroll-scroll-table">
             <table class="table table-sm table-bordered mb-0">
               <thead class="thead-light">
                 <tr>
-                  <th style="width:36px;">
+                  <th class="payroll-cb-col">
                     <input type="checkbox" id="checkAll" checked title="Select/deselect all">
                   </th>
                   <th>Employee</th>

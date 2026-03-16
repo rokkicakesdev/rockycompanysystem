@@ -136,7 +136,7 @@ $balanceMap = array_filter($allBalanceMap, function($meta) use ($empGender) {
   <div class="card-body table-responsive p-0">
     <?php if (empty($leaveRequests)): ?>
       <div class="text-center text-muted py-5">
-        <i class="fas fa-calendar-times fa-3x mb-3 d-block" style="opacity:.2;"></i>
+        <i class="fas fa-calendar-times fa-3x mb-3 d-block emp-leave-empty-icon"></i>
         No leave requests yet.
       </div>
     <?php else: ?>

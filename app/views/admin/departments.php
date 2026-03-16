@@ -91,7 +91,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
 ?>
 
 <div class="page-title-bar">
-    <i class="fas fa-sitemap" class="text-primary"></i>
+    <i class="fas fa-sitemap text-primary"></i>
     <h1>Departments & Positions</h1>
   </div>
 
@@ -117,7 +117,7 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
                 <tr>
                   <td><strong><?= htmlspecialchars($d['name']) ?></strong></td>
                   <td><span class="badge badge-secondary"><?= count(Model::getEmployeesByDepartment($d['id'])) ?> active</span></td>
-                  <td class="text-right" style="white-space:nowrap">
+                  <td class="text-right dept-actions-cell">
                     <button class="btn btn-xs btn-outline-warning edit-dept-btn"
                       data-id="<?= $d['id'] ?>"
                       data-name="<?= htmlspecialchars($d['name'], ENT_QUOTES, 'UTF-8') ?>">
@@ -150,17 +150,17 @@ foreach ($positions as $p) $posByDept[$p['department_id']][] = $p;
               <i class="fas fa-plus mr-1"></i>Add
             </button>
           </div>
-          <div class="card-body p-0" class="dept-positions-scroll">
+          <div class="card-body p-0 dept-positions-scroll">
             <?php foreach ($departments as $d): ?>
               <?php if (!empty($posByDept[$d['id']])): ?>
               <div class="px-3 pt-3 pb-1">
-                <h6 style="font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;">
+                <h6 class="dept-pos-section-label">
                   <?= htmlspecialchars($d['name']) ?>
                 </h6>
               </div>
               <?php foreach ($posByDept[$d['id']] as $pos): ?>
               <div class="px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
-                <span style="font-size:.85rem;"><?= htmlspecialchars($pos['name']) ?></span>
+                <span class="dept-pos-name"><?= htmlspecialchars($pos['name']) ?></span>
                 <form method="POST" class="d-inline ml-2">
                   <input type="hidden" name="delete_position" value="1">
                   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">

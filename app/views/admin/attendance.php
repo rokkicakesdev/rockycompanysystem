@@ -115,6 +115,9 @@ if ($viewMode === 'daily') {
 // ── Holiday detection for selected date ──────────────────────────
 $holidayInfo = ($viewMode === 'daily') ? Model::isHoliday($selectedDate) : null;
 
+// ── Weekend detection — Saturday (6) or Sunday (0) ───────────────
+$isWeekend = ($viewMode === 'daily') && in_array((int)date('w', strtotime($selectedDate)), [0, 6]);
+
 $statusOptions = [
     'present'  => ['label' => 'Present',  'color' => '#22c55e'],
     'absent'   => ['label' => 'Absent',   'color' => '#ef4444'],
@@ -137,7 +140,7 @@ $statusOptions = [
 <div class="card mb-4">
   <div class="card-body py-3">
     <form method="GET" class="form-inline flex-gap-2">
-      <div class="mr-3" style="display:inline-flex; gap:8px;">
+      <div class="mr-3 att-view-toggle">
         <a href="?view=daily&date=<?= $selectedDate ?>" class="btn btn-sm <?= $viewMode==='daily' ? 'btn-primary' : 'btn-outline-primary' ?>">Daily View</a>
         <a href="?view=monthly&month=<?= $selectedMonth ?>" class="btn btn-sm <?= $viewMode==='monthly' ? 'btn-primary' : 'btn-outline-primary' ?>">Monthly Summary</a>
       </div>
@@ -169,11 +172,18 @@ $statusOptions = [
     <?php endif; ?>
   </div>
   <?php if ($holidayInfo): ?>
-  <div class="alert alert-teal mb-0 border-0 rounded-0" style="background:#f0fdfa;border-left:4px solid #14b8a6!important;border-radius:0;">
-    <i class="fas fa-calendar-day mr-2" style="color:#14b8a6;"></i>
+  <div class="alert att-holiday-banner mb-0 border-0 rounded-0">
+    <i class="fas fa-calendar-day mr-2 att-holiday-icon"></i>
     <strong><?= htmlspecialchars($holidayInfo['name']) ?></strong> is a
     <strong><?= $holidayInfo['type'] === 'regular' ? 'Regular Holiday' : ($holidayInfo['type'] === 'special_non_working' ? 'Special Non-Working Holiday' : 'Special Working Holiday') ?></strong>.
     All employees have been pre-set to <strong>Holiday</strong>. You can still override individual records below.
+  </div>
+  <?php endif; ?>
+  <?php if ($isWeekend): ?>
+  <div class="alert att-weekend-banner mb-0 border-0 rounded-0">
+    <i class="fas fa-moon mr-2 att-weekend-icon"></i>
+    <strong><?= date('l', strtotime($selectedDate)) ?></strong> is a weekend.
+    All employees have been pre-set to <strong>Rest Day</strong>. You can still override individual records below.
   </div>
   <?php endif; ?>
   <div class="card-body p-0">
@@ -187,22 +197,30 @@ $statusOptions = [
             <tr>
               <th>Employee</th>
               <th>Department</th>
-              <th style="width:120px;">Status</th>
-              <th style="width:95px;">Time In</th>
-              <th style="width:95px;">Time Out</th>
-              <th style="width:80px;">OT Hrs</th>
-              <th style="width:150px;">Remarks</th>
+              <th class="att-col-status">Status</th>
+              <th class="att-col-timein">Time In</th>
+              <th class="att-col-timein">Time Out</th>
+              <th class="att-col-ot">OT Hrs</th>
+              <th class="att-col-remarks">Remarks</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($employees as $emp):
               $rec    = $existingRecords[$emp['id']] ?? null;
-              // Pre-select 'holiday' if the day is a holiday and no existing record
-              $status = $rec['status'] ?? ($holidayInfo ? 'holiday' : 'present');
+              // Priority: existing record → holiday → weekend → present
+              if ($rec) {
+                  $status = $rec['status'];
+              } elseif ($holidayInfo) {
+                  $status = 'holiday';
+              } elseif ($isWeekend) {
+                  $status = 'rest_day';
+              } else {
+                  $status = 'present';
+              }
             ?>
             <tr>
               <td>
-                <strong style="font-size:.85rem;"><?= htmlspecialchars($emp['name']) ?></strong><br>
+                <strong class="att-emp-name"><?= htmlspecialchars($emp['name']) ?></strong><br>
                 <small class="text-muted"><?= htmlspecialchars($emp['employee_no']) ?></small>
               </td>
               <td><small><?= htmlspecialchars($emp['department']) ?></small></td>
@@ -214,8 +232,8 @@ $statusOptions = [
                     </option>
                   <?php endforeach; ?>
                 </select>
-                <select name="attendance[<?= $emp['id'] ?>][leave_type]" class="form-control form-control-sm mt-1 leave-type-select-<?= $emp['id'] ?>"
-                  style="display:<?= $status === 'on_leave' ? 'block' : 'none' ?>; font-size:.75rem;">
+                <select name="attendance[<?= $emp['id'] ?>][leave_type]" class="form-control form-control-sm mt-1 att-leave-select leave-type-select-<?= $emp['id'] ?>"
+                  style="display:<?= $status === 'on_leave' ? 'block' : 'none' ?>;">
                   <option value="">-- Leave Type --</option>
                   <?php foreach (LEAVE_TYPES as $lk => $lv): ?>
                     <option value="<?= $lk ?>" <?= ($rec['leave_type'] ?? '') === $lk ? 'selected' : '' ?>><?= $lv ?></option>
@@ -288,6 +306,7 @@ $statusOptions = [
 
 <?php
 $extraJs = <<<JS
+// Show/hide leave type dropdown based on status selection
 document.querySelectorAll('.att-status').forEach(function(sel) {
     sel.addEventListener('change', function() {
         var empId    = this.dataset.empid;
@@ -296,6 +315,31 @@ document.querySelectorAll('.att-status').forEach(function(sel) {
     });
     sel.dispatchEvent(new Event('change'));
 });
+
+// Auto-set all statuses to Rest Day when date picker changes to Saturday/Sunday.
+// Mirrors the server-side logic so the form reflects the correct default immediately
+// without a page reload — user can still override individual rows before saving.
+var datePicker = document.querySelector('input[name="date"]');
+if (datePicker) {
+    datePicker.addEventListener('change', function() {
+        var d   = new Date(this.value + 'T00:00:00');
+        var dow = d.getDay(); // 0=Sunday, 6=Saturday
+        if (dow === 0 || dow === 6) {
+            document.querySelectorAll('.att-status').forEach(function(sel) {
+                sel.value = 'rest_day';
+                sel.dispatchEvent(new Event('change'));
+            });
+        } else {
+            // Weekday — reset back to present as the default
+            document.querySelectorAll('.att-status').forEach(function(sel) {
+                if (sel.value === 'rest_day') {
+                    sel.value = 'present';
+                    sel.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+    });
+}
 JS;
 ?>
 

@@ -88,9 +88,9 @@ $TAX_EXEMPT_LIMIT = 90000.00;
 <!-- Year + Controls -->
 <div class="card card-primary card-outline mb-3">
   <div class="card-body py-3">
-    <div class="d-flex align-items-center flex-wrap" style="gap:.75rem;">
+    <div class="d-flex align-items-center flex-wrap thirteenth-controls-gap">
       <label class="mb-0 font-weight-bold mr-1">Year:</label>
-      <select id="yearSelect" class="form-control" style="max-width:120px;"
+      <select id="yearSelect" class="form-control thirteenth-year-select"
               onchange="window.location='thirteenth_month.php?year='+this.value">
         <?php for ($y = $currentYear; $y >= 2020; $y--): ?>
           <option value="<?= $y ?>" <?= $y === $selectedYear ? 'selected' : '' ?>><?= $y ?></option>
@@ -107,7 +107,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
           </button>
         </form>
       <?php else: ?>
-        <span class="badge badge-primary px-3 py-2" style="font-size:.82rem;">
+        <span class="badge badge-primary px-3 py-2 thirteenth-summary-badge">
           <i class="fas fa-check mr-1"></i><?= count($records) ?> Records Computed
         </span>
         <?php if ($pendingCount > 0): ?>
@@ -203,7 +203,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
           ?>
           <tr>
             <td>
-              <strong style="font-size:.85rem;"><?= htmlspecialchars($row['employee_name']) ?></strong><br>
+              <strong class="thirteenth-emp-name"><?= htmlspecialchars($row['employee_name']) ?></strong><br>
               <small class="text-muted"><?= htmlspecialchars($row['employee_no'] ?? '') ?></small>
             </td>
             <td><small><?= htmlspecialchars($row['department']) ?></small></td>
@@ -315,7 +315,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
           ?>
           <tr>
             <td>
-              <strong style="font-size:.85rem;"><?= htmlspecialchars($rec['employee_name']) ?></strong><br>
+              <strong class="thirteenth-emp-name"><?= htmlspecialchars($rec['employee_name']) ?></strong><br>
               <small class="text-muted"><?= htmlspecialchars($rec['employee_no'] ?? '') ?></small>
             </td>
             <td><small><?= htmlspecialchars($rec['department']) ?></small></td>
@@ -382,7 +382,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
 <?php else: ?>
 <div class="card">
   <div class="card-body text-center py-5">
-    <i class="fas fa-gift fa-3x mb-3" style="color:#cbd5e1;"></i>
+    <i class="fas fa-gift fa-3x mb-3 thirteenth-empty-icon"></i>
     <h5 class="text-muted">No 13th Month Pay Records for <?= $selectedYear ?></h5>
     <p class="text-muted mb-4">
       Click <strong>Compute 13th Month Pay</strong> to calculate based on actual payroll data.<br>
@@ -397,7 +397,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
   <div class="card-header">
     <i class="fas fa-balance-scale mr-2"></i>Legal Reference — PD 851
   </div>
-  <div class="card-body" style="font-size:.85rem;">
+  <div class="card-body thirteenth-info-table">
     <div class="row">
       <div class="col-md-4">
         <strong>Formula</strong><br>

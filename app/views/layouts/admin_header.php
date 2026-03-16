@@ -53,6 +53,7 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
   <link rel="stylesheet" href="<?= ASSETS_URL ?>/plugins/overlayScrollbars/css/OverlayScrollbars.min.css">
   <!-- Custom -->
   <link rel="stylesheet" href="<?= ASSETS_URL ?>/css/common.css">
+  <link rel="stylesheet" href="<?= ASSETS_URL ?>/css/admin.css">
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
 <div class="wrapper">
@@ -110,7 +111,7 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
   <aside class="main-sidebar sidebar-dark-primary elevation-4">
     <!-- Brand -->
     <a href="<?= BASE_URL ?>/app/views/admin/dashboard.php" class="brand-link">
-      <i class="fas fa-building mr-2" style="color:#60a5fa;font-size:1.3rem;"></i>
+      <i class="fas fa-building mr-2" class="sidebar-brand-icon"></i>
       <span class="brand-text">
         <?= COMPANY_NAME ?>
         <span>HRIS + Payroll</span>
