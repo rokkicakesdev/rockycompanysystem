@@ -405,7 +405,88 @@ $('.view-payslip-btn').on('click', function() {
 });
 
 function printPayslip() {
-  window.print();
+  const content = document.getElementById('payslipPrintArea').innerHTML;
+
+  const styles = `
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Arial,sans-serif; font-size:11pt; color:#111; background:#fff; padding:14mm 16mm; }
+    @page { size:A4 portrait; margin:14mm 16mm; }
+
+    .payslip-header-bar {
+      background:#1e2433 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      color:#fff !important; padding:16px 22px; border-radius:6px 6px 0 0;
+      display:flex; justify-content:space-between; align-items:flex-start;
+    }
+    .payslip-header-bar h5  { font-size:14pt; font-weight:700; margin:0; color:#fff !important; }
+    .payslip-header-bar small, .payslip-header-bar strong { color:#fff !important; }
+    .payslip-header-bar small { font-size:8pt; opacity:.75; }
+    .payslip-header-bar strong { font-size:11pt; }
+    .payslip-header-bar .text-right { text-align:right; }
+
+    .status-badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:8pt; font-weight:600; }
+    .badge-released { background:#dbeafe !important; color:#1e40af !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .badge-pending  { background:#fef3c7 !important; color:#92400e !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+    .px-4 { padding-left:20px; padding-right:20px; }
+    .py-3 { padding-top:14px; padding-bottom:14px; }
+
+    .row    { display:flex; flex-wrap:wrap; }
+    .col-6  { width:50%; flex:0 0 50%; max-width:50%; padding:0 8px; }
+    .mb-3   { margin-bottom:12px; }
+    .mb-0   { margin-bottom:0; }
+    .mb-1   { margin-bottom:4px; }
+    .mt-1   { margin-top:4px; }
+    .mt-4   { margin-top:18px; }
+    .pt-3   { padding-top:14px; }
+    .pl-0   { padding-left:0 !important; }
+    .d-flex { display:flex; }
+    .d-inline-block { display:inline-block; }
+    .justify-content-between { justify-content:space-between; }
+    .align-items-start { align-items:flex-start; }
+    .text-right  { text-align:right; }
+    .text-center { text-align:center; }
+    .font-weight-bold { font-weight:700; }
+    strong { font-weight:700; }
+    small  { font-size:80%; }
+
+    .table { width:100%; border-collapse:collapse; }
+    .table-sm td { padding:2px 4px; font-size:8.5pt; }
+    .table-borderless td { border:none; }
+    code { font-family:monospace; font-size:8.5pt; background:none; }
+    .badge-success { background:#dcfce7 !important; color:#166534 !important; padding:1px 6px; border-radius:10px; font-size:8pt; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+    .payslip-divider { border-top:1.5px dashed #aaa; margin:10px 0; }
+
+    .payslip-section-title { font-size:7.5pt; text-transform:uppercase; letter-spacing:.08em; color:#555; margin-bottom:6px; border-bottom:1px solid #ddd; padding-bottom:3px; font-weight:600; }
+    .comp-row { display:flex; justify-content:space-between; padding:3px 0; font-size:9.5pt; }
+    .comp-row.total { font-weight:700; border-top:1.5px solid #333; padding-top:5px; margin-top:4px; font-size:10pt; }
+
+    .text-danger  { color:#c0392b !important; }
+    .text-success { color:#166534 !important; }
+    .text-info    { color:#0369a1 !important; }
+    .text-muted   { color:#666    !important; }
+
+    .payslip-net-box {
+      background:#f4f6f9 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      border:1px solid #ddd; border-radius:6px; padding:12px 16px;
+      display:flex; justify-content:space-between; align-items:center; margin:10px 0 14px;
+    }
+    .payslip-net-box h2     { font-size:20pt; font-weight:700; color:#1e3a5f !important; margin:0; }
+    .payslip-net-box p      { font-size:8pt; color:#888; margin:0; }
+    .payslip-net-box strong { font-size:9.5pt; }
+    .payslip-net-box small  { font-size:8pt; color:#888; }
+
+    .print-only { display:block !important; }
+    .signature-line { border-top:1px solid #333; padding-top:6px; font-size:8.5pt; color:#333; margin-top:40px; text-align:center; }
+
+    .no-print, .modal-header, .modal-footer { display:none !important; }
+  `;
+
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write('<html><head><title>Payslip</title><style>' + styles + '</style></head><body>' + content + '</body></html>');
+  win.document.close();
+  win.focus();
+  setTimeout(function() { win.print(); win.close(); }, 400);
 }
 </script>
 JS;
