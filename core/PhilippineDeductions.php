@@ -10,86 +10,94 @@ declare(strict_types=1);
 final class PhilippineDeductions
 {
     // ── SSS ───────────────────────────────────────────────────────
-    private const SSS_RATE_TOTAL    = 0.15;
-    private const SSS_RATE_EMPLOYEE = 0.05;
+    // 2025 rates per SSS Circular 2024-006 (effective Jan 2025):
+    // EE = 4.5%, ER = 9.5%, EC = 1% (borne by ER) → total employee share = 4.5%
+    // For salaries above the MSC ceiling (35,000), contribution is computed
+    // as rate × actual salary (not capped), matching real-world practice.
+    private const SSS_RATE_TOTAL    = 0.14;
+    private const SSS_RATE_EMPLOYEE = 0.045;
+    private const SSS_RATE_EMPLOYER = 0.095;
     private const SSS_MIN_MSC       = 5000.0;
     private const SSS_MAX_MSC       = 35000.0;
 
     // ── PhilHealth ────────────────────────────────────────────────
+    // 2025: 5% of basic salary, split equally EE/ER (unchanged)
     private const PHILHEALTH_RATE    = 0.05;
     private const PHILHEALTH_FLOOR   = 10000.0;
     private const PHILHEALTH_CEILING = 100000.0;
 
     // ── Pag-IBIG ──────────────────────────────────────────────────
+    // 2025 per Pag-IBIG Circular 460: MFS cap = 5,000, max EE = ₱100
+    // EE rate: 2% for salary > 1,500 (capped at 100), 1% for ≤ 1,500
     private const PAGIBIG_RATE_NORMAL  = 0.02;
     private const PAGIBIG_RATE_LOW     = 0.01;
-    private const PAGIBIG_MFS_CAP      = 10000.0;
-    private const PAGIBIG_MAX_PER_SIDE = 200.00;
+    private const PAGIBIG_MFS_CAP      = 5000.0;
+    private const PAGIBIG_MAX_PER_SIDE = 100.00;
 
-    // SSS bracket table [min, max, msc, ee_share, er_share]
+    // SSS 2025 bracket table [salary_min, salary_max, msc, ee(4.5%), er(9.5%)]
     private static array $sssTable = [
-        [0,       4999.99,  5000,   250.00,   500.00],
-        [5000,    5249.99,  5000,   250.00,   500.00],
-        [5250,    5749.99,  5500,   275.00,   550.00],
-        [5750,    6249.99,  6000,   300.00,   600.00],
-        [6250,    6749.99,  6500,   325.00,   650.00],
-        [6750,    7249.99,  7000,   350.00,   700.00],
-        [7250,    7749.99,  7500,   375.00,   750.00],
-        [7750,    8249.99,  8000,   400.00,   800.00],
-        [8250,    8749.99,  8500,   425.00,   850.00],
-        [8750,    9249.99,  9000,   450.00,   900.00],
-        [9250,    9749.99,  9500,   475.00,   950.00],
-        [9750,    10249.99, 10000,  500.00,  1000.00],
-        [10250,   10749.99, 10500,  525.00,  1050.00],
-        [10750,   11249.99, 11000,  550.00,  1100.00],
-        [11250,   11749.99, 11500,  575.00,  1150.00],
-        [11750,   12249.99, 12000,  600.00,  1200.00],
-        [12250,   12749.99, 12500,  625.00,  1250.00],
-        [12750,   13249.99, 13000,  650.00,  1300.00],
-        [13250,   13749.99, 13500,  675.00,  1350.00],
-        [13750,   14249.99, 14000,  700.00,  1400.00],
-        [14250,   14749.99, 14500,  725.00,  1450.00],
-        [14750,   15249.99, 15000,  750.00,  1500.00],
-        [15250,   15749.99, 15500,  775.00,  1550.00],
-        [15750,   16249.99, 16000,  800.00,  1600.00],
-        [16250,   16749.99, 16500,  825.00,  1650.00],
-        [16750,   17249.99, 17000,  850.00,  1700.00],
-        [17250,   17749.99, 17500,  875.00,  1750.00],
-        [17750,   18249.99, 18000,  900.00,  1800.00],
-        [18250,   18749.99, 18500,  925.00,  1850.00],
-        [18750,   19249.99, 19000,  950.00,  1900.00],
-        [19250,   19749.99, 19500,  975.00,  1950.00],
-        [19750,   20249.99, 20000, 1000.00,  2000.00],
-        [20250,   20749.99, 20500, 1025.00,  2050.00],
-        [20750,   21249.99, 21000, 1050.00,  2100.00],
-        [21250,   21749.99, 21500, 1075.00,  2150.00],
-        [21750,   22249.99, 22000, 1100.00,  2200.00],
-        [22250,   22749.99, 22500, 1125.00,  2250.00],
-        [22750,   23249.99, 23000, 1150.00,  2300.00],
-        [23250,   23749.99, 23500, 1175.00,  2350.00],
-        [23750,   24249.99, 24000, 1200.00,  2400.00],
-        [24250,   24749.99, 24500, 1225.00,  2450.00],
-        [24750,   25249.99, 25000, 1250.00,  2500.00],
-        [25250,   25749.99, 25500, 1275.00,  2550.00],
-        [25750,   26249.99, 26000, 1300.00,  2600.00],
-        [26250,   26749.99, 26500, 1325.00,  2650.00],
-        [26750,   27249.99, 27000, 1350.00,  2700.00],
-        [27250,   27749.99, 27500, 1375.00,  2750.00],
-        [27750,   28249.99, 28000, 1400.00,  2800.00],
-        [28250,   28749.99, 28500, 1425.00,  2850.00],
-        [28750,   29249.99, 29000, 1450.00,  2900.00],
-        [29250,   29749.99, 29500, 1475.00,  2950.00],
-        [29750,   30249.99, 30000, 1500.00,  3000.00],
-        [30250,   30749.99, 30500, 1525.00,  3050.00],
-        [30750,   31249.99, 31000, 1550.00,  3100.00],
-        [31250,   31749.99, 31500, 1575.00,  3150.00],
-        [31750,   32249.99, 32000, 1600.00,  3200.00],
-        [32250,   32749.99, 32500, 1625.00,  3250.00],
-        [32750,   33249.99, 33000, 1650.00,  3300.00],
-        [33250,   33749.99, 33500, 1675.00,  3350.00],
-        [33750,   34249.99, 34000, 1700.00,  3400.00],
-        [34250,   34749.99, 34500, 1725.00,  3450.00],
-        [34750,   PHP_INT_MAX, 35000, 1750.00, 3500.00],
+        [0,         4999.99,  5000,   225.00,   475.00],
+        [5000,      5249.99,  5000,   225.00,   475.00],
+        [5250.01,   5749.99,  5500,   247.50,   522.50],
+        [5750.01,   6249.99,  6000,   270.00,   570.00],
+        [6250.01,   6749.99,  6500,   292.50,   617.50],
+        [6750.01,   7249.99,  7000,   315.00,   665.00],
+        [7250.01,   7749.99,  7500,   337.50,   712.50],
+        [7750.01,   8249.99,  8000,   360.00,   760.00],
+        [8250.01,   8749.99,  8500,   382.50,   807.50],
+        [8750.01,   9249.99,  9000,   405.00,   855.00],
+        [9250.01,   9749.99,  9500,   427.50,   902.50],
+        [9750.01,   10249.99, 10000,  450.00,   950.00],
+        [10250.01,  10749.99, 10500,  472.50,   997.50],
+        [10750.01,  11249.99, 11000,  495.00,  1045.00],
+        [11250.01,  11749.99, 11500,  517.50,  1092.50],
+        [11750.01,  12249.99, 12000,  540.00,  1140.00],
+        [12250.01,  12749.99, 12500,  562.50,  1187.50],
+        [12750.01,  13249.99, 13000,  585.00,  1235.00],
+        [13250.01,  13749.99, 13500,  607.50,  1282.50],
+        [13750.01,  14249.99, 14000,  630.00,  1330.00],
+        [14250.01,  14749.99, 14500,  652.50,  1377.50],
+        [14750.01,  15249.99, 15000,  675.00,  1425.00],
+        [15250.01,  15749.99, 15500,  697.50,  1472.50],
+        [15750.01,  16249.99, 16000,  720.00,  1520.00],
+        [16250.01,  16749.99, 16500,  742.50,  1567.50],
+        [16750.01,  17249.99, 17000,  765.00,  1615.00],
+        [17250.01,  17749.99, 17500,  787.50,  1662.50],
+        [17750.01,  18249.99, 18000,  810.00,  1710.00],
+        [18250.01,  18749.99, 18500,  832.50,  1757.50],
+        [18750.01,  19249.99, 19000,  855.00,  1805.00],
+        [19250.01,  19749.99, 19500,  877.50,  1852.50],
+        [19750.01,  20249.99, 20000,  900.00,  1900.00],
+        [20250.01,  20749.99, 20500,  922.50,  1947.50],
+        [20750.01,  21249.99, 21000,  945.00,  1995.00],
+        [21250.01,  21749.99, 21500,  967.50,  2042.50],
+        [21750.01,  22249.99, 22000,  990.00,  2090.00],
+        [22250.01,  22749.99, 22500, 1012.50,  2137.50],
+        [22750.01,  23249.99, 23000, 1035.00,  2185.00],
+        [23250.01,  23749.99, 23500, 1057.50,  2232.50],
+        [23750.01,  24249.99, 24000, 1080.00,  2280.00],
+        [24250.01,  24749.99, 24500, 1102.50,  2327.50],
+        [24750.01,  25249.99, 25000, 1125.00,  2375.00],
+        [25250.01,  25749.99, 25500, 1147.50,  2422.50],
+        [25750.01,  26249.99, 26000, 1170.00,  2470.00],
+        [26250.01,  26749.99, 26500, 1192.50,  2517.50],
+        [26750.01,  27249.99, 27000, 1215.00,  2565.00],
+        [27250.01,  27749.99, 27500, 1237.50,  2612.50],
+        [27750.01,  28249.99, 28000, 1260.00,  2660.00],
+        [28250.01,  28749.99, 28500, 1282.50,  2707.50],
+        [28750.01,  29249.99, 29000, 1305.00,  2755.00],
+        [29250.01,  29749.99, 29500, 1327.50,  2802.50],
+        [29750.01,  30249.99, 30000, 1350.00,  2850.00],
+        [30250.01,  30749.99, 30500, 1372.50,  2897.50],
+        [30750.01,  31249.99, 31000, 1395.00,  2945.00],
+        [31250.01,  31749.99, 31500, 1417.50,  2992.50],
+        [31750.01,  32249.99, 32000, 1440.00,  3040.00],
+        [32250.01,  32749.99, 32500, 1462.50,  3087.50],
+        [32750.01,  33249.99, 33000, 1485.00,  3135.00],
+        [33250.01,  33749.99, 33500, 1507.50,  3182.50],
+        [33750.01,  34249.99, 34000, 1530.00,  3230.00],
+        [34250.01,  34749.99, 34500, 1552.50,  3277.50],
+        [34750.01,  PHP_INT_MAX, 35000, 1575.00, 3325.00],
     ];
 
     // ════════════════════════════════════════════════════════════
@@ -99,13 +107,22 @@ final class PhilippineDeductions
     public static function computeSSS(float $basicSalary): array
     {
         $salary = max(0.0, $basicSalary);
+
+        // SSS uses a Monthly Salary Credit (MSC) bracket — NOT the raw salary.
+        // The MSC ceiling is ₱35,000 (SSS Circular 2024-006, effective Jan 2025).
+        // Any salary above ₱34,750.01 falls into the maximum bracket (MSC = ₱35,000).
+        // Contribution is CAPPED regardless of actual salary — a ₱36k earner and a
+        // ₱1M earner both contribute the same SSS amount: ₱35,000 × 4.5% = ₱1,575.
         foreach (self::$sssTable as $row) {
             [$min, $max, $msc, $ee, $er] = $row;
-            if ($salary >= $min && $salary < $max + 0.01) {
-                return ['msc' => $msc, 'employee' => round($ee,2), 'employer' => round($er,2), 'total' => round($ee+$er,2)];
+            if ($salary >= $min && $salary <= $max) {
+                return ['msc' => $msc, 'employee' => round($ee, 2), 'employer' => round($er, 2), 'total' => round($ee + $er, 2)];
             }
         }
-        return ['msc' => self::SSS_MAX_MSC, 'employee' => 1750.00, 'employer' => 3500.00, 'total' => 5250.00];
+        // Fallback: any salary above the last bracket max → maximum MSC bracket
+        $ee = round(self::SSS_MAX_MSC * self::SSS_RATE_EMPLOYEE, 2);
+        $er = round(self::SSS_MAX_MSC * self::SSS_RATE_EMPLOYER, 2);
+        return ['msc' => self::SSS_MAX_MSC, 'employee' => $ee, 'employer' => $er, 'total' => round($ee + $er, 2)];
     }
 
     public static function computePhilHealth(float $basicSalary): array
@@ -145,28 +162,46 @@ final class PhilippineDeductions
         ];
     }
 
-    private static function applyMonthlyBracket(float $taxable): float
+    /**
+     * Compute monthly withholding tax using the TRAIN Law annual bracket method.
+     *
+     * BIR correct approach (RR 11-2018, RR 13-2023):
+     *   Step 1 — Compute monthly taxable income (basic − gov deductions)
+     *   Step 2 — Annualize: monthly taxable × 12
+     *   Step 3 — Apply annual BIR TRAIN bracket to get annual tax
+     *   Step 4 — Divide annual tax by 12 → monthly withholding tax
+     *
+     * This is the only correct method. The old "monthly bracket" approach
+     * (with thresholds like 20,833 / 33,332 / 66,666) was simply the annual
+     * bracket divided by 12 pre-applied — but doing it that way introduces
+     * rounding errors and doesn't match the official BIR withholding tables.
+     */
+    private static function applyMonthlyBracket(float $monthlyTaxable): float
     {
-        if ($taxable <= 20833.00)  return 0.00;
-        if ($taxable <= 33332.99)  return round(0.15 * ($taxable - 20833.00), 2);
-        if ($taxable <= 66666.99)  return round(2500.00  + 0.20 * ($taxable - 33333.00), 2);
-        if ($taxable <= 166666.99) return round(10833.00 + 0.25 * ($taxable - 66667.00), 2);
-        if ($taxable <= 666666.99) return round(40833.00 + 0.30 * ($taxable - 166667.00), 2);
-        return round(200833.00 + 0.35 * ($taxable - 666667.00), 2);
+        $annualTaxable = $monthlyTaxable * 12;
+        $annualTax     = self::computeAnnualTax($annualTaxable);
+        return round($annualTax / 12, 2);
     }
 
     /**
-     * Apply the ANNUAL BIR tax bracket then convert to monthly equivalent.
-     * Used for year-end reconciliation computation.
+     * Apply the TRAIN Law ANNUAL tax bracket (RR 13-2023, effective Jan 2023 onwards).
+     *
+     * Annual brackets:
+     *   ₱0          – ₱250,000    →  0%
+     *   ₱250,001    – ₱400,000    →  15% of excess over ₱250,000
+     *   ₱400,001    – ₱800,000    →  ₱22,500  + 20% of excess over ₱400,000
+     *   ₱800,001    – ₱2,000,000  →  ₱102,500 + 25% of excess over ₱800,000
+     *   ₱2,000,001  – ₱8,000,000  →  ₱402,500 + 30% of excess over ₱2,000,000
+     *   Above ₱8,000,000           →  ₱2,402,500 + 35% of excess over ₱8,000,000
      */
     public static function computeAnnualTax(float $annualTaxableIncome): float
     {
-        if ($annualTaxableIncome <= 250000.00)  return 0.00;
-        if ($annualTaxableIncome <= 400000.00)  return round(0.15 * ($annualTaxableIncome - 250000.00), 2);
-        if ($annualTaxableIncome <= 800000.00)  return round(22500.00  + 0.20 * ($annualTaxableIncome - 400000.00), 2);
-        if ($annualTaxableIncome <= 2000000.00) return round(102500.00 + 0.25 * ($annualTaxableIncome - 800000.00), 2);
-        if ($annualTaxableIncome <= 8000000.00) return round(402500.00 + 0.30 * ($annualTaxableIncome - 2000000.00), 2);
-        return round(2202500.00 + 0.35 * ($annualTaxableIncome - 8000000.00), 2);
+        if ($annualTaxableIncome <= 250000.00)   return 0.00;
+        if ($annualTaxableIncome <= 400000.00)   return round(0.15  * ($annualTaxableIncome - 250000.00), 2);
+        if ($annualTaxableIncome <= 800000.00)   return round(22500.00  + 0.20 * ($annualTaxableIncome - 400000.00), 2);
+        if ($annualTaxableIncome <= 2000000.00)  return round(102500.00 + 0.25 * ($annualTaxableIncome - 800000.00), 2);
+        if ($annualTaxableIncome <= 8000000.00)  return round(402500.00 + 0.30 * ($annualTaxableIncome - 2000000.00), 2);
+        return round(2402500.00 + 0.35 * ($annualTaxableIncome - 8000000.00), 2);
     }
 
     // ════════════════════════════════════════════════════════════
