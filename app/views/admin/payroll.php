@@ -7,7 +7,11 @@ $breadcrumb = 'Payroll';
 $activeMenu = 'payroll';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
-if (!defined('ROLE_ADMIN')) require_once __DIR__ . '/../../../config/config.php';
+if (!defined('ROLE_ADMIN'))   require_once __DIR__ . '/../../../config/config.php';
+if (!defined('DB_HOST'))      require_once __DIR__ . '/../../../config/database.php';
+if (!class_exists('Database'))             require_once __DIR__ . '/../../../core/Database.php';
+if (!class_exists('Model'))                require_once __DIR__ . '/../../../core/Model.php';
+if (!class_exists('PhilippineDeductions')) require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
 // Admin and management only — guard before any POST processing
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
     header('Location: ' . BASE_URL . '/index.php?error=access_denied'); exit;

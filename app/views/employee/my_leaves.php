@@ -230,20 +230,24 @@ $balanceMap = array_filter($allBalanceMap, function($meta) use ($empGender) {
   </div>
 </div>
 
-<?php
-$extraJs = <<<JS
+<script>
 function calcDays() {
   const from = document.getElementById('dateFrom').value;
   const to   = document.getElementById('dateTo').value;
   if (from && to) {
     const d1 = new Date(from), d2 = new Date(to);
     if (d2 >= d1) {
-      const diff = Math.round((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
-      document.getElementById('daysApplied').value = diff;
+      let count   = 0;
+      let current = new Date(d1);
+      while (current <= d2) {
+        const day = current.getDay(); // 0 = Sunday, 6 = Saturday
+        if (day !== 0 && day !== 6) count++;
+        current.setDate(current.getDate() + 1);
+      }
+      document.getElementById('daysApplied').value = count;
     }
   }
 }
-JS;
-?>
+</script>
 
 <?php require_once __DIR__ . '/../layouts/employee_footer.php'; ?>
