@@ -1,5 +1,11 @@
 <?php
 $pageTitle = 'Recruitment';
+// Bootstrap: load dependencies if accessed directly (not via router)
+if (!defined('ROLE_ADMIN'))   require_once __DIR__ . '/../../../config/config.php';
+if (!defined('DB_HOST'))      require_once __DIR__ . '/../../../config/database.php';
+if (!class_exists('Database'))             require_once __DIR__ . '/../../../core/Database.php';
+if (!class_exists('Model'))                require_once __DIR__ . '/../../../core/Model.php';
+if (!class_exists('PhilippineDeductions')) require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 $msg = '';

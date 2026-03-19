@@ -109,7 +109,6 @@ $typeBadge = [
 
 <?= $msg ?>
 
-
 <!-- Quick Stats -->
 <?php
   $byType   = array_count_values(array_column($holidays, 'type'));
@@ -255,7 +254,6 @@ $typeBadge = [
   </div>
 </div>
 
-
 <!-- ══ ADD / EDIT MODAL ════════════════════════════════════════ -->
 <div class="modal fade" id="holidayModal" tabindex="-1">
   <div class="modal-dialog">
@@ -322,8 +320,8 @@ $typeBadge = [
   </div>
 </div>
 
-<?php $extraJs = <<<JS
-<script>
+<?php
+$extraJs = <<<'JS'
 $(function () {
 
   // Reset modal to ADD mode
@@ -361,6 +359,7 @@ $(function () {
   setTimeout(function () { $('.alert-auto-dismiss').fadeOut(500); }, 3500);
 
 });
-</script>
 JS;
-require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
+
+require_once __DIR__ . '/../layouts/admin_footer.php';
+?>

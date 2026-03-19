@@ -426,16 +426,13 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
           </tr>
         </thead>
         <tbody>
-        <?php foreach ($periodPayroll as $p):
-          $emp = Model::findEmployeeById($p['employee_id']);
-          if (!$emp) continue;
-        ?>
+        <?php foreach ($periodPayroll as $p): ?>
           <tr>
             <td>
-              <strong><?= htmlspecialchars($emp['name']) ?></strong><br>
-              <small class="text-muted"><?= $emp['employee_no'] ?></small>
+              <strong><?= htmlspecialchars($p['employee_name']) ?></strong><br>
+              <small class="text-muted"><?= htmlspecialchars($p['employee_no']) ?></small>
             </td>
-            <td><?= htmlspecialchars($emp['department']) ?></td>
+            <td><?= htmlspecialchars($p['department']) ?></td>
             <td>&#8369;<?= number_format($p['basic_salary'], 2) ?></td>
             <td>&#8369;<?= number_format($p['allowance'], 2) ?></td>
             <td>&#8369;<?= number_format($p['gross_pay'], 2) ?></td>
@@ -452,13 +449,13 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
                 : '<span class="badge badge-warning">Pending</span>' ?>
             </td>
             <td class="text-center payroll-actions-cell">
-              <a href="payslip.php?emp=<?= $emp['id'] ?>&period=<?= $selectedPeriod ?>"
+              <a href="payslip.php?emp=<?= $p['employee_id'] ?>&period=<?= $selectedPeriod ?>"
                  class="btn btn-sm btn-info" title="View Payslip">
                 <i class="fas fa-receipt"></i>
               </a>
               <?php if ($p['status'] === 'pending'): ?>
               <form method="POST" class="action-form-inline"
-                    onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($emp['name'])) ?>?')">
+                    onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($p['employee_name'])) ?>?')">
                 <input type="hidden" name="release_single"  value="1">
                 <input type="hidden" name="payroll_id"      value="<?= $p['id'] ?>">
                 <input type="hidden" name="release_period"  value="<?= $selectedPeriod ?>">
