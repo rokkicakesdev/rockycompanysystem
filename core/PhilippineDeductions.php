@@ -474,7 +474,8 @@ final class PhilippineDeductions
      */
     public static function computeAll(float $basicSalary, float $allowance = 0.0): array
     {
-        if ($basicSalary < 0) $basicSalary = 0.0;
+        $basicSalary = max(0.0, $basicSalary);
+        $allowance   = max(0.0, $allowance);
 
         $sss        = self::computeSSS($basicSalary);
         $philhealth = self::computePhilHealth($basicSalary);
