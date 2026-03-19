@@ -2,11 +2,11 @@
   </section><!-- /.content -->
 </div><!-- /.content-wrapper -->
 
-    <footer class="main-footer" class="main-footer">
+    <footer class="main-footer">
       <span class="footer-text">
         &copy; <?= date('Y') ?> <?= COMPANY_NAME ?> &mdash; <?= APP_NAME ?> v<?= APP_VERSION ?>
       </span>
-      <span class="float-right" class="footer-text">
+      <span class="float-right footer-text">
         Powered by <strong>Rocky HRIS + PAYROLL</strong>
       </span>
     </footer>
@@ -21,7 +21,7 @@
       $('[data-widget="treeview"]').Treeview('init');
     });
   </script>
-  <?php if (isset($extraJs)) echo '<script>' . $extraJs . '</script>'; ?>
+  <?php if (!empty($extraJs)) echo '<script>' . $extraJs . '</script>'; ?>
   <script>
     // Auto-dismiss alerts after 4 seconds
     setTimeout(() => {

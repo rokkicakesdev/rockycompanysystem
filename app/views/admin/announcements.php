@@ -238,7 +238,6 @@ $typeIcons = [
 
 <?php
 $extraJs = <<<'JS'
-<script>
 // New announcement — reset form to create mode
 $('#newAnnouncementBtn').on('click', function() {
   $('#announcementModalTitle').html('<i class="fas fa-bullhorn mr-2 text-primary"></i>Post Announcement');
@@ -264,7 +263,6 @@ $('.edit-ann-btn').on('click', function() {
   $('#annSubmitBtn').html('<i class="fas fa-save mr-1"></i> Save Changes');
   $('#announcementModal').modal('show');
 });
-</script>
 JS;
 
 require_once __DIR__ . '/../layouts/admin_footer.php';

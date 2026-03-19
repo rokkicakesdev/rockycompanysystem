@@ -31,7 +31,7 @@ if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {
 }
 
 // Placeholder — add real method when ready
-$newApplicants = 0; // Model::countNewApplicants() ?? 0;
+$newApplicants = Model::countNewApplicants() ?? 0;
 
 $userName = $_SESSION['name'] ?? 'Admin';
 $userRole = $_SESSION['role'] ?? 'Unknown';

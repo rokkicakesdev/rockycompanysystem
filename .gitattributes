@@ -1,0 +1,31 @@
+# Rocky Company System — Git line ending normalization
+# Ensures consistent LF line endings across all platforms.
+# Windows devs: set git config core.autocrlf=true locally.
+
+* text=auto eol=lf
+
+# Force LF for all PHP/web files
+*.php    text eol=lf
+*.html   text eol=lf
+*.css    text eol=lf
+*.js     text eol=lf
+*.json   text eol=lf
+*.sql    text eol=lf
+*.md     text eol=lf
+*.env    text eol=lf
+*.txt    text eol=lf
+.htaccess text eol=lf
+
+# Binary files — never touch line endings
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
+*.svg    binary
+*.pdf    binary
+*.zip    binary
