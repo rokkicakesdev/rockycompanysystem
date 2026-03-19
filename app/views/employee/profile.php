@@ -314,8 +314,7 @@ $leaveBalances = [
   </div><!-- /.col-lg-8 -->
 </div><!-- /.row -->
 
-<?php
-$extraJs = <<<'JS'
+<script>
 // Confirm password match visual feedback
 document.getElementById('newPw').addEventListener('input', function() {
   const ok = this.value.length >= 8;
@@ -327,7 +326,6 @@ document.getElementById('confirmPw').addEventListener('input', function() {
   this.classList.toggle('is-invalid', !match && this.value.length > 0);
   this.classList.toggle('is-valid',   match  && this.value.length > 0);
 });
-JS;
+</script>
 
-require_once __DIR__ . '/../layouts/employee_footer.php';
-?>
+<?php require_once __DIR__ . '/../layouts/employee_footer.php'; ?>
