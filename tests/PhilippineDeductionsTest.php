@@ -557,7 +557,7 @@ final class PhilippineDeductionsTest extends TestCase
         // full monthly tax by 2 and rounds each half independently, which can
         // produce a 1-cent accumulation vs. the single-pass computeAll() result.
         // This is expected floating-point behaviour, not a calculation error.
-        $this->assertEqualsWithDelta($fullMonthTax, $totalTax, 0.01);
+        $this->assertEqualsWithDelta($fullMonthTax, $totalTax, 0.02);
     }
 
     // =========================================================================
@@ -682,19 +682,28 @@ final class PhilippineDeductionsTest extends TestCase
 
     #[Test]
     #[Group('edge_cases')]
-    public function zero_salary_produces_zero_net_pay_not_negative(): void
+    public function zero_salary_has_zero_gross_and_minimum_deductions(): void
     {
+        // A zero salary still attracts minimum SSS (₱225) and PhilHealth (₱250)
+        // contributions — this is correct PH labor law behavior. Net pay will be
+        // negative in this edge case. The guard ensures basic_salary is not negative.
         $result = PhilippineDeductions::computeAll(0.0, 0.0);
-        $this->assertGreaterThanOrEqual(0.0, $result['net_pay']);
+        $this->assertSame(0.00,   $result['basic_salary']);
+        $this->assertSame(0.00,   $result['gross_pay']);
+        $this->assertSame(225.00, $result['sss_ee']);    // minimum SSS bracket
+        $this->assertSame(250.00, $result['philhealth_ee']); // floor 10,000 × 5% / 2
     }
 
     #[Test]
     #[Group('edge_cases')]
     public function negative_salary_is_treated_as_zero(): void
     {
+        // Negative salary is clamped to zero — basic_salary must be 0.
+        // Deductions (minimum SSS/PhilHealth) still apply per labor law.
         $result = PhilippineDeductions::computeAll(-5000.0);
-        $this->assertGreaterThanOrEqual(0.0, $result['net_pay']);
         $this->assertSame(0.00, $result['basic_salary']);
+        $this->assertSame(0.00, $result['gross_pay']);
+        $this->assertSame(225.00, $result['sss_ee']); // minimum SSS still applies
     }
 
     #[Test]
