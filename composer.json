@@ -5,7 +5,8 @@
     "require": {
         "php": ">=8.0",
         "phpoffice/phpspreadsheet": "^5.5",
-        "dompdf/dompdf": "^3.1"
+        "dompdf/dompdf": "^3.1",
+        "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0"
@@ -14,9 +15,10 @@
         "optimize-autoloader": true
     },
     "autoload": {
-        "psr-4": {
-            "RockyCompany\\": "src/"
-        }
+        "classmap": [
+            "core/",
+            "app/controllers/"
+        ]
     },
     "autoload-dev": {
         "psr-4": {
@@ -25,6 +27,12 @@
     },
     "scripts": {
         "test": "phpunit --testdox",
-        "test:coverage": "phpunit --coverage-text"
+        "test:coverage": "phpunit --coverage-text",
+        "post-install-cmd": [
+            "@composer dump-autoload --optimize"
+        ],
+        "post-update-cmd": [
+            "@composer dump-autoload --optimize"
+        ]
     }
 }
