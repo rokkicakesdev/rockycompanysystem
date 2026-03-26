@@ -12,21 +12,17 @@ if (!defined('DB_HOST'))      require_once __DIR__ . '/../../../config/database.
 if (!class_exists('Database'))             require_once __DIR__ . '/../../../core/Database.php';
 if (!class_exists('Model'))                require_once __DIR__ . '/../../../core/Model.php';
 if (!class_exists('PhilippineDeductions')) require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
-// Admin and management only — guard before any POST processing
+
+// Auth guard
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
     header('Location: ' . BASE_URL . '/index.php?error=access_denied'); exit;
 }
-
-// Core files (Database, Model, PhilippineDeductions) are loaded by the router
-// before this view is included — do NOT require them here directly.
 
 // CSRF token
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf_token = $_SESSION['csrf_token'];
-
-// (msg is set by POST handlers above, or empty for GET requests)
 
 // ===========================================================================
 //  POST: GENERATE PAYROLL
@@ -38,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
     } else {
         $genPeriod      = trim($_POST['gen_period'] ?? '');
         $selectedEmpIds = $_POST['employee_ids'] ?? [];
-        $maxAllowed     = date('Y-m', strtotime('+1 month')); // compare against period base
+        $maxAllowed     = date('Y-m', strtotime('+1 month'));
 
         if (!preg_match('/^\d{4}-\d{2}-[12]$/', $genPeriod)) {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid payroll period format.</div>";
@@ -60,39 +56,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     $empId = (int)$empId;
                     $emp   = Model::findEmployeeById($empId);
 
-                    if (!$emp) {
-                        $skipped++;
-                        $skipReasons[] = "ID:{$empId} - employee not found";
-                        continue;
-                    }
-                    if ($emp['status'] !== 'active') {
-                        $skipped++;
-                        $skipReasons[] = htmlspecialchars($emp['name']) . " - not active ({$emp['status']})";
-                        continue;
-                    }
-                    if (Model::employeeExistsInPeriod($empId, $genPeriod)) {
-                        $skipped++;
-                        $skipReasons[] = htmlspecialchars($emp['name']) . " - already has a record for {$genPeriod}";
-                        continue;
-                    }
+                    if (!$emp) { $skipped++; $skipReasons[] = "ID:{$empId} - employee not found"; continue; }
+                    if ($emp['status'] !== 'active') { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - not active ({$emp['status']})"; continue; }
+                    if (Model::employeeExistsInPeriod($empId, $genPeriod)) { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - already has a record for {$genPeriod}"; continue; }
 
-                    // ── Load per-employee payroll settings ──────────────
                     $settings        = Model::getEmployeePayrollSettings($empId);
                     $fixedAmount     = $settings['cutoff1_fixed_amount'] !== null ? (float)$settings['cutoff1_fixed_amount'] : null;
                     $taxMethod       = $settings['tax_method'];
                     $govMode         = $settings['gov_deduction_mode'];
                     $cutoffNum       = Model::periodCutoff($genPeriod);
 
-                    // ── Attendance absent deduction (based on half-month rate) ──
                     $attendance      = Model::getAttendanceSummary($empId, Model::periodBase($genPeriod));
                     $daysAbsent      = (int)($attendance['days_absent'] ?? 0);
                     $daysHalf        = (int)($attendance['days_half']   ?? 0);
-                    // Daily rate based on half-month (11 working days per cutoff)
                     $halfMonthDays   = round($workingDays / 2);
                     $dailyRate       = $halfMonthDays > 0 ? (float)$emp['basic_salary'] / $workingDays : 0.0;
                     $absentDeduction = round(($daysAbsent * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
 
-                    // ── 13th Month Pay — December 1st cutoff only ──────────
                     $thirteenthAmount = 0.0;
                     if (Model::isDecember1stCutoff($genPeriod)) {
                         $rec13 = Model::get13thMonthByEmployee($empId, Model::periodYear($genPeriod));
@@ -101,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         }
                     }
 
-                    // ── Year-end reconciliation — December 2nd cutoff ──────
                     $reconciliation = 0.0;
                     if (Model::isDecember2ndCutoff($genPeriod)) {
                         $year          = Model::periodYear($genPeriod);
@@ -113,25 +92,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         );
                     }
 
-                    // ── Compute cutoff deductions ───────────────────────────
                     if ($cutoffNum === 1) {
                         $deductions = PhilippineDeductions::computeFirstCutoff(
-                            (float)$emp['basic_salary'],
-                            (float)($emp['allowance'] ?? 0),
-                            $fixedAmount,
-                            $taxMethod,
-                            $thirteenthAmount,
-                            $absentDeduction
+                            (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
+                            $fixedAmount, $taxMethod, $thirteenthAmount, $absentDeduction
                         );
                     } else {
                         $deductions = PhilippineDeductions::computeSecondCutoff(
-                            (float)$emp['basic_salary'],
-                            (float)($emp['allowance'] ?? 0),
-                            $fixedAmount,
-                            $taxMethod,
-                            $govMode,
-                            $absentDeduction,
-                            $reconciliation
+                            (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
+                            $fixedAmount, $taxMethod, $govMode, $absentDeduction, $reconciliation
                         );
                     }
 
@@ -161,12 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         'processed_by'     => $_SESSION['user_id'],
                     ];
 
-                    if (Model::createPayrollRecord($record)) {
-                        $generated++;
-                    } else {
-                        $skipped++;
-                        $skipReasons[] = htmlspecialchars($emp['name']) . " - DB insert failed";
-                    }
+                    if (Model::createPayrollRecord($record)) { $generated++; }
+                    else { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - DB insert failed"; }
                 }
 
                 $db->commit();
@@ -190,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
 }
 
 // ===========================================================================
-//  POST: RELEASE SINGLE PAYROLL RECORD
+//  POST: RELEASE SINGLE
 // ===========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_single'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
@@ -211,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_single'])) {
 }
 
 // ===========================================================================
-//  POST: RELEASE ALL PENDING FOR PERIOD
+//  POST: RELEASE ALL
 // ===========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_all'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
@@ -228,7 +193,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_all'])) {
     }
 }
 
-
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 $msg = '';
@@ -236,24 +200,20 @@ $msg = '';
 // ===========================================================================
 //  SETUP: Period selection and data
 // ===========================================================================
-// Default to the current cutoff based on today's date
 $todayCutoff     = date('j') <= 15 ? '1' : '2';
 $selectedPeriod  = $_GET['period'] ?? (date('Y-m') . '-' . $todayCutoff);
 $existingPeriods = Model::getPayrollPeriods();
 
-// Build semi-monthly period options: last 6 months × 2 cutoffs = 12 options
 $periodOptions = [];
 for ($i = 0; $i < 6; $i++) {
     $base = date('Y-m', strtotime("-{$i} months"));
-    $periodOptions[] = $base . '-2';  // 16th–end
-    $periodOptions[] = $base . '-1';  // 1st–15th
+    $periodOptions[] = $base . '-2';
+    $periodOptions[] = $base . '-1';
 }
-// Merge in any existing periods from DB that may be older
 $periodOptions = array_unique(array_merge($periodOptions, $existingPeriods));
-// Sort descending (newest first) — works because YYYY-MM-C sorts correctly as string
 usort($periodOptions, fn($a, $b) => strcmp($b, $a));
 
-// Flash messages from redirect
+// Flash messages
 if (!$msg) {
     $msgParam = $_GET['msg'] ?? '';
     if ($msgParam === 'generated') {
@@ -265,9 +225,7 @@ if (!$msg) {
             $reasonHtml = '';
             if (!empty($reasons)) {
                 $reasonHtml = '<ul class="mb-0 mt-1 payroll-skip-list">';
-                foreach ($reasons as $r) {
-                    $reasonHtml .= '<li>' . htmlspecialchars($r) . '</li>';
-                }
+                foreach ($reasons as $r) { $reasonHtml .= '<li>' . htmlspecialchars($r) . '</li>'; }
                 $reasonHtml .= '</ul>';
             }
             $skipNote = " <strong>{$skipped} skipped</strong>{$reasonHtml}";
@@ -283,7 +241,6 @@ if (!$msg) {
     }
 }
 
-// Load data for current view
 $employees        = Model::getAllEmployees('active');
 $periodPayroll    = Model::getPayrollByPeriod($selectedPeriod);
 $totalGross       = array_sum(array_column($periodPayroll, 'gross_pay'));
@@ -296,11 +253,16 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
 
 <?= $msg ?>
 
-<!-- Period Selector -->
-<div class="card card-primary card-outline mb-3">
+<!-- ── PRINT TITLE (hidden on screen, visible when printing) ── -->
+<div class="print-title" style="display:none;">
+  <?= htmlspecialchars(COMPANY_NAME) ?> — Payroll Register: <?= Model::periodLabel($selectedPeriod) ?>
+</div>
+
+<!-- ── Period Selector ─────────────────────────────────────── -->
+<div class="card card-primary card-outline mb-3 no-print">
   <div class="card-body py-3">
-    <div class="d-flex align-items-center flex-wrap">
-      <label class="mb-0 font-weight-bold mr-2">Payroll Period:</label>
+    <div class="d-flex align-items-center flex-wrap payroll-period-bar">
+      <label class="mb-0 font-weight-bold mr-2 text-nowrap">Payroll Period:</label>
       <select id="periodSelect" class="form-control mr-3 payroll-period-select-md"
               onchange="window.location='payroll.php?period='+this.value">
         <?php foreach ($periodOptions as $p): ?>
@@ -312,29 +274,29 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
 
       <?php if (!$alreadyGenerated): ?>
         <button class="btn btn-success mr-2" data-toggle="modal" data-target="#generateModal">
-          <i class="fas fa-cogs mr-1"></i> Generate Payroll
+          <i class="fas fa-cogs mr-1"></i><span class="d-none d-sm-inline">Generate Payroll</span><span class="d-inline d-sm-none">Generate</span>
         </button>
       <?php else: ?>
-        <span class="badge badge-primary px-3 py-2 mr-2 payroll-skip-list">
+        <span class="badge badge-primary px-3 py-2 mr-2 payroll-summary-badge">
           <i class="fas fa-check mr-1"></i> Payroll Generated
         </span>
         <?php if (count($pendingList) > 0): ?>
           <button class="btn btn-warning mr-2" data-toggle="modal" data-target="#releaseAllModal">
-            <i class="fas fa-paper-plane mr-1"></i> Release All
+            <i class="fas fa-paper-plane mr-1"></i><span class="d-none d-sm-inline">Release All</span><span class="d-inline d-sm-none">Release</span>
           </button>
         <?php endif; ?>
       <?php endif; ?>
 
       <button class="btn btn-info ml-auto" onclick="window.print()">
-        <i class="fas fa-print mr-1"></i> Print
+        <i class="fas fa-print mr-1"></i><span class="d-none d-sm-inline">Print</span>
       </button>
     </div>
   </div>
 </div>
 
-<!-- Summary Cards -->
-<div class="row">
-  <div class="col-md-3">
+<!-- ── Summary Cards ───────────────────────────────────────── -->
+<div class="row payroll-info-row">
+  <div class="col-6 col-md-3">
     <div class="info-box">
       <span class="info-box-icon bg-primary"><i class="fas fa-file-invoice"></i></span>
       <div class="info-box-content">
@@ -343,7 +305,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="info-box">
       <span class="info-box-icon bg-warning"><i class="fas fa-money-bill-alt"></i></span>
       <div class="info-box-content">
@@ -352,7 +314,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="info-box">
       <span class="info-box-icon bg-danger"><i class="fas fa-minus-circle"></i></span>
       <div class="info-box-content">
@@ -361,7 +323,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="info-box">
       <span class="info-box-icon bg-success"><i class="fas fa-hand-holding-usd"></i></span>
       <div class="info-box-content">
@@ -372,57 +334,59 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
   </div>
 </div>
 
-<!-- Payroll Table -->
+<!-- ── Payroll Table ───────────────────────────────────────── -->
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">
       <i class="fas fa-table mr-2"></i>
-      Payroll Records &mdash; <?= date('F Y', strtotime($selectedPeriod . '-01')) ?>
+      Payroll Records &mdash; <?= Model::periodLabel($selectedPeriod) ?>
     </h3>
-    <div class="card-tools d-flex align-items-center">
+    <div class="card-tools d-flex align-items-center payroll-card-tools">
       <span class="badge badge-warning mr-2"><?= count($pendingList) ?> Pending</span>
-      <span class="badge badge-success mr-3"><?= count($releasedList) ?> Released</span>
+      <span class="badge badge-success mr-2"><?= count($releasedList) ?> Released</span>
       <?php if (!empty($periodPayroll)): ?>
       <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=pdf"
          target="_blank"
-         class="btn btn-xs btn-outline-danger mr-1"
-         title="Print / Export as PDF">
-        <i class="fas fa-file-pdf mr-1"></i>PDF
+         class="btn btn-xs btn-outline-danger mr-1 no-print"
+         title="Export PDF">
+        <i class="fas fa-file-pdf mr-1"></i><span class="d-none d-md-inline">PDF</span>
       </a>
       <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=excel"
-         class="btn btn-xs btn-outline-success"
-         title="Export as Excel">
-        <i class="fas fa-file-excel mr-1"></i>Excel
+         class="btn btn-xs btn-outline-success no-print"
+         title="Export Excel">
+        <i class="fas fa-file-excel mr-1"></i><span class="d-none d-md-inline">Excel</span>
       </a>
       <?php endif; ?>
     </div>
   </div>
+
   <div class="card-body p-0">
     <?php if (empty($periodPayroll)): ?>
       <div class="p-5 text-center text-muted">
         <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
-        No payroll records for <strong><?= date('F Y', strtotime($selectedPeriod . '-01')) ?></strong>.<br>
+        No payroll records for <strong><?= Model::periodLabel($selectedPeriod) ?></strong>.<br>
         <small>Click <strong>"Generate Payroll"</strong> above to begin.</small>
       </div>
     <?php else: ?>
-    <div class="table-responsive">
-      <table class="table table-hover mb-0">
+    <!-- payroll-table-wrap enables horizontal scroll on mobile -->
+    <div class="payroll-table-wrap">
+      <table class="table table-hover mb-0 payroll-table">
         <thead>
           <tr>
             <th>Employee</th>
             <th>Department</th>
             <th>Basic Salary</th>
-            <th>Allowance</th>
+            <th class="payroll-col-allowance">Allowance</th>
             <th>Gross Pay</th>
-            <th>SSS</th>
-            <th>PhilHealth</th>
-            <th>Pag-IBIG</th>
-            <th>W. Tax</th>
-            <th>Absent Ded.</th>
+            <th class="payroll-col-sss">SSS</th>
+            <th class="payroll-col-philhealth">PhilHealth</th>
+            <th class="payroll-col-pagibig">Pag-IBIG</th>
+            <th class="payroll-col-wtax">W. Tax</th>
+            <th class="payroll-col-absentded">Absent Ded.</th>
             <th>Total Ded.</th>
             <th class="text-success">Net Pay</th>
             <th>Status</th>
-            <th class="text-center">Action</th>
+            <th class="text-center no-print">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -434,13 +398,13 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
             </td>
             <td><?= htmlspecialchars($p['department']) ?></td>
             <td>&#8369;<?= number_format($p['basic_salary'], 2) ?></td>
-            <td>&#8369;<?= number_format($p['allowance'], 2) ?></td>
+            <td class="payroll-col-allowance">&#8369;<?= number_format($p['allowance'], 2) ?></td>
             <td>&#8369;<?= number_format($p['gross_pay'], 2) ?></td>
-            <td class="text-danger">&#8369;<?= number_format($p['sss_ee'], 2) ?></td>
-            <td class="text-danger">&#8369;<?= number_format($p['philhealth_ee'], 2) ?></td>
-            <td class="text-danger">&#8369;<?= number_format($p['pagibig_ee'], 2) ?></td>
-            <td class="text-danger">&#8369;<?= number_format($p['withholding_tax'], 2) ?></td>
-            <td class="text-danger">&#8369;<?= number_format($p['other_deductions'] ?? 0, 2) ?></td>
+            <td class="text-danger payroll-col-sss">&#8369;<?= number_format($p['sss_ee'], 2) ?></td>
+            <td class="text-danger payroll-col-philhealth">&#8369;<?= number_format($p['philhealth_ee'], 2) ?></td>
+            <td class="text-danger payroll-col-pagibig">&#8369;<?= number_format($p['pagibig_ee'], 2) ?></td>
+            <td class="text-danger payroll-col-wtax">&#8369;<?= number_format($p['withholding_tax'], 2) ?></td>
+            <td class="text-danger payroll-col-absentded">&#8369;<?= number_format($p['other_deductions'] ?? 0, 2) ?></td>
             <td class="text-danger font-weight-bold">&#8369;<?= number_format($p['total_deductions'], 2) ?></td>
             <td class="text-success font-weight-bold">&#8369;<?= number_format($p['net_pay'], 2) ?></td>
             <td>
@@ -448,7 +412,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
                 ? '<span class="badge badge-success">Released</span>'
                 : '<span class="badge badge-warning">Pending</span>' ?>
             </td>
-            <td class="text-center payroll-actions-cell">
+            <td class="text-center payroll-actions-cell no-print">
               <a href="payslip.php?emp=<?= $p['employee_id'] ?>&period=<?= $selectedPeriod ?>"
                  class="btn btn-sm btn-info" title="View Payslip">
                 <i class="fas fa-receipt"></i>
@@ -471,12 +435,12 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
         </tbody>
         <tfoot class="bg-light">
           <tr>
-            <th colspan="4" class="text-right">TOTALS</th>
-            <th>&#8369;<?= number_format($totalGross, 2) ?></th>
+            <th colspan="2" class="text-right">TOTALS</th>
+            <th colspan="2">&#8369;<?= number_format($totalGross, 2) ?></th>
             <th colspan="6"></th>
             <th class="text-danger">&#8369;<?= number_format($totalDed, 2) ?></th>
             <th class="text-success">&#8369;<?= number_format($totalNet, 2) ?></th>
-            <th colspan="2"></th>
+            <th colspan="2" class="no-print"></th>
           </tr>
         </tfoot>
       </table>
@@ -485,8 +449,8 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
   </div>
 </div>
 
-<!-- GENERATE PAYROLL MODAL -->
-<div class="modal fade" id="generateModal" tabindex="-1">
+<!-- ── GENERATE PAYROLL MODAL ──────────────────────────────── -->
+<div class="modal fade no-print" id="generateModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-success text-white">
@@ -504,7 +468,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
           </div>
           <div class="form-group row align-items-center mb-3">
             <label class="col-sm-3 col-form-label font-weight-bold">Payroll Period</label>
-            <div class="col-sm-6">
+            <div class="col-sm-9">
               <div class="input-group">
                 <input type="month" id="genPeriodMonth"
                        class="form-control"
@@ -576,8 +540,8 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
   </div>
 </div>
 
-<!-- RELEASE ALL MODAL -->
-<div class="modal fade" id="releaseAllModal" tabindex="-1">
+<!-- ── RELEASE ALL MODAL ────────────────────────────────────── -->
+<div class="modal fade no-print" id="releaseAllModal" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header bg-warning">
@@ -590,7 +554,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
         <input type="hidden" name="csrf_token"     value="<?= htmlspecialchars($csrf_token) ?>">
         <div class="modal-body">
           <p>You are about to release <strong><?= count($pendingList) ?> pending</strong> payroll record(s) for
-             <strong><?= date('F Y', strtotime($selectedPeriod . '-01')) ?></strong>.</p>
+             <strong><?= Model::periodLabel($selectedPeriod) ?></strong>.</p>
           <p class="text-muted mb-0">Once released, employees can view their payslips. This cannot be undone.</p>
         </div>
         <div class="modal-footer">
@@ -606,7 +570,6 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
 
 <?php
 $existingPeriodsJson = json_encode($existingPeriods);
-$existingPeriodsJs   = htmlspecialchars($existingPeriodsJson, ENT_QUOTES);
 $maxPeriod = date('Y-m', strtotime('+1 month'));
 
 $extraJs = <<<JSEOF
@@ -621,12 +584,11 @@ document.querySelectorAll('.emp-check').forEach(function(cb) {
     });
 });
 
-// Semi-monthly period builder — combine month + cutoff into YYYY-MM-C
 function buildPeriod() {
-    var month  = document.getElementById('genPeriodMonth').value;   // YYYY-MM
-    var cutoff = document.getElementById('genPeriodCutoff').value;  // 1 or 2
+    var month  = document.getElementById('genPeriodMonth').value;
+    var cutoff = document.getElementById('genPeriodCutoff').value;
     if (!month) return '';
-    return month + '-' + cutoff;  // e.g. 2026-12-2
+    return month + '-' + cutoff;
 }
 function syncPeriod() {
     var period = buildPeriod();
