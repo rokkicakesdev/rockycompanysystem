@@ -227,13 +227,13 @@ $statusOptions = [
               <td>
                 <select name="attendance[<?= $emp['id'] ?>][status]" class="form-control form-control-sm att-status" data-empid="<?= $emp['id'] ?>">
                   <?php foreach ($statusOptions as $val => $opt): ?>
-                    <option value="<?= $val ?>" <?= $status === $val ? 'selected' : '' ?> style="color:<?= $opt['color'] ?>;">
+                    <option value="<?= $val ?>" <?= $status === $val ? 'selected' : '' ?> class="status-select-option">
                       <?= $opt['label'] ?>
                     </option>
                   <?php endforeach; ?>
                 </select>
                 <select name="attendance[<?= $emp['id'] ?>][leave_type]" class="form-control form-control-sm mt-1 att-leave-select leave-type-select-<?= $emp['id'] ?>"
-                  style="display:<?= $status === 'on_leave' ? 'block' : 'none' ?>;">
+                  class="att-on-leave-panel<?= $status === 'on_leave' ? ' visible' : '' ?>">
                   <option value="">-- Leave Type --</option>
                   <?php foreach (LEAVE_TYPES as $lk => $lv): ?>
                     <option value="<?= $lk ?>" <?= ($rec['leave_type'] ?? '') === $lk ? 'selected' : '' ?>><?= $lv ?></option>

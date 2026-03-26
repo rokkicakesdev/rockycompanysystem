@@ -34,18 +34,18 @@ $announcements  = array_slice($announcements, 0, 5);
 </div>
 
 <!-- Welcome Banner -->
-<div class="card mb-4" style="background: linear-gradient(135deg,#1e3a5f,#1a6e4a); color:#fff; border:none;">
+<div class="card mb-4 emp-welcome-card">
   <div class="card-body d-flex align-items-center justify-content-between py-3 px-4">
     <div>
       <h5 class="mb-0 font-weight-bold">Welcome back, <?= htmlspecialchars(explode(' ', $employee['name'] ?? $_SESSION['name'])[0]) ?>! 👋</h5>
-      <small style="opacity:.8;">
+      <small class="emp-dash-welcome-sub">
         <?= htmlspecialchars($employee['position'] ?? '') ?>
         <?php if (!empty($employee['department'])): ?> &mdash; <?= htmlspecialchars($employee['department']) ?><?php endif; ?>
       </small>
     </div>
     <div class="text-right ml-auto">
-      <small style="opacity:.7; font-size:.75rem; letter-spacing:.5px; text-transform:uppercase;">Employee No.</small><br>
-      <strong style="font-size:1.1rem; letter-spacing:.5px;"><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></strong>
+      <small class="emp-dash-emp-no-label">Employee No.</small><br>
+      <strong class="emp-dash-emp-no-value"><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></strong>
     </div>
   </div>
 </div>
@@ -55,7 +55,7 @@ $announcements  = array_slice($announcements, 0, 5);
   <!-- Net Pay Last Period -->
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#dbeafe;color:#1d4ed8;"><i class="fas fa-peso-sign"></i></div>
+      <div class="icon-box icon-box-blue"><i class="fas fa-peso-sign"></i></div>
       <div class="stat-info">
         <div class="stat-value">₱<?= $latestPayroll ? number_format($latestPayroll['net_pay'], 0) : '—' ?></div>
         <div class="stat-label">Last Net Pay</div>
@@ -65,7 +65,7 @@ $announcements  = array_slice($announcements, 0, 5);
   <!-- Days Present This Month -->
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#dcfce7;color:#16a34a;"><i class="fas fa-calendar-check"></i></div>
+      <div class="icon-box icon-box-green"><i class="fas fa-calendar-check"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= $attendance['days_present'] ?? 0 ?></div>
         <div class="stat-label">Days Present (<?= date('M') ?>)</div>
@@ -75,7 +75,7 @@ $announcements  = array_slice($announcements, 0, 5);
   <!-- Pending Leaves -->
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#fef3c7;color:#d97706;"><i class="fas fa-hourglass-half"></i></div>
+      <div class="icon-box icon-box-yellow"><i class="fas fa-hourglass-half"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= count($pendingLeaves) ?></div>
         <div class="stat-label">Pending Leave Requests</div>
@@ -85,7 +85,7 @@ $announcements  = array_slice($announcements, 0, 5);
   <!-- Vacation Leave Balance -->
   <div class="col-xl-3 col-md-6 mb-3">
     <div class="stat-card">
-      <div class="icon-box" style="background:#f3e8ff;color:#7c3aed;"><i class="fas fa-umbrella-beach"></i></div>
+      <div class="icon-box icon-box-purple"><i class="fas fa-umbrella-beach"></i></div>
       <div class="stat-info">
         <div class="stat-value"><?= $employee['vacation_leave_balance'] ?? 0 ?> days</div>
         <div class="stat-label">Vacation Leave Balance</div>
@@ -105,7 +105,7 @@ $announcements  = array_slice($announcements, 0, 5);
       </div>
       <div class="card-body p-0">
         <?php if (empty($recentPayroll)): ?>
-          <div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity:.3;"></i>No payroll records yet.</div>
+          <div class="text-center text-muted py-4"><i class="fas fa-inbox fa-2x mb-2 d-block emp-dash-empty-icon"></i>No payroll records yet.</div>
         <?php else: ?>
           <table class="table table-hover mb-0">
             <thead><tr><th>Period</th><th>Gross Pay</th><th>Net Pay</th><th>Status</th></tr></thead>
@@ -181,7 +181,7 @@ $announcements  = array_slice($announcements, 0, 5);
             $color = $typeColors[$ann['type']] ?? 'secondary';
           ?>
           <div class="d-flex align-items-start mb-3 pb-3 border-bottom">
-            <span class="badge badge-<?= $color ?> mr-3 mt-1" style="min-width:70px;text-align:center;"><?= ucfirst($ann['type']) ?></span>
+            <span class="badge badge-<?= $color ?> mr-3 mt-1 emp-dash-ann-badge"><?= ucfirst($ann['type']) ?></span>
             <div>
               <strong><?= htmlspecialchars($ann['title']) ?></strong>
               <?php if ($ann['is_pinned']): ?><i class="fas fa-thumbtack text-warning ml-1" title="Pinned"></i><?php endif; ?>

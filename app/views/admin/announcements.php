@@ -112,7 +112,7 @@ $typeIcons = [
     $icon  = $typeIcons[$ann['type']]  ?? 'fa-bullhorn';
   ?>
   <div class="col-md-6 mb-3">
-    <div class="card h-100" style="border-left:4px solid <?= $color ?>">
+    <div class="card h-100 ann-card-<?= htmlspecialchars($ann['type'] ?? 'general') ?> border-left-type">
       <div class="card-body">
 
         <!-- Title row -->
@@ -122,7 +122,7 @@ $typeIcons = [
               <i class="fas fa-thumbtack mr-1 ann-pin-icon" title="Pinned"></i>
             <?php endif; ?>
             <strong><?= htmlspecialchars($ann['title']) ?></strong>
-            <span class="badge ml-1" style="background:<?= $color ?>20;color:<?= $color ?>;border:1px solid <?= $color ?>40">
+            <span class="badge ml-1 ann-type-<?= htmlspecialchars($ann['type'] ?? 'general') ?>">
               <i class="fas <?= $icon ?> mr-1"></i><?= ucfirst($ann['type']) ?>
             </span>
             <?php if ($ann['is_pinned']): ?>

@@ -254,7 +254,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
 <?= $msg ?>
 
 <!-- ── PRINT TITLE (hidden on screen, visible when printing) ── -->
-<div class="print-title" style="display:none;">
+<div class="print-title">
   <?= htmlspecialchars(COMPANY_NAME) ?> — Payroll Register: <?= Model::periodLabel($selectedPeriod) ?>
 </div>
 

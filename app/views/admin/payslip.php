@@ -154,7 +154,7 @@ if ($selectedEmp && $selectedPeriod) {
             <div class="comp-row"><span>Absent Deduction</span><span class="text-danger">−₱<?= number_format($absentDed,2) ?></span></div>
             <?php endif; ?>
             <?php if ($reconcile != 0): ?>
-            <div class="comp-row" style="color:<?= $reconcile > 0 ? '#dc2626' : '#16a34a' ?>;">
+            <div class="comp-row <?= ($reconcile ?? 0) > 0 ? 'comp-row-negative' : 'comp-row-positive' ?>">
               <span>Year-End Tax Reconciliation</span>
               <span><?= $reconcile > 0 ? '−' : '+' ?>₱<?= number_format(abs($reconcile),2) ?></span>
             </div>
