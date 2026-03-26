@@ -209,7 +209,7 @@ $typeBadge = [
             <small class="d-block text-muted"><?= date('l', strtotime($h['date'])) ?></small>
           </td>
           <td>
-            <span class="holiday-name-border" style="color:<?= $color ?>">
+            <span class="holiday-name-border holiday-type-<?= htmlspecialchars(strtolower($holiday['type'] ?? 'default')) ?>">
               <?= htmlspecialchars($h['name']) ?>
             </span>
           </td>

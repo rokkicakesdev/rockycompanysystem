@@ -53,11 +53,11 @@ if ($format === 'excel') {
     $autoload = __DIR__ . '/../../../vendor/autoload.php';
     if (!file_exists($autoload)) {
         die(
-            '<div style="font-family:sans-serif;padding:30px;">' .
-            '<h3 style="color:#c00;">&#9888; PhpSpreadsheet not installed</h3>' .
-            '<p style="margin-top:10px;">Open a terminal in your project root and run:</p>' .
-            '<pre style="background:#f4f4f4;padding:12px;border-radius:4px;margin-top:8px;">composer require phpoffice/phpspreadsheet</pre>' .
-            '<p style="margin-top:10px;color:#555;">Then reload this page.</p></div>'
+            '<div class="alert alert-danger m-4 p-4">' .
+            '<h5 class="alert-heading">&#9888; PhpSpreadsheet not installed</h5>' .
+            '<p>Open a terminal in your project root and run:</p>' .
+            '<pre class="bg-light p-3 rounded mt-2">composer require phpoffice/phpspreadsheet</pre>' .
+            '<p class="text-muted mb-0">Then reload this page.</p></div>'
         );
     }
 
@@ -348,8 +348,8 @@ $erTotal = $totals['sss_er'] + $totals['philhealth_er'] + $totals['pagibig_er'];
   <div class="summary-row">
     <div class="summary-box"><div class="s-label">Total Gross Pay</div><div class="s-value">&#8369;<?= number_format($totals['gross_pay'],2) ?></div></div>
     <div class="summary-box"><div class="s-label">Total Deductions</div><div class="s-value">&#8369;<?= number_format($totals['total_deductions'],2) ?></div></div>
-    <div class="summary-box"><div class="s-label">Total Net Pay</div><div class="s-value" style="color:#1a6b2f">&#8369;<?= number_format($totals['net_pay'],2) ?></div></div>
-    <div class="summary-box"><div class="s-label">Total ER Contributions</div><div class="s-value" style="font-size:9.5pt">&#8369;<?= number_format($erTotal,2) ?></div></div>
+    <div class="summary-box"><div class="s-label">Total Net Pay</div><div class="s-value payroll-export-total-value">&#8369;<?= number_format($totals['net_pay'],2) ?></div></div>
+    <div class="summary-box"><div class="s-label">Total ER Contributions</div><div class="s-value payroll-export-er-value">&#8369;<?= number_format($erTotal,2) ?></div></div>
   </div>
   <table>
     <thead>
@@ -390,7 +390,7 @@ $erTotal = $totals['sss_er'] + $totals['philhealth_er'] + $totals['pagibig_er'];
       </tr>
       <?php endforeach; ?>
       <tr class="totals-row">
-        <td colspan="4" style="text-align:right">TOTALS</td>
+        <td colspan="4" class="payroll-export-footer-cell">TOTALS</td>
         <td class="num">&#8369;<?= number_format($totals['basic_salary'],2) ?></td>
         <td class="num">&#8369;<?= number_format($totals['allowance'],2) ?></td>
         <td class="num">&#8369;<?= number_format($totals['gross_pay'],2) ?></td>

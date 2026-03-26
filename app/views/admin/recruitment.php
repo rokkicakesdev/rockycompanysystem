@@ -255,7 +255,7 @@ $applicantStatuses = [
                     </td>
                     <td><small><?= ucfirst(str_replace('_',' ',$app['source'])) ?></small></td>
                     <td>
-                      <span class="status-badge" style="background:<?= $sc['color'] ?>20;color:<?= $sc['color'] ?>;">
+                      <span class="status-badge recruitment-status-<?= htmlspecialchars(strtolower($applicant['status'] ?? 'default')) ?>">
                         <?= $sc['label'] ?>
                       </span>
                     </td>

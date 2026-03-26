@@ -56,7 +56,7 @@ $actionColors = [
                 <td><strong class="activity-user-name"><?= htmlspecialchars($log['user_name'] ?? 'System') ?></strong></td>
                 <td><small><?= ucfirst($log['role'] ?? '') ?></small></td>
                 <td>
-                  <span class="activity-action-badge" style="background:<?= $color ?>18;color:<?= $color ?>">
+                  <span class="activity-action-badge log-action-<?= htmlspecialchars(strtolower($log['action'])) ?>">
                     <?= str_replace('_', ' ', $log['action']) ?>
                   </span>
                 </td>

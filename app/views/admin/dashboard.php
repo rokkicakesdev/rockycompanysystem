@@ -87,7 +87,7 @@ $currentPayroll = Model::getPayrollByPeriod($currentPeriod);
               <td class="text-center"><strong><?= $dept['count'] ?></strong></td>
               <td class="dash-progress-cell">
                 <div class="dashboard-progress-bar-bg">
-                  <div class="dash-progress-fill" style="width:<?= $pct ?>%"></div>
+                  <div class="dash-progress-fill" data-width="<?= $pct ?>"></div>
                 </div>
                 <small class="text-muted"><?= $pct ?>%</small>
               </td>
@@ -179,7 +179,7 @@ $currentPayroll = Model::getPayrollByPeriod($currentPeriod);
           foreach ($announcements as $ann):
             $color = $typeColors[$ann['type']] ?? '#6366f1';
           ?>
-          <div class="dash-announcement-border" style="border-left:3px solid <?= $color ?>">
+          <div class="dash-announcement-border" class="ann-card-<?= htmlspecialchars($ann['type']) ?> border-left-type">
             <?php if ($ann['is_pinned']): ?>
               <i class="fas fa-thumbtack dash-pin-icon" title="Pinned"></i>
             <?php endif; ?>
@@ -228,3 +228,9 @@ $currentPayroll = Model::getPayrollByPeriod($currentPeriod);
 </div><!-- /.row -->
 
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>
+<script>
+// Set progress bar widths from data-width attributes (replaces inline styles)
+document.querySelectorAll('.dash-progress-fill[data-width]').forEach(function(el) {
+  el.style.width = el.getAttribute('data-width') + '%';
+});
+</script>

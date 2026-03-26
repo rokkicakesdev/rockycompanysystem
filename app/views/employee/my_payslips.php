@@ -291,7 +291,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
                 <span>Allowance</span>
                 <span>&#8369; <?= number_format($employee['allowance'] ?? 0, 2) ?></span>
               </div>
-              <div class="comp-row ps-modal-13th-row" id="ps-thirteenth-row" style="display:none">
+              <div class="comp-row ps-modal-13th-row" id="ps-thirteenth-row">
                 <span>13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
                 <span class="text-info font-weight-bold" id="ps-thirteenth">&#8369; 0.00</span>
               </div>
@@ -326,7 +326,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
                 <span>Withholding Tax</span>
                 <span class="text-danger" id="ps-tax">− &#8369; 0.00</span>
               </div>
-              <div id="ps-reconcile-row" class="comp-row ps-modal-reconcile-row" style="display:none">
+              <div id="ps-reconcile-row" class="comp-row ps-modal-reconcile-row">
                 <span id="ps-reconcile-label">Year-End Tax Adjustment</span>
                 <span id="ps-reconcile">&#8369; 0.00</span>
               </div>
