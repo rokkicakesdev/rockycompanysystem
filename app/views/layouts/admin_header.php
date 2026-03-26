@@ -239,17 +239,6 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
 
   <!-- Content Wrapper -->
   <div class="content-wrapper">
-    <!-- Content Header (page title) -->
-    <section class="content-header">
-      <div class="container-fluid">
-        <div class="row mb-2">
-          <div class="col-sm-6">
-            <h1 class="m-0"><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?></h1>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Main content area starts here in your view files -->
     <section class="content">
       <div class="container-fluid">

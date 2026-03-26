@@ -213,148 +213,139 @@ require_once __DIR__ . '/../layouts/employee_header.php';
      PAYSLIP MODAL
      ══════════════════════════════════════════════════════ -->
 <div class="modal fade" id="payslipModal" tabindex="-1" role="dialog">
-  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable payslip-modal-dialog" role="document">
     <div class="modal-content">
 
-      <!-- Modal Header (screen only) -->
-      <div class="modal-header no-print">
-        <h5 class="modal-title"><i class="fas fa-file-invoice-dollar mr-2 text-primary"></i>Payslip Detail</h5>
+      <!-- Modal Header -->
+      <div class="modal-header no-print payslip-modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-file-invoice-dollar mr-2 text-primary"></i>Payslip Detail
+        </h5>
         <button type="button" class="close" data-dismiss="modal">&times;</button>
       </div>
 
       <div class="modal-body p-0" id="payslipPrintArea">
 
-        <!-- Payslip Header Bar -->
-        <div class="payslip-header-bar d-flex justify-content-between align-items-start px-4 py-3">
-          <div>
-            <h5 class="mb-0 font-weight-bold"><?= htmlspecialchars(COMPANY_NAME) ?></h5>
-            <small class="ps-modal-company-address"><?= htmlspecialchars(COMPANY_ADDRESS) ?></small><br>
-            <small class="ps-modal-company-sub">Official Payroll Slip</small>
+        <!-- ── Payslip Header Bar ──────────────────────────── -->
+        <div class="ps-header-bar">
+          <div class="ps-header-left">
+            <div class="ps-company-name"><?= htmlspecialchars(COMPANY_NAME) ?></div>
+            <div class="ps-company-sub">Payroll Slip / Official Document</div>
           </div>
-          <div class="text-right">
-            <small class="ps-modal-company-address">Pay Period</small><br>
-            <strong id="ps-period-label" class="ps-modal-period-value"></strong><br>
-            <span id="ps-status-badge" class="status-badge mt-1 d-inline-block"></span>
+          <div class="ps-header-right">
+            <div id="ps-period-label" class="ps-period-value"></div>
+            <span id="ps-status-badge" class="status-badge ps-status-pill"></span>
           </div>
         </div>
 
-        <div class="px-4 py-3">
-
-          <!-- Employee Info -->
-          <div class="row mb-3">
-            <div class="col-6">
-              <table class="table table-sm table-borderless mb-0 ps-modal-emp-table">
-                <tr>
-                  <td class="text-muted pl-0" width="40%">Employee No.</td>
-                  <td><code><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></code></td>
-                </tr>
-                <tr>
-                  <td class="text-muted pl-0">Name</td>
-                  <td><strong><?= htmlspecialchars($employee['name'] ?? '—') ?></strong></td>
-                </tr>
-                <tr>
-                  <td class="text-muted pl-0">Department</td>
-                  <td><?= htmlspecialchars($employee['department'] ?? '—') ?></td>
-                </tr>
-              </table>
+        <!-- ── Employee Info Grid ─────────────────────────── -->
+        <div class="ps-body">
+          <div class="ps-emp-grid">
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Employee No.</span>
+              <span class="ps-emp-value"><code><?= htmlspecialchars($employee['employee_no'] ?? '—') ?></code></span>
             </div>
-            <div class="col-6">
-              <table class="table table-sm table-borderless mb-0 ps-modal-emp-table">
-                <tr>
-                  <td class="text-muted pl-0" width="40%">Position</td>
-                  <td><?= htmlspecialchars($employee['position'] ?? '—') ?></td>
-                </tr>
-                <tr>
-                  <td class="text-muted pl-0">Date Hired</td>
-                  <td><?= htmlspecialchars($employee['date_hired'] ?? '—') ?></td>
-                </tr>
-                <tr>
-                  <td class="text-muted pl-0">Employment</td>
-                  <td><span class="badge badge-success ps-modal-active-badge">Active</span></td>
-                </tr>
-              </table>
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Position</span>
+              <span class="ps-emp-value"><?= htmlspecialchars($employee['position'] ?? '—') ?></span>
+            </div>
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Name</span>
+              <span class="ps-emp-value ps-emp-name"><?= htmlspecialchars($employee['name'] ?? '—') ?></span>
+            </div>
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Date Hired</span>
+              <span class="ps-emp-value"><?= htmlspecialchars($employee['date_hired'] ?? '—') ?></span>
+            </div>
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Department</span>
+              <span class="ps-emp-value"><?= htmlspecialchars($employee['department'] ?? '—') ?></span>
+            </div>
+            <div class="ps-emp-field">
+              <span class="ps-emp-label">Status</span>
+              <span class="ps-emp-value"><span class="badge badge-success ps-modal-active-badge">Active</span></span>
             </div>
           </div>
 
           <div class="payslip-divider"></div>
 
-          <!-- Earnings & Deductions -->
-          <div class="row">
-            <!-- Earnings -->
-            <div class="col-6">
-              <h6 class="payslip-section-title">Earnings</h6>
-              <div class="comp-row">
-                <span>Basic Salary</span>
-                <span>&#8369; <?= number_format($employee['basic_salary'] ?? 0, 2) ?></span>
+          <!-- ── Earnings & Deductions ──────────────────────── -->
+          <div class="ps-comp-grid">
+
+            <!-- Earnings column -->
+            <div class="ps-comp-col">
+              <div class="ps-comp-heading">Earnings</div>
+              <div class="ps-comp-row">
+                <span class="ps-comp-label">Basic Salary <small class="ps-cutoff-note text-muted" id="ps-cutoff-note"></small></span>
+                <span class="ps-comp-amount">&#8369;&nbsp;<?= number_format($employee['basic_salary'] ?? 0, 2) ?></span>
               </div>
-              <div class="comp-row">
-                <span>Allowance</span>
-                <span>&#8369; <?= number_format($employee['allowance'] ?? 0, 2) ?></span>
+              <div class="ps-comp-row">
+                <span class="ps-comp-label">Allowance</span>
+                <span class="ps-comp-amount">&#8369;&nbsp;<?= number_format($employee['allowance'] ?? 0, 2) ?></span>
               </div>
-              <div class="comp-row ps-modal-13th-row" id="ps-thirteenth-row">
-                <span>13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
-                <span class="text-info font-weight-bold" id="ps-thirteenth">&#8369; 0.00</span>
+              <div class="ps-comp-row ps-modal-13th-row" id="ps-thirteenth-row">
+                <span class="ps-comp-label">13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
+                <span class="ps-comp-amount text-info font-weight-bold" id="ps-thirteenth">&#8369;&nbsp;0.00</span>
               </div>
-              <div class="comp-row total text-success">
-                <span>Gross Pay</span>
-                <span id="ps-gross">&#8369; 0.00</span>
+              <div class="ps-comp-row ps-comp-total text-success">
+                <span class="ps-comp-label">Gross Pay</span>
+                <span class="ps-comp-amount" id="ps-gross">&#8369;&nbsp;0.00</span>
               </div>
             </div>
 
-            <!-- Deductions -->
-            <div class="col-6">
-              <h6 class="payslip-section-title">Deductions</h6>
+            <!-- Deductions column -->
+            <div class="ps-comp-col">
+              <div class="ps-comp-heading">Deductions</div>
               <div id="ps-gov-rows">
-                <div class="comp-row">
-                  <span>SSS</span>
-                  <span class="text-danger" id="ps-sss">− &#8369; 0.00</span>
+                <div class="ps-comp-row">
+                  <span class="ps-comp-label">SSS</span>
+                  <span class="ps-comp-amount text-danger" id="ps-sss">−&nbsp;&#8369;&nbsp;0.00</span>
                 </div>
-                <div class="comp-row">
-                  <span>PhilHealth</span>
-                  <span class="text-danger" id="ps-philhealth">− &#8369; 0.00</span>
+                <div class="ps-comp-row">
+                  <span class="ps-comp-label">PhilHealth</span>
+                  <span class="ps-comp-amount text-danger" id="ps-philhealth">−&nbsp;&#8369;&nbsp;0.00</span>
                 </div>
-                <div class="comp-row">
-                  <span>Pag-IBIG</span>
-                  <span class="text-danger" id="ps-pagibig">− &#8369; 0.00</span>
+                <div class="ps-comp-row">
+                  <span class="ps-comp-label">Pag-IBIG</span>
+                  <span class="ps-comp-amount text-danger" id="ps-pagibig">−&nbsp;&#8369;&nbsp;0.00</span>
                 </div>
               </div>
-              <div id="ps-no-gov-row" class="comp-row text-muted ps-modal-gov-note">
-                <span><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span>
-                <span>1st cutoff — none</span>
+              <div id="ps-no-gov-row" class="ps-comp-row text-muted ps-modal-gov-note">
+                <span class="ps-comp-label"><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span>
+                <span class="ps-comp-amount">1st cutoff</span>
               </div>
-              <div class="comp-row">
-                <span>Withholding Tax</span>
-                <span class="text-danger" id="ps-tax">− &#8369; 0.00</span>
+              <div class="ps-comp-row">
+                <span class="ps-comp-label">Withholding Tax</span>
+                <span class="ps-comp-amount text-danger" id="ps-tax">−&nbsp;&#8369;&nbsp;0.00</span>
               </div>
-              <div id="ps-reconcile-row" class="comp-row ps-modal-reconcile-row">
-                <span id="ps-reconcile-label">Year-End Tax Adjustment</span>
-                <span id="ps-reconcile">&#8369; 0.00</span>
+              <div id="ps-reconcile-row" class="ps-comp-row ps-modal-reconcile-row">
+                <span class="ps-comp-label" id="ps-reconcile-label">Year-End Adjustment</span>
+                <span class="ps-comp-amount" id="ps-reconcile">&#8369;&nbsp;0.00</span>
               </div>
-              <div class="comp-row" id="ps-absences-row">
-                <span>Absences / Late</span>
-                <span class="text-danger" id="ps-absences">− &#8369; 0.00</span>
+              <div class="ps-comp-row" id="ps-absences-row">
+                <span class="ps-comp-label">Absences / Late</span>
+                <span class="ps-comp-amount text-danger" id="ps-absences">−&nbsp;&#8369;&nbsp;0.00</span>
               </div>
-              <div class="comp-row total text-danger">
-                <span>Total Deductions</span>
-                <span id="ps-deductions">&#8369; 0.00</span>
+              <div class="ps-comp-row ps-comp-total text-danger">
+                <span class="ps-comp-label">Total Deductions</span>
+                <span class="ps-comp-amount" id="ps-deductions">&#8369;&nbsp;0.00</span>
               </div>
             </div>
-          </div>
+
+          </div><!-- /.ps-comp-grid -->
 
           <div class="payslip-divider"></div>
 
-          <!-- Net Pay Box -->
-          <div class="payslip-net-box">
-            <div>
-              <p class="mb-1 text-muted ps-modal-net-label">
-                Net Pay for <span id="ps-net-period"></span>
-              </p>
-              <h2 class="mb-0 font-weight-bold ps-modal-net-amount" id="ps-net">&#8369; 0.00</h2>
+          <!-- ── Net Pay Box ─────────────────────────────────── -->
+          <div class="ps-net-box">
+            <div class="ps-net-left">
+              <div class="ps-net-label">NET PAY FOR <span id="ps-net-period"></span></div>
+              <div class="ps-net-amount" id="ps-net">&#8369; 0.00</div>
             </div>
-            <div class="text-right">
-              <p class="mb-0 text-muted ps-modal-processed-label">Processed by</p>
-              <strong id="ps-processedby"></strong><br>
-              <small class="text-muted">Payroll Administrator</small>
+            <div class="ps-net-right">
+              <div class="ps-net-processed-label">Processed by</div>
+              <div class="ps-net-processed-name" id="ps-processedby"></div>
+              <div class="ps-net-processed-role">Payroll Administrator</div>
             </div>
           </div>
 
@@ -375,20 +366,26 @@ require_once __DIR__ . '/../layouts/employee_header.php';
             </small>
           </div>
 
-        </div><!-- /.px-4 -->
+        </div><!-- /.ps-body -->
       </div><!-- /#payslipPrintArea -->
 
-      <!-- Modal Footer (screen only) -->
-      <div class="modal-footer no-print">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">
-          <i class="fas fa-times mr-1"></i> Close
-        </button>
-        <a id="ps-pdf-link" href="#" target="_blank" class="btn btn-success">
-          <i class="fas fa-file-pdf mr-1"></i> Download PDF
-        </a>
-        <button type="button" class="btn btn-info" onclick="printPayslip()">
-          <i class="fas fa-print mr-1"></i> Print
-        </button>
+      <!-- ── Modal Footer ────────────────────────────────────── -->
+      <div class="modal-footer no-print ps-modal-actions">
+        <div class="ps-modal-timestamp">
+          <i class="fas fa-clock mr-1"></i>
+          Generated: <?= date('M d, Y h:i A') ?>
+        </div>
+        <div class="ps-modal-btns">
+          <button type="button" class="btn btn-secondary ps-btn" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Close
+          </button>
+          <button type="button" class="btn btn-success ps-btn" onclick="printPayslip()">
+            <i class="fas fa-print mr-1"></i>Print Payslip
+          </button>
+          <a id="ps-pdf-link" href="#" target="_blank" class="btn btn-primary ps-btn">
+            <i class="fas fa-file-pdf mr-1"></i>Export PDF
+          </a>
+        </div>
       </div>
 
     </div><!-- /.modal-content -->

@@ -88,7 +88,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
 <!-- Year + Controls -->
 <div class="card card-primary card-outline mb-3">
   <div class="card-body py-3">
-    <div class="d-flex align-items-center flex-wrap thirteenth-controls-gap">
+    <div class="d-flex align-items-center flex-wrap thirteenth-controls-gap thirteenth-controls-bar">
       <label class="mb-0 font-weight-bold mr-1">Year:</label>
       <select id="yearSelect" class="form-control thirteenth-year-select"
               onchange="window.location='thirteenth_month.php?year='+this.value">

@@ -186,6 +186,7 @@ $typeBadge = [
         No holidays found for <?= $year ?>. Click <strong>+ Add Holiday</strong> to get started.
       </div>
     <?php else: ?>
+    <div class="table-responsive">
     <table class="table table-hover mb-0">
       <thead>
         <tr>
@@ -250,6 +251,7 @@ $typeBadge = [
         <?php endforeach; ?>
       </tbody>
     </table>
+    </div><!-- /.table-responsive -->
     <?php endif; ?>
   </div>
 </div>

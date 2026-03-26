@@ -618,6 +618,12 @@ td.text-nowrap {
   font-size: .85rem;
 }
 
+
+/* ── Section content padding (after content-header removal) ── */
+.content {
+  padding-top: 0.5rem !important;
+}
+
 /* ════════════════════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS
    ════════════════════════════════════════════════════════════ */
@@ -744,6 +750,27 @@ td.text-nowrap {
   .table td           { font-size: .7rem; padding: .28rem .4rem; }
   .card-header        { font-size: .8rem; }
   .status-badge       { font-size: .65rem; padding: 2px 7px; }
+}
+
+
+/* ── Footer: center text on mobile (< 768px) ─────────────────── */
+@media (max-width: 767px) {
+  .main-footer {
+    justify-content: center;
+    text-align: center;
+  }
+  .footer-right {
+    margin-left: 0;
+    text-align: center;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   ACTIVITY LOG — pagination gap fix
+   ════════════════════════════════════════════════════════════ */
+.activity-pagination {
+  padding-bottom: 0.5rem;
 }
 
 /* ════════════════════════════════════════════════════════════

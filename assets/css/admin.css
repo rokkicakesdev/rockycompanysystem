@@ -29,10 +29,15 @@
   margin-left: auto;
   text-align: right;
 }
+/* Center footer on mobile (< 768px) */
+@media (max-width: 767px) {
+  .main-footer     { justify-content: center; text-align: center; }
+  .footer-right    { margin-left: 0; text-align: center; }
+}
 /* On very small screens stack the two spans */
 @media (max-width: 480px) {
-  .main-footer     { flex-direction: column; align-items: flex-start; }
-  .footer-right    { margin-left: 0; text-align: left; }
+  .main-footer     { flex-direction: column; align-items: center; }
+  .footer-right    { margin-left: 0; text-align: center; }
 }
 
 .sidebar-brand-icon {
@@ -847,4 +852,99 @@ select.status-select option[value="terminated"] { color: #991b1b; }
   background: linear-gradient(135deg, #1e3a5f, #1a6e4a);
   color: #fff;
   border: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   HOLIDAYS — mobile responsive fixes
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  /* Stack the year filter form vertically */
+  .holiday-filter-gap {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: .5rem;
+  }
+  .holiday-year-select {
+    width: 100%;
+  }
+
+  /* Hide less-critical columns on small screens */
+  .holiday-col-recurring {
+    display: none;
+  }
+
+  /* Keep action cell from wrapping */
+  .holiday-actions-cell {
+    white-space: nowrap;
+  }
+
+  /* Shrink date column */
+  .holiday-col-date {
+    min-width: 80px;
+    width: 80px;
+  }
+  .holiday-col-actions {
+    width: 70px;
+  }
+}
+
+@media (max-width: 479px) {
+  /* On extra small, also hide Type column label text — badge handles it */
+  .holiday-col-date {
+    min-width: 70px;
+    width: 70px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   USER MANAGEMENT — responsive & gap fixes
+   ════════════════════════════════════════════════════════════ */
+
+/* Add bottom margin to push away from footer */
+.um-card-mb {
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 767px) {
+  .um-table                         { font-size: .78rem; }
+  .um-table thead th,
+  .um-table td                      { padding: .5rem .6rem; }
+  .col-email,
+  .col-created                      { display: none; }
+  .um-btn                           { padding: .25rem .5rem; font-size: .7rem; }
+  .btn-add-user                     { font-size: .78rem; padding: .4rem .9rem; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   13TH MONTH PAY — mobile responsive fixes
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .thirteenth-controls-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .thirteenth-controls-bar label {
+    margin-bottom: 0;
+  }
+  .thirteenth-controls-bar .form-control,
+  .thirteenth-controls-bar .btn,
+  .thirteenth-controls-bar a.btn,
+  .thirteenth-controls-bar form,
+  .thirteenth-controls-bar form .btn {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  .thirteenth-controls-bar .d-inline {
+    display: block !important;
+    width: 100%;
+  }
+  .thirteenth-year-select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .thirteenth-controls-bar .ml-auto {
+    margin-left: 0 !important;
+    margin-top: .25rem;
+  }
 }
