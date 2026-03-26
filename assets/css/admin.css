@@ -7,18 +7,163 @@
 /* ════════════════════════════════════════════════════════════
    LAYOUTS — admin_header / admin_footer
    ════════════════════════════════════════════════════════════ */
+
+/* ── Footer: flex row so both spans sit side-by-side ── */
 .main-footer {
   background: #fff;
   border-top: 1px solid #e2e8f0;
-  padding: 12px 20px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .25rem;
 }
 .footer-text {
   font-size: .78rem;
   color: #94a3b8;
+  line-height: 1.4;
 }
+/* Remove the old float-right — flex handles alignment */
+.footer-right {
+  margin-left: auto;
+  text-align: right;
+}
+/* On very small screens stack the two spans */
+@media (max-width: 480px) {
+  .main-footer     { flex-direction: column; align-items: flex-start; }
+  .footer-right    { margin-left: 0; text-align: left; }
+}
+
 .sidebar-brand-icon {
   color: #60a5fa;
   font-size: 1.3rem;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL — mobile responsiveness
+   ════════════════════════════════════════════════════════════ */
+
+/* Period selector bar: stack vertically on small screens */
+@media (max-width: 767px) {
+  .payroll-period-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: .5rem;
+  }
+  .payroll-period-bar label       { margin-bottom: 0; }
+  .payroll-period-bar .form-control,
+  .payroll-period-bar .btn        { width: 100%; margin: 0 !important; }
+  .payroll-period-bar .btn-info   { margin-top: .25rem !important; }
+}
+
+/* Summary info-boxes: 2-up on mobile, 4-up on md+ */
+@media (max-width: 575px) {
+  .payroll-info-row .col-md-3 { flex: 0 0 50%; max-width: 50%; }
+  .info-box-number            { font-size: 1rem; }
+  .info-box-text              { font-size: .72rem; }
+  .info-box-icon              { width: 60px; font-size: 1.4rem; line-height: 60px; }
+  .info-box                   { min-height: 60px; }
+}
+
+/* Payroll table: pin key columns, hide lower-priority ones,
+   show horizontal scroll on all mobile sizes */
+@media (max-width: 991px) {
+  /* Always scroll rather than overflow the viewport */
+  .payroll-table-wrap           { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 767px) {
+  /* Hide less critical columns on mobile */
+  .payroll-col-allowance,
+  .payroll-col-sss,
+  .payroll-col-philhealth,
+  .payroll-col-pagibig,
+  .payroll-col-wtax,
+  .payroll-col-absentded        { display: none; }
+
+  /* Tighten remaining cells */
+  .payroll-table td,
+  .payroll-table th             { font-size: .75rem; padding: .4rem .5rem; white-space: nowrap; }
+
+  /* Card header badges + export buttons: wrap cleanly */
+  .payroll-card-tools           { flex-wrap: wrap; gap: .3rem; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PRINT — Payroll Processing (@media print)
+   ════════════════════════════════════════════════════════════ */
+@media print {
+  /* Show the full page */
+  body, .wrapper, .content-wrapper, .content, .container-fluid {
+    visibility: visible !important;
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Hide everything that isn't the payroll content */
+  .main-sidebar,
+  .main-header,
+  .main-footer,
+  .no-print,
+  .modal,
+  .btn,
+  .card-tools,
+  .alert,
+  .info-box-icon,
+  .page-title-bar,
+  #generateModal,
+  #releaseAllModal       { display: none !important; }
+
+  /* Force the content wrapper to fill the page without sidebar offset */
+  .content-wrapper {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Summary cards — show as a clean horizontal row */
+  .row .col-md-3 {
+    flex: 0 0 25%;
+    max-width: 25%;
+    float: left;
+  }
+  .info-box {
+    box-shadow: none !important;
+    border: 1px solid #dee2e6 !important;
+    break-inside: avoid;
+  }
+
+  /* Period selector card */
+  .card.card-primary.card-outline { border: none !important; box-shadow: none !important; }
+
+  /* Payroll table */
+  .card                  { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: auto; }
+  .table-responsive      { overflow: visible !important; }
+  table                  { font-size: 8.5pt; width: 100% !important; }
+  th, td                 { padding: 3pt 5pt !important; border: 1px solid #dee2e6 !important; }
+  thead                  { background: #f4f6fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .text-success          { color: #16a34a !important; }
+  .text-danger           { color: #dc2626 !important; }
+  .badge-success         { background: #d1fae5 !important; color: #065f46 !important; padding: 2pt 4pt; border-radius: 3pt; }
+  .badge-warning         { background: #fef3c7 !important; color: #92400e !important; padding: 2pt 4pt; border-radius: 3pt; }
+  tfoot th               { background: #f4f6fa !important; }
+
+  /* Print title */
+  .print-title {
+    display: block !important;
+    font-size: 13pt;
+    font-weight: 700;
+    margin-bottom: 6pt;
+  }
+
+  /* Page breaks */
+  .card                  { page-break-inside: avoid; }
+  thead                  { display: table-header-group; }
+  tfoot                  { display: table-footer-group; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -404,6 +549,218 @@
 /* ════════════════════════════════════════════════════════════
    USERS
    ════════════════════════════════════════════════════════════ */
-.user-you-label {
+
+/* ── Page header ── */
+.um-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.um-page-header h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e2a3a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.um-page-header h1 i { color: #3b82f6; font-size: 1.1rem; }
+
+/* ── Card / table ── */
+.um-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
+  overflow: hidden;
+}
+.um-table-scroll { overflow-x: auto; }
+.um-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+}
+.um-table thead tr {
+  background: #f4f6fa;
+  border-bottom: 2px solid #e8ecf2;
+}
+.um-table thead th {
+  padding: .7rem 1rem;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #6b7a90;
+  white-space: nowrap;
+}
+.um-table tbody tr {
+  border-bottom: 1px solid #f0f2f6;
+  transition: background .12s;
+}
+.um-table tbody tr:last-child { border-bottom: none; }
+.um-table tbody tr:hover { background: #f8faff; }
+.um-table td {
+  padding: .75rem 1rem;
+  vertical-align: middle;
+  color: #2d3748;
+}
+
+/* ── Column widths ── */
+.col-name     { width: 18%; min-width: 140px; }
+.col-username { width: 13%; min-width: 110px; }
+.col-email    { width: 22%; min-width: 160px; }
+.col-role     { width: 12%; min-width: 100px; text-align: center; }
+.col-status   { width: 9%;  min-width: 80px;  text-align: center; }
+.col-created  { width: 11%; min-width: 95px;  text-align: center; }
+.col-actions  { width: 15%; min-width: 160px; text-align: center; }
+
+/* ── Cell typography ── */
+.um-name     { font-weight: 600; color: #1a202c; }
+.um-username { font-size: .78rem; color: #718096; font-family: 'Courier New', monospace; }
+.um-email    { color: #4a5568; }
+.um-date     { font-size: .78rem; color: #64748b; }
+
+/* ── Role badges ── */
+.role-badge {
+  display: inline-block;
+  padding: .2rem .65rem;
+  border-radius: 20px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.role-admin      { background: #dbeafe; color: #1d4ed8; }
+.role-management { background: #fef3c7; color: #92400e; }
+.role-employee   { background: #d1fae5; color: #065f46; }
+
+/* ── Status pills ── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .22rem .7rem;
+  border-radius: 20px;
+  font-size: .72rem;
+  font-weight: 600;
+}
+.status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-active            { background: #d1fae5; color: #065f46; }
+.status-active::before    { background: #10b981; }
+.status-inactive          { background: #fee2e2; color: #991b1b; }
+.status-inactive::before  { background: #ef4444; }
+
+/* ── You label ── */
+.you-label {
   font-size: .75rem;
+  font-style: italic;
+  color: #94a3b8;
+  padding: .3rem .5rem;
+}
+/* Legacy alias kept for backwards compatibility */
+.user-you-label { font-size: .75rem; }
+
+/* ── Action buttons ── */
+.um-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+}
+.um-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .3rem .7rem;
+  border-radius: 6px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s ease;
+  text-decoration: none;
+  line-height: 1;
+}
+.um-btn i { font-size: .7rem; }
+.um-btn-edit             { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+.um-btn-edit:hover       { background: #f59e0b; color: #fff; }
+.um-btn-deactivate       { background: #fff5f5; border-color: #fc8181; color: #c53030; }
+.um-btn-deactivate:hover { background: #fc8181; color: #fff; }
+.um-btn-activate         { background: #f0fff4; border-color: #68d391; color: #276749; }
+.um-btn-activate:hover   { background: #68d391; color: #fff; }
+
+/* ── Add User button ── */
+.btn-add-user {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem 1.1rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: .82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+  white-space: nowrap;
+}
+.btn-add-user:hover { background: #1d4ed8; transform: translateY(-1px); color: #fff; }
+.btn-add-user i     { font-size: .8rem; }
+
+/* ── Table footer (row count) ── */
+.um-table-footer {
+  padding: .6rem 1rem;
+  background: #f8faff;
+  border-top: 1px solid #e8ecf2;
+  font-size: .75rem;
+  color: #94a3b8;
+}
+
+/* ── Modal refinements ── */
+.modal-content { border-radius: 12px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+.modal-header  { background: #f8faff; border-bottom: 1px solid #e8ecf2; border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; }
+.modal-title   { font-weight: 700; color: #1e2a3a; font-size: .95rem; }
+.modal-footer  { background: #f8faff; border-top: 1px solid #e8ecf2; border-radius: 0 0 12px 12px; }
+.modal-body .form-group label { font-size: .8rem; font-weight: 600; color: #4a5568; margin-bottom: .3rem; }
+.modal-body .form-control {
+  border-radius: 7px;
+  border: 1.5px solid #e2e8f0;
+  font-size: .85rem;
+  padding: .45rem .75rem;
+  transition: border-color .15s;
+}
+.modal-body .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .um-table                        { font-size: .78rem; }
+  .um-table thead th, .um-table td { padding: .6rem .65rem; }
+  .col-email, .col-created         { display: none; }
+}
+
+/* ── Recruitment card header (applicants panel) ── */
+.recruitment-card-header {
+  gap: .5rem;
+}
+.recruitment-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.recruitment-header-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: .35rem;
 }

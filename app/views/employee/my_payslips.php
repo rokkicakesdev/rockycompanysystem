@@ -11,7 +11,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'employee') {
 $pageTitle  = 'My Payslips';
 $employeeId = (int)($_SESSION['employee_id'] ?? 0);
 
-require_once __DIR__ . '/../layouts/employee_header.php';
 require_once __DIR__ . '/../../../core/Model.php';
 
 $records  = Model::getPayrollRecordsByEmployee($employeeId);
@@ -34,6 +33,104 @@ if ($employeeId) {
         if ($rec13) $thirteenthRecords[$yr] = $rec13;
     }
 }
+
+// ──────────────────────────────────────────────────────────────────
+// FIX: All jQuery-dependent JS is assigned to $extraJs so it is
+//      injected by employee_footer.php AFTER jQuery has loaded.
+//      printPayslip() is kept in a separate early <script> tag so
+//      it remains in global scope for the onclick="" attribute.
+// ──────────────────────────────────────────────────────────────────
+ob_start();
+?>
+function fmt(val) {
+  return '₱ ' + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+$('.view-payslip-btn').on('click', function () {
+  var d = $(this).data();
+  var period    = d.period;
+  var periodLbl = new Date(period + '-02').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  var absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
+
+  // Period labels
+  $('#ps-period-label').text(periodLbl);
+  $('#ps-net-period').text(periodLbl.toUpperCase());
+
+  // Status badge
+  var statusClass = d.status === 'released' ? 'badge-released' : 'badge-pending';
+  $('#ps-status-badge')
+    .attr('class', 'status-badge ' + statusClass)
+    .text(d.status.charAt(0).toUpperCase() + d.status.slice(1));
+
+  // Earnings
+  $('#ps-gross').text(fmt(d.gross));
+
+  // Gov deductions — show/hide based on cutoff
+  var cutoff = parseInt(d.cutoff || 2);
+  if (cutoff === 1) {
+    $('#ps-gov-rows').hide();
+    $('#ps-no-gov-row').show();
+  } else {
+    $('#ps-gov-rows').show();
+    $('#ps-no-gov-row').hide();
+  }
+  $('#ps-sss').text('− ' + fmt(d.sss));
+  $('#ps-philhealth').text('− ' + fmt(d.philhealth));
+  $('#ps-pagibig').text('− ' + fmt(d.pagibig));
+
+  // Year-end reconciliation
+  var reconcile = parseFloat(d.reconciliation || 0);
+  if (reconcile !== 0) {
+    var sign  = reconcile > 0 ? '− ' : '+ ';
+    var color = reconcile > 0 ? '#dc2626' : '#16a34a';
+    $('#ps-reconcile').text(sign + fmt(Math.abs(reconcile))).css('color', color);
+    $('#ps-reconcile-label').text(reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)');
+    $('#ps-reconcile-row').show();
+  } else {
+    $('#ps-reconcile-row').hide();
+  }
+  $('#ps-tax').text('− ' + fmt(d.tax));
+
+  // Absences / Late
+  if (absences > 0) {
+    $('#ps-absences').text('− ' + fmt(absences));
+    $('#ps-absences-row').show();
+  } else {
+    $('#ps-absences-row').hide();
+  }
+
+  // Totals
+  $('#ps-deductions').text(fmt(d.deductions));
+  $('#ps-net').text(fmt(d.net));
+
+  // Processed by
+  $('#ps-processedby').text(d.processedby || '—');
+
+  // 13th Month Pay
+  var thirteenth = parseFloat(d.thirteenth || 0);
+  if (thirteenth > 0) {
+    $('#ps-thirteenth').text(fmt(thirteenth));
+    var t13Status = d.thirteenthstatus || '';
+    var t13Badge  = t13Status === 'released'
+      ? '<span class="ps-badge-released">Released</span>'
+      : '<span class="ps-badge-pending">Pending</span>';
+    $('#ps-thirteenth-badge').html(t13Badge);
+    $('#ps-thirteenth-row').show();
+  } else {
+    $('#ps-thirteenth-row').hide();
+  }
+
+  // PDF download link
+  var pdfUrl = 'payslip_pdf.php?period=' + period;
+  $('#ps-pdf-link').attr('href', pdfUrl);
+
+  // Show modal
+  $('#payslipModal').modal('show');
+});
+<?php
+$extraJs = ob_get_clean();
+
+require_once __DIR__ . '/../layouts/employee_header.php';
 ?>
 
 <div class="page-title-bar">
@@ -298,90 +395,9 @@ if ($employeeId) {
   </div>
 </div>
 
+<!-- printPayslip stays here in a plain <script> — no jQuery needed,
+     must be globally accessible for the onclick="" attribute above. -->
 <script>
-function fmt(val) {
-  return '₱ ' + parseFloat(val || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-$('.view-payslip-btn').on('click', function() {
-  const d = $(this).data();
-  const period    = d.period;
-  const periodLbl = new Date(period + '-02').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
-  const absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
-
-  // Period labels
-  $('#ps-period-label').text(periodLbl);
-  $('#ps-net-period').text(periodLbl.toUpperCase());
-
-  // Status badge
-  const statusClass = d.status === 'released' ? 'badge-released' : 'badge-pending';
-  $('#ps-status-badge').attr('class', 'status-badge ' + statusClass).text(d.status.charAt(0).toUpperCase() + d.status.slice(1));
-
-  // Earnings
-  $('#ps-gross').text(fmt(d.gross));
-
-  // Gov deductions — show/hide based on cutoff
-  const cutoff = parseInt(d.cutoff || 2);
-  if (cutoff === 1) {
-    $('#ps-gov-rows').hide();
-    $('#ps-no-gov-row').show();
-  } else {
-    $('#ps-gov-rows').show();
-    $('#ps-no-gov-row').hide();
-  }
-  $('#ps-sss').text('− ' + fmt(d.sss));
-  $('#ps-philhealth').text('− ' + fmt(d.philhealth));
-  $('#ps-pagibig').text('− ' + fmt(d.pagibig));
-
-  // Year-end reconciliation
-  const reconcile = parseFloat(d.reconciliation || 0);
-  if (reconcile !== 0) {
-    const sign = reconcile > 0 ? '− ' : '+ ';
-    const color = reconcile > 0 ? '#dc2626' : '#16a34a';
-    $('#ps-reconcile').text(sign + fmt(Math.abs(reconcile))).css('color', color);
-    $('#ps-reconcile-label').text(reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)');
-    $('#ps-reconcile-row').show();
-  } else {
-    $('#ps-reconcile-row').hide();
-  }
-  $('#ps-tax').text('− ' + fmt(d.tax));
-
-  if (absences > 0) {
-    $('#ps-absences').text('− ' + fmt(absences));
-    $('#ps-absences-row').show();
-  } else {
-    $('#ps-absences-row').hide();
-  }
-
-  $('#ps-deductions').text(fmt(d.deductions));
-
-  // Net pay
-  $('#ps-net').text(fmt(d.net));
-
-  // Processed by
-  $('#ps-processedby').text(d.processedby || '—');
-
-  // 13th Month Pay
-  const thirteenth = parseFloat(d.thirteenth || 0);
-  if (thirteenth > 0) {
-    $('#ps-thirteenth').text(fmt(thirteenth));
-    const t13Status = d.thirteenthstatus || '';
-    const t13Badge  = t13Status === 'released'
-      ? '<span class="ps-badge-released">Released</span>'
-      : '<span class="ps-badge-pending">Pending</span>';
-    $('#ps-thirteenth-badge').html(t13Badge);
-    $('#ps-thirteenth-row').show();
-  } else {
-    $('#ps-thirteenth-row').hide();
-  }
-
-  // Set PDF download link for this period
-  const pdfUrl = 'payslip_pdf.php?period=' + period;
-  $('#ps-pdf-link').attr('href', pdfUrl);
-
-  $('#payslipModal').modal('show');
-});
-
 function printPayslip() {
   window.print();
 }

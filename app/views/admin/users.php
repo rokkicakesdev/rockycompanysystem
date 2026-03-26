@@ -94,141 +94,238 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status'])) {
 $users = Model::getAllUsers();
 ?>
 
-<div class="page-title-bar">
-    <i class="fas fa-user-shield text-primary"></i>
-    <h1>User Management</h1>
-    <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#createUserModal">
-      <i class="fas fa-plus mr-1"></i>Add User
-    </button>
-  </div>
+<!-- ─── Page header ──────────────────────────────────────────────── -->
+<div class="um-page-header">
+  <h1><i class="fas fa-user-shield"></i> User Management</h1>
+  <button class="btn-add-user" data-toggle="modal" data-target="#createUserModal">
+    <i class="fas fa-plus"></i> Add User
+  </button>
+</div>
 
 <?= $msg ?>
-    <div class="card">
-      <div class="card-body p-0">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
-          </thead>
-          <tbody>
-            <?php foreach ($users as $u): ?>
-            <tr>
-              <td><strong><?= htmlspecialchars($u['name']) ?></strong></td>
-              <td><code><?= htmlspecialchars($u['username']) ?></code></td>
-              <td><?= htmlspecialchars($u['email']) ?></td>
-              <td><span class="badge <?= $u['role']==='admin'?'badge-primary':'badge-info' ?>"><?= ucfirst($u['role']) ?></span></td>
-              <td><span class="status-badge badge-<?= $u['status'] ?>"><?= ucfirst($u['status']) ?></span></td>
-              <td><small><?= date('M d, Y', strtotime($u['created_at'])) ?></small></td>
-              <td>
-                <?php if ($u['id'] != $_SESSION['user_id']): ?>
-                <div class="action-btn-group">
-                  <button class="btn btn-xs btn-warning edit-user-btn"
-                    data-id="<?= $u['id'] ?>"
-                    data-name="<?= htmlspecialchars($u['name'], ENT_QUOTES, 'UTF-8') ?>"
-                    data-email="<?= htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8') ?>"
-                    data-role="<?= htmlspecialchars($u['role'], ENT_QUOTES, 'UTF-8') ?>"
-                    data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
-                    <i class="fas fa-edit"></i> Edit
+
+<!-- ─── Table card ───────────────────────────────────────────────── -->
+<div class="um-card">
+  <div class="um-table-scroll">
+    <table class="um-table">
+      <thead>
+        <tr>
+          <th class="col-name">Name</th>
+          <th class="col-username">Username</th>
+          <th class="col-email">Email</th>
+          <th class="col-role">Role</th>
+          <th class="col-status">Status</th>
+          <th class="col-created">Created</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($users as $u): ?>
+        <tr>
+          <!-- Name -->
+          <td class="col-name">
+            <span class="um-name"><?= htmlspecialchars($u['name']) ?></span>
+          </td>
+
+          <!-- Username -->
+          <td class="col-username">
+            <span class="um-username"><?= htmlspecialchars($u['username']) ?></span>
+          </td>
+
+          <!-- Email -->
+          <td class="col-email um-email">
+            <?= htmlspecialchars($u['email']) ?>
+          </td>
+
+          <!-- Role -->
+          <td class="col-role">
+            <?php
+              $roleClass = match($u['role']) {
+                'admin'      => 'role-admin',
+                'management' => 'role-management',
+                default      => 'role-employee',
+              };
+            ?>
+            <span class="role-badge <?= $roleClass ?>"><?= ucfirst($u['role']) ?></span>
+          </td>
+
+          <!-- Status -->
+          <td class="col-status">
+            <span class="status-pill status-<?= $u['status'] ?>">
+              <?= ucfirst($u['status']) ?>
+            </span>
+          </td>
+
+          <!-- Created -->
+          <td class="col-created">
+            <span class="um-date"><?= date('M d, Y', strtotime($u['created_at'])) ?></span>
+          </td>
+
+          <!-- Actions -->
+          <td class="col-actions">
+            <?php if ($u['id'] != $_SESSION['user_id']): ?>
+            <div class="um-actions">
+
+              <!-- Edit button -->
+              <button type="button" class="um-btn um-btn-edit edit-user-btn"
+                data-id="<?= $u['id'] ?>"
+                data-name="<?= htmlspecialchars($u['name'],   ENT_QUOTES, 'UTF-8') ?>"
+                data-email="<?= htmlspecialchars($u['email'],  ENT_QUOTES, 'UTF-8') ?>"
+                data-role="<?= htmlspecialchars($u['role'],   ENT_QUOTES, 'UTF-8') ?>"
+                data-status="<?= htmlspecialchars($u['status'], ENT_QUOTES, 'UTF-8') ?>">
+                <i class="fas fa-pen"></i> Edit
+              </button>
+
+              <!-- Activate / Deactivate button -->
+              <form method="POST" class="d-inline m-0 p-0">
+                <input type="hidden" name="toggle_status" value="1">
+                <input type="hidden" name="csrf_token"   value="<?= htmlspecialchars($csrf_token) ?>">
+                <input type="hidden" name="user_id"      value="<?= $u['id'] ?>">
+                <input type="hidden" name="new_status"   value="<?= $u['status'] === 'active' ? 'inactive' : 'active' ?>">
+                <?php if ($u['status'] === 'active'): ?>
+                  <button type="submit" class="um-btn um-btn-deactivate"
+                    onclick="return confirm('Deactivate this user?')">
+                    <i class="fas fa-ban"></i> Deactivate
                   </button>
-                  <form method="POST" class="d-inline">
-                    <input type="hidden" name="toggle_status" value="1">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-                    <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                    <input type="hidden" name="new_status" value="<?= $u['status'] === 'active' ? 'inactive' : 'active' ?>">
-                    <button type="submit" class="btn btn-xs <?= $u['status'] === 'active' ? 'btn-outline-danger' : 'btn-outline-success' ?>"
-                      onclick="return confirm('<?= $u['status'] === 'active' ? 'Deactivate' : 'Activate' ?> this user?')">
-                      <i class="fas <?= $u['status'] === 'active' ? 'fa-ban' : 'fa-check-circle' ?>"></i>
-                      <?= $u['status'] === 'active' ? 'Deactivate' : 'Activate' ?>
-                    </button>
-                  </form>
-                </div>
                 <?php else: ?>
-                <span class="text-muted user-you-label">(You)</span>
+                  <button type="submit" class="um-btn um-btn-activate"
+                    onclick="return confirm('Activate this user?')">
+                    <i class="fas fa-check-circle"></i> Activate
+                  </button>
                 <?php endif; ?>
-              </td>
-            </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
+              </form>
+
+            </div>
+            <?php else: ?>
+              <span class="you-label"><i class="fas fa-user mr-1"></i>You</span>
+            <?php endif; ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Row count footer -->
+  <div class="um-table-footer">
+    <?= count($users) ?> user<?= count($users) !== 1 ? 's' : '' ?> total
+  </div>
 </div>
 
-<!-- Create User Modal -->
+
+<!-- ─── Create User Modal ────────────────────────────────────────── -->
 <div class="modal fade" id="createUserModal" tabindex="-1">
-  <div class="modal-dialog"><div class="modal-content">
-    <form method="POST">
-      <input type="hidden" name="create_user" value="1">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-      <div class="modal-header"><h5 class="modal-title">Create User Account</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
-      <div class="modal-body">
-        <div class="form-group"><label>Full Name *</label><input type="text" name="name" class="form-control" required></div>
-        <div class="form-group"><label>Username *</label><input type="text" name="username" class="form-control" required></div>
-        <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" required></div>
-        <div class="form-group">
-          <label>Role *</label>
-          <select name="role" class="form-control">
-            <option value="admin">Admin</option>
-            <option value="management">Management</option>
-            <option value="employee">Employee</option>
-          </select>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="create_user" value="1">
+        <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrf_token) ?>">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-user-plus mr-2 text-primary"></i>Create User Account</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
-        <div class="form-group"><label>Password *</label><input type="password" name="password" class="form-control" required minlength="8"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Create User</button>
-      </div>
-    </form>
-  </div></div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="e.g. Juan dela Cruz" required>
+          </div>
+          <div class="form-row">
+            <div class="col form-group">
+              <label>Username <span class="text-danger">*</span></label>
+              <input type="text" name="username" class="form-control" placeholder="e.g. juan.emp" required>
+            </div>
+            <div class="col form-group">
+              <label>Role <span class="text-danger">*</span></label>
+              <select name="role" class="form-control">
+                <option value="admin">Admin</option>
+                <option value="management">Management</option>
+                <option value="employee" selected>Employee</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Email <span class="text-danger">*</span></label>
+            <input type="email" name="email" class="form-control" placeholder="e.g. juan@rocky.com" required>
+          </div>
+          <div class="form-group mb-0">
+            <label>Password <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" placeholder="Minimum 8 characters" required minlength="8">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus mr-1"></i>Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
-<!-- Edit User Modal -->
+
+<!-- ─── Edit User Modal ──────────────────────────────────────────── -->
 <div class="modal fade" id="editUserModal" tabindex="-1">
-  <div class="modal-dialog"><div class="modal-content">
-    <form method="POST">
-      <input type="hidden" name="update_user" value="1">
-      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-      <input type="hidden" name="user_id" id="editUserId">
-      <div class="modal-header"><h5 class="modal-title">Edit User</h5><button type="button" class="close" data-dismiss="modal">&times;</button></div>
-      <div class="modal-body">
-        <div class="form-group"><label>Full Name *</label><input type="text" name="name" id="editUserName" class="form-control" required></div>
-        <div class="form-group"><label>Email *</label><input type="email" name="email" id="editUserEmail" class="form-control" required></div>
-        <div class="form-group">
-          <label>Role</label>
-          <select name="role" id="editUserRole" class="form-control">
-            <option value="admin">Admin</option>
-            <option value="management">Management</option>
-            <option value="employee">Employee</option>
-          </select>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST">
+        <input type="hidden" name="update_user" value="1">
+        <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrf_token) ?>">
+        <input type="hidden" name="user_id"     id="editUserId">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="fas fa-user-edit mr-2 text-warning"></i>Edit User</h5>
+          <button type="button" class="close" data-dismiss="modal">&times;</button>
         </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select name="status" id="editUserStatus" class="form-control">
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" id="editUserName" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Email <span class="text-danger">*</span></label>
+            <input type="email" name="email" id="editUserEmail" class="form-control" required>
+          </div>
+          <div class="form-row">
+            <div class="col form-group">
+              <label>Role</label>
+              <select name="role" id="editUserRole" class="form-control">
+                <option value="admin">Admin</option>
+                <option value="management">Management</option>
+                <option value="employee">Employee</option>
+              </select>
+            </div>
+            <div class="col form-group">
+              <label>Status</label>
+              <select name="status" id="editUserStatus" class="form-control">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group mb-0">
+            <label>New Password <small class="text-muted font-weight-normal">(leave blank to keep current)</small></label>
+            <input type="password" name="new_password" class="form-control" placeholder="Minimum 8 characters" minlength="8">
+          </div>
         </div>
-        <div class="form-group"><label>New Password <small class="text-muted">(leave blank to keep current)</small></label><input type="password" name="new_password" class="form-control" minlength="8"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Update User</button>
-      </div>
-    </form>
-  </div></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save mr-1"></i>Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
+
 
 <?php
-// $extraJs runs AFTER jQuery is loaded in admin_footer.php
+// $extraJs — runs AFTER jQuery loads in admin_footer.php
 $extraJs = <<<JS
 \$(document).ready(function () {
     \$(document).on('click', '.edit-user-btn', function () {
         var btn = \$(this);
-        \$('#editUserId').val(btn.attr('data-id'));
-        \$('#editUserName').val(btn.attr('data-name'));
-        \$('#editUserEmail').val(btn.attr('data-email'));
-        \$('#editUserRole').val(btn.attr('data-role')).trigger('change');
-        \$('#editUserStatus').val(btn.attr('data-status')).trigger('change');
+        \$('#editUserId').val(btn.data('id'));
+        \$('#editUserName').val(btn.data('name'));
+        \$('#editUserEmail').val(btn.data('email'));
+        \$('#editUserRole').val(btn.data('role')).trigger('change');
+        \$('#editUserStatus').val(btn.data('status')).trigger('change');
         \$('#editUserModal').modal('show');
     });
 });

@@ -998,3 +998,26 @@ td.text-nowrap {
     visibility: visible !important;
   }
 }
+
+/* ── Footer: replace float-right with flex ─────────────────── */
+/* Override AdminLTE's default footer layout */
+.main-footer {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .25rem;
+  padding: 10px 20px;
+}
+
+/* The right-side "Powered by" span — flex handles it, no float needed */
+.footer-right {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* Stack on very small screens (< 480px) */
+@media (max-width: 480px) {
+  .main-footer  { flex-direction: column; align-items: flex-start; }
+  .footer-right { margin-left: 0; text-align: left; }
+}

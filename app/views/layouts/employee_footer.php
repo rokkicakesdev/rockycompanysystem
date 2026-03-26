@@ -5,7 +5,7 @@
       <span class="footer-text">
         &copy; <?= date('Y') ?> <?= COMPANY_NAME ?> &mdash; <?= APP_NAME ?> v<?= APP_VERSION ?>
       </span>
-      <span class="float-right footer-text">
+      <span class="footer-text footer-right">
         Powered by <strong>Rocky HRIS + PAYROLL</strong>
       </span>
     </footer>
