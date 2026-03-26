@@ -70,7 +70,7 @@ $actionColors = [
       </div>
     </div>
 <?php if ($totalPages > 1): ?>
-<div class="d-flex justify-content-center mt-3">
+<div class="d-flex justify-content-center mt-3 mb-4 activity-pagination">
   <nav>
     <ul class="pagination pagination-sm mb-0">
       <li class="page-item <?= $curPage <= 1 ? 'disabled' : '' ?>">
@@ -92,5 +92,5 @@ $actionColors = [
 </div>
 <?php endif; ?>
 </div>
-</div>
+</div><!-- /.activity-log-content -->
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

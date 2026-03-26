@@ -95,17 +95,18 @@ $users = Model::getAllUsers();
 ?>
 
 <!-- ─── Page header ──────────────────────────────────────────────── -->
-<div class="um-page-header">
-  <h1><i class="fas fa-user-shield"></i> User Management</h1>
-  <button class="btn-add-user" data-toggle="modal" data-target="#createUserModal">
-    <i class="fas fa-plus"></i> Add User
+<div class="page-title-bar">
+  <i class="fas fa-user-shield text-primary"></i>
+  <h1>User Management</h1>
+  <button class="btn btn-sm btn-primary ml-auto" data-toggle="modal" data-target="#createUserModal">
+    <i class="fas fa-plus mr-1"></i> Add User
   </button>
 </div>
 
 <?= $msg ?>
 
 <!-- ─── Table card ───────────────────────────────────────────────── -->
-<div class="um-card">
+<div class="um-card um-card-mb">
   <div class="um-table-scroll">
     <table class="um-table">
       <thead>
