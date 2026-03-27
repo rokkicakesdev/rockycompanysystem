@@ -38,7 +38,7 @@ if ($selectedEmp && $selectedPeriod) {
 
 <div class="row">
   <!-- Left: selector -->
-  <div class="col-md-4 no-print">
+  <div class="col-md-4 col-12 no-print adm-ps-selector-col">
     <div class="card">
       <div class="card-header">
         <h3 class="card-title"><i class="fas fa-search mr-2"></i>Select Payslip</h3>
@@ -71,114 +71,153 @@ if ($selectedEmp && $selectedPeriod) {
   </div>
 
   <!-- Right: payslip -->
-  <div class="col-md-8">
+  <div class="col-md-8 col-12 adm-ps-content-col">
     <?php if($selectedEmp && $payrollRecord): ?>
-    <div class="card payslip-card">
-      <div class="payslip-header-bar">
-        <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h4 class="mb-0 payslip-company-name">Rocky Company</h4>
-            <p class="mb-0 payslip-header-sub">Payroll Slip / Official Document</p>
-          </div>
-          <div class="text-right">
-            <span class="payslip-period-label-text">Pay Period</span><br>
-            <strong><?= Model::periodLabel($payrollRecord['period']) ?></strong>
-          </div>
+    <div class="card payslip-card" id="payslipPrintArea">
+
+      <?php
+        $isCutoff1   = Model::periodCutoff($payrollRecord['period']) === 1;
+        $expectedGross = round($payrollRecord['basic_salary'] + $payrollRecord['allowance'], 2);
+        $thirteenth13  = $isCutoff1 ? max(0.0, round($payrollRecord['gross_pay'] - $expectedGross, 2)) : 0.0;
+        $absentDed     = (float)($payrollRecord['absent_deduction'] ?? 0);
+        $otherDed      = (float)($payrollRecord['other_deductions'] ?? 0);
+        $reconcile     = round($otherDed - $absentDed, 2);
+        $cutoffLabel   = $isCutoff1 ? '1st cutoff' : '2nd cutoff';
+      ?>
+
+      <!-- ── Header Bar ─────────────────────────────────────── -->
+      <div class="adm-ps-header-bar">
+        <div class="adm-ps-header-left">
+          <div class="adm-ps-company-name"><?= htmlspecialchars(COMPANY_NAME) ?></div>
+          <div class="adm-ps-company-sub">Payroll Slip / Official Document</div>
+        </div>
+        <div class="adm-ps-header-right">
+          <div class="adm-ps-period"><?= htmlspecialchars(Model::periodLabel($payrollRecord['period'])) ?></div>
+          <span class="status-badge badge-released adm-ps-status-pill">Released</span>
         </div>
       </div>
-      <div class="card-body">
 
-        <!-- Employee Info -->
-        <div class="row mb-3">
-          <div class="col-6">
-            <table class="table table-sm table-borderless mb-0 payslip-employee-table">
-              <tr><td class="text-muted pl-0" width="40%">Employee No.</td><td><code><?= $selectedEmp['employee_no'] ?></code></td></tr>
-              <tr><td class="text-muted pl-0">Name</td><td><strong><?= htmlspecialchars($selectedEmp['name']) ?></strong></td></tr>
-              <tr><td class="text-muted pl-0">Department</td><td><?= htmlspecialchars($selectedEmp['department']) ?></td></tr>
-            </table>
+      <!-- ── Card Body ──────────────────────────────────────── -->
+      <div class="card-body adm-ps-body">
+
+        <!-- Employee Info Grid -->
+        <div class="adm-ps-emp-grid">
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Employee No.</span>
+            <span class="adm-ps-emp-value"><code><?= htmlspecialchars($selectedEmp['employee_no']) ?></code></span>
           </div>
-          <div class="col-6">
-            <table class="table table-sm table-borderless mb-0 payslip-employee-table">
-              <tr><td class="text-muted pl-0" width="40%">Position</td><td><?= htmlspecialchars($selectedEmp['position']) ?></td></tr>
-              <tr><td class="text-muted pl-0">Date Hired</td><td><?= $selectedEmp['date_hired'] ?></td></tr>
-              <tr><td class="text-muted pl-0">Status</td><td><span class="badge badge-success">Active</span></td></tr>
-            </table>
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Position</span>
+            <span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['position']) ?></span>
+          </div>
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Name</span>
+            <span class="adm-ps-emp-value adm-ps-emp-name"><?= htmlspecialchars($selectedEmp['name']) ?></span>
+          </div>
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Date Hired</span>
+            <span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['date_hired']) ?></span>
+          </div>
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Department</span>
+            <span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['department']) ?></span>
+          </div>
+          <div class="adm-ps-emp-field">
+            <span class="adm-ps-emp-label">Status</span>
+            <span class="adm-ps-emp-value"><span class="badge badge-success">Active</span></span>
           </div>
         </div>
 
         <div class="payslip-divider"></div>
 
-        <?php
-          $isCutoff1   = Model::periodCutoff($payrollRecord['period']) === 1;
-          $isDecDec1   = Model::isDecember1stCutoff($payrollRecord['period']);
-          // Detect 13th month: gross > basic+allowance on a 1st cutoff
-          $expectedGross = round($payrollRecord['basic_salary'] + $payrollRecord['allowance'], 2);
-          $thirteenth13  = $isCutoff1 ? max(0.0, round($payrollRecord['gross_pay'] - $expectedGross, 2)) : 0.0;
-          // Detect reconciliation: stored in other_deductions minus absent_deduction
-          $absentDed     = (float)($payrollRecord['absent_deduction'] ?? 0);
-          $otherDed      = (float)($payrollRecord['other_deductions'] ?? 0);
-          $reconcile     = round($otherDed - $absentDed, 2);
-        ?>
-        <!-- Earnings & Deductions -->
-        <div class="row">
+        <!-- Earnings & Deductions Grid -->
+        <div class="adm-ps-comp-grid">
+
           <!-- Earnings -->
-          <div class="col-6">
-            <h6 class="payslip-section-title">Earnings</h6>
-            <div class="comp-row">
-              <span>Basic Salary <small class="text-muted">(<?= $isCutoff1 ? '1st' : '2nd' ?> cutoff)</small></span>
-              <span>₱<?= number_format($payrollRecord['basic_salary'],2) ?></span>
+          <div class="adm-ps-comp-col">
+            <div class="adm-ps-comp-heading">Earnings</div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">Basic Salary <small class="text-muted">(<?= $cutoffLabel ?>)</small></span>
+              <span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['basic_salary'],2) ?></span>
             </div>
-            <div class="comp-row"><span>Allowance</span><span>₱<?= number_format($payrollRecord['allowance'],2) ?></span></div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">Allowance</span>
+              <span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['allowance'],2) ?></span>
+            </div>
             <?php if ($thirteenth13 > 0): ?>
-            <div class="comp-row payslip-13th-amount">
-              <span><i class="fas fa-gift mr-1"></i>13th Month Pay</span>
-              <span>₱<?= number_format($thirteenth13,2) ?></span>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label"><i class="fas fa-gift mr-1 text-info"></i>13th Month Pay</span>
+              <span class="adm-ps-comp-amount text-info">&#8369;&nbsp;<?= number_format($thirteenth13,2) ?></span>
             </div>
             <?php endif; ?>
-            <div class="comp-row total text-success"><span>Gross Pay</span><span>₱<?= number_format($payrollRecord['gross_pay'],2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total text-success">
+              <span class="adm-ps-comp-label">Gross Pay</span>
+              <span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['gross_pay'],2) ?></span>
+            </div>
           </div>
+
           <!-- Deductions -->
-          <div class="col-6">
-            <h6 class="payslip-section-title">Deductions</h6>
+          <div class="adm-ps-comp-col">
+            <div class="adm-ps-comp-heading">Deductions</div>
             <?php if (!$isCutoff1): ?>
-            <div class="comp-row"><span>SSS</span><span class="text-danger">−₱<?= number_format($payrollRecord['sss_ee'],2) ?></span></div>
-            <div class="comp-row"><span>PhilHealth</span><span class="text-danger">−₱<?= number_format($payrollRecord['philhealth_ee'],2) ?></span></div>
-            <div class="comp-row"><span>Pag-IBIG</span><span class="text-danger">−₱<?= number_format($payrollRecord['pagibig_ee'],2) ?></span></div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">SSS</span>
+              <span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['sss_ee'],2) ?></span>
+            </div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">PhilHealth</span>
+              <span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['philhealth_ee'],2) ?></span>
+            </div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">Pag-IBIG</span>
+              <span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['pagibig_ee'],2) ?></span>
+            </div>
             <?php else: ?>
-            <div class="comp-row text-muted payslip-gov-note">
-              <span><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span><span>1st cutoff — none</span>
+            <div class="adm-ps-comp-row text-muted adm-ps-gov-note">
+              <span class="adm-ps-comp-label"><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span>
+              <span class="adm-ps-comp-amount">1st cutoff — none</span>
             </div>
             <?php endif; ?>
-            <div class="comp-row"><span>Withholding Tax</span><span class="text-danger">−₱<?= number_format($payrollRecord['withholding_tax'],2) ?></span></div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">Withholding Tax</span>
+              <span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['withholding_tax'],2) ?></span>
+            </div>
             <?php if ($absentDed > 0): ?>
-            <div class="comp-row"><span>Absent Deduction</span><span class="text-danger">−₱<?= number_format($absentDed,2) ?></span></div>
+            <div class="adm-ps-comp-row">
+              <span class="adm-ps-comp-label">Absent Deduction</span>
+              <span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($absentDed,2) ?></span>
+            </div>
             <?php endif; ?>
             <?php if ($reconcile != 0): ?>
-            <div class="comp-row <?= ($reconcile ?? 0) > 0 ? 'comp-row-negative' : 'comp-row-positive' ?>">
-              <span>Year-End Tax Reconciliation</span>
-              <span><?= $reconcile > 0 ? '−' : '+' ?>₱<?= number_format(abs($reconcile),2) ?></span>
+            <div class="adm-ps-comp-row <?= $reconcile > 0 ? 'comp-row-negative' : 'comp-row-positive' ?>">
+              <span class="adm-ps-comp-label">Year-End Tax Reconciliation</span>
+              <span class="adm-ps-comp-amount"><?= $reconcile > 0 ? '−' : '+' ?>&nbsp;&#8369;&nbsp;<?= number_format(abs($reconcile),2) ?></span>
             </div>
             <?php endif; ?>
-            <div class="comp-row total text-danger"><span>Total Deductions</span><span>₱<?= number_format($payrollRecord['total_deductions'],2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total text-danger">
+              <span class="adm-ps-comp-label">Total Deductions</span>
+              <span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['total_deductions'],2) ?></span>
+            </div>
           </div>
-        </div>
+
+        </div><!-- /.adm-ps-comp-grid -->
 
         <div class="payslip-divider"></div>
 
-        <!-- Net Pay -->
-        <div class="d-flex justify-content-between align-items-center p-3 rounded payslip-net-box">
-          <div>
-            <p class="mb-0 text-muted net-label">NET PAY FOR <?= strtoupper(Model::periodLabel($payrollRecord['period'])) ?></p>
-            <h2 class="mb-0 text-primary font-weight-bold">₱<?= number_format($payrollRecord['net_pay'],2) ?></h2>
+        <!-- Net Pay Box -->
+        <div class="adm-ps-net-box">
+          <div class="adm-ps-net-left">
+            <div class="adm-ps-net-label">NET PAY FOR <?= strtoupper(htmlspecialchars(Model::periodLabel($payrollRecord['period']))) ?></div>
+            <div class="adm-ps-net-amount">&#8369;&nbsp;<?= number_format($payrollRecord['net_pay'],2) ?></div>
           </div>
-          <div class="text-right">
-            <p class="mb-0 text-muted payslip-processed-label">Processed by</p>
-            <strong class="payslip-employee-table"><?= htmlspecialchars($_SESSION['name']) ?></strong><br>
-            <small class="text-muted">Administrator</small>
+          <div class="adm-ps-net-right">
+            <div class="adm-ps-net-processed-label">Processed by</div>
+            <div class="adm-ps-net-processed-name"><?= htmlspecialchars($_SESSION['name']) ?></div>
+            <div class="adm-ps-net-processed-role">Payroll Administrator</div>
           </div>
         </div>
 
-        <!-- Signature area — hidden on screen, visible on print -->
+        <!-- Signature area — print only -->
         <div class="row mt-4 pt-3 print-only">
           <div class="col-6 text-center">
             <div class="signature-line">Employee Signature / Date</div>
@@ -188,21 +227,24 @@ if ($selectedEmp && $selectedPeriod) {
           </div>
         </div>
 
-      </div>
-      <div class="card-footer no-print d-flex justify-content-between">
-        <span class="text-muted payslip-history-row">
-          <i class="fas fa-clock mr-1"></i> Generated: <?= date('M d, Y h:i A') ?>
-        </span>
-        <div>
-          <button class="btn btn-info btn-sm" onclick="window.print()">
-            <i class="fas fa-print mr-1"></i> Print Payslip
+      </div><!-- /.card-body -->
+
+      <!-- Card Footer / Actions -->
+      <div class="card-footer no-print adm-ps-footer">
+        <div class="adm-ps-footer-timestamp">
+          <i class="fas fa-clock mr-1"></i>Generated: <?= date('M d, Y h:i A') ?>
+        </div>
+        <div class="adm-ps-footer-btns">
+          <button class="btn btn-info btn-sm adm-ps-btn" onclick="window.print()">
+            <i class="fas fa-print mr-1"></i>Print Payslip
           </button>
-          <button class="btn btn-success btn-sm ml-1" onclick="window.print()">
-            <i class="fas fa-download mr-1"></i> Export PDF
+          <button class="btn btn-success btn-sm adm-ps-btn" onclick="window.print()">
+            <i class="fas fa-download mr-1"></i>Export PDF
           </button>
         </div>
       </div>
-    </div>
+
+    </div><!-- /.payslip-card -->
     <?php else: ?>
     <div class="card">
       <div class="card-body text-center py-5 text-muted">

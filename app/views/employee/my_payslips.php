@@ -49,12 +49,21 @@ function fmt(val) {
 $('.view-payslip-btn').on('click', function () {
   var d = $(this).data();
   var period    = d.period;
-  var periodLbl = new Date(period + '-02').toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  // period format is "YYYY-MM-1" or "YYYY-MM-2" — parse base month safely
+  var periodBase = period.replace(/-(\d)$/, '');   // "YYYY-MM"
+  var cutoffNum  = parseInt(period.slice(-1)) || 2; // 1 or 2
+  var dateParts  = periodBase.split('-');
+  var periodDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, 1);
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var periodLbl  = monthNames[periodDate.getMonth()] + ' ' + periodDate.getFullYear()
+                 + ' (' + (cutoffNum === 1 ? '1st–15th' : '16th–End') + ')';
   var absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
 
   // Period labels
   $('#ps-period-label').text(periodLbl);
   $('#ps-net-period').text(periodLbl.toUpperCase());
+  // Update cutoff note on basic salary row
+  $('#ps-cutoff-note').text('(' + (cutoffNum === 1 ? '1st cutoff' : '2nd cutoff') + ')');
 
   // Status badge
   var statusClass = d.status === 'released' ? 'badge-released' : 'badge-pending';
