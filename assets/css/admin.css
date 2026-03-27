@@ -1,204 +1,29 @@
 /* ============================================================
    Rocky HRIS + Payroll System — Admin Stylesheet
    File: assets/css/admin.css
-   Extracted from inline styles across all admin view files.
    ============================================================ */
 
 /* ════════════════════════════════════════════════════════════
-   LAYOUTS — admin_header / admin_footer
+   FOOTER
    ════════════════════════════════════════════════════════════ */
-
-/* ── Footer: flex row so both spans sit side-by-side ── */
-.main-footer {
-  background: #fff;
-  border-top: 1px solid #e2e8f0;
-  padding: 10px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: .25rem;
-}
-.footer-text {
-  font-size: .78rem;
-  color: #94a3b8;
-  line-height: 1.4;
-}
-/* Remove the old float-right — flex handles alignment */
-.footer-right {
-  margin-left: auto;
-  text-align: right;
-}
-/* Center footer on mobile (< 768px) */
-@media (max-width: 767px) {
-  .main-footer     { justify-content: center; text-align: center; }
-  .footer-right    { margin-left: 0; text-align: center; }
-}
-/* On very small screens stack the two spans */
-@media (max-width: 480px) {
-  .main-footer     { flex-direction: column; align-items: center; }
-  .footer-right    { margin-left: 0; text-align: center; }
-}
-
-.sidebar-brand-icon {
-  color: #60a5fa;
-  font-size: 1.3rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   PAYROLL — mobile responsiveness
-   ════════════════════════════════════════════════════════════ */
-
-/* Period selector bar: stack vertically on small screens */
-@media (max-width: 767px) {
-  .payroll-period-bar {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: .5rem;
-  }
-  .payroll-period-bar label       { margin-bottom: 0; }
-  .payroll-period-bar .form-control,
-  .payroll-period-bar .btn        { width: 100%; margin: 0 !important; }
-  .payroll-period-bar .btn-info   { margin-top: .25rem !important; }
-}
-
-/* Summary info-boxes: 2-up on mobile, 4-up on md+ */
-@media (max-width: 575px) {
-  .payroll-info-row .col-md-3 { flex: 0 0 50%; max-width: 50%; }
-  .info-box-number            { font-size: 1rem; }
-  .info-box-text              { font-size: .72rem; }
-  .info-box-icon              { width: 60px; font-size: 1.4rem; line-height: 60px; }
-  .info-box                   { min-height: 60px; }
-}
-
-/* Payroll table: pin key columns, hide lower-priority ones,
-   show horizontal scroll on all mobile sizes */
-@media (max-width: 991px) {
-  /* Always scroll rather than overflow the viewport */
-  .payroll-table-wrap           { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-}
-@media (max-width: 767px) {
-  /* Hide less critical columns on mobile */
-  .payroll-col-allowance,
-  .payroll-col-sss,
-  .payroll-col-philhealth,
-  .payroll-col-pagibig,
-  .payroll-col-wtax,
-  .payroll-col-absentded        { display: none; }
-
-  /* Tighten remaining cells */
-  .payroll-table td,
-  .payroll-table th             { font-size: .75rem; padding: .4rem .5rem; white-space: nowrap; }
-
-  /* Card header badges + export buttons: wrap cleanly */
-  .payroll-card-tools           { flex-wrap: wrap; gap: .3rem; }
-}
-
-/* ════════════════════════════════════════════════════════════
-   PRINT — Payroll Processing (@media print)
-   ════════════════════════════════════════════════════════════ */
-@media print {
-  /* Show the full page */
-  body, .wrapper, .content-wrapper, .content, .container-fluid {
-    visibility: visible !important;
-    display: block !important;
-    overflow: visible !important;
-    height: auto !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background: #fff !important;
-  }
-
-  /* Hide everything that isn't the payroll content */
-  .main-sidebar,
-  .main-header,
-  .main-footer,
-  .no-print,
-  .modal,
-  .btn,
-  .card-tools,
-  .alert,
-  .info-box-icon,
-  .page-title-bar,
-  #generateModal,
-  #releaseAllModal       { display: none !important; }
-
-  /* Force the content wrapper to fill the page without sidebar offset */
-  .content-wrapper {
-    margin-left: 0 !important;
-    padding: 0 !important;
-  }
-
-  /* Summary cards — show as a clean horizontal row */
-  .row .col-md-3 {
-    flex: 0 0 25%;
-    max-width: 25%;
-    float: left;
-  }
-  .info-box {
-    box-shadow: none !important;
-    border: 1px solid #dee2e6 !important;
-    break-inside: avoid;
-  }
-
-  /* Period selector card */
-  .card.card-primary.card-outline { border: none !important; box-shadow: none !important; }
-
-  /* Payroll table */
-  .card                  { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: auto; }
-  .table-responsive      { overflow: visible !important; }
-  table                  { font-size: 8.5pt; width: 100% !important; }
-  th, td                 { padding: 3pt 5pt !important; border: 1px solid #dee2e6 !important; }
-  thead                  { background: #f4f6fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .text-success          { color: #16a34a !important; }
-  .text-danger           { color: #dc2626 !important; }
-  .badge-success         { background: #d1fae5 !important; color: #065f46 !important; padding: 2pt 4pt; border-radius: 3pt; }
-  .badge-warning         { background: #fef3c7 !important; color: #92400e !important; padding: 2pt 4pt; border-radius: 3pt; }
-  tfoot th               { background: #f4f6fa !important; }
-
-  /* Print title */
-  .print-title {
-    display: block !important;
-    font-size: 13pt;
-    font-weight: 700;
-    margin-bottom: 6pt;
-  }
-
-  /* Page breaks */
-  .card                  { page-break-inside: avoid; }
-  thead                  { display: table-header-group; }
-  tfoot                  { display: table-footer-group; }
-}
+.main-footer { background: #fff; border-top: 1px solid #e2e8f0; }
+.footer-text { font-size: .78rem; color: #94a3b8; line-height: 1.4; }
+.sidebar-brand-icon { color: #60a5fa; font-size: 1.3rem; }
 
 /* ════════════════════════════════════════════════════════════
    SHARED ADMIN UTILITIES
    ════════════════════════════════════════════════════════════ */
-.text-xs   { font-size: .75rem; }
-.text-sm   { font-size: .82rem; }
-.text-sm2  { font-size: .85rem; }
-.text-sm3  { font-size: .88rem; }
-.text-md   { font-size: .9rem; }
-.text-muted-xs { font-size: .78rem; color: #64748b; }
-.form-inline-gap {
-  display: inline-flex;
-  gap: 8px;
-}
-.action-form-inline {
-  display: inline;
-}
-.whitespace-nowrap {
-  white-space: nowrap;
-}
-.opacity-faint {
-  opacity: .15;
-}
-.opacity-light {
-  opacity: .2;
-}
+.text-xs        { font-size: .75rem; }
+.text-sm        { font-size: .82rem; }
+.text-sm2       { font-size: .85rem; }
+.text-sm3       { font-size: .88rem; }
+.text-md        { font-size: .9rem; }
+.text-muted-xs  { font-size: .78rem; color: #64748b; }
+.form-inline-gap    { display: inline-flex; gap: 8px; }
+.action-form-inline { display: inline; }
 
 /* ════════════════════════════════════════════════════════════
-   ICON BOXES — dashboard stat cards
+   ICON BOXES
    ════════════════════════════════════════════════════════════ */
 .icon-box-blue    { background: #dbeafe; color: #1d4ed8; }
 .icon-box-yellow  { background: #fef3c7; color: #d97706; }
@@ -210,590 +35,347 @@
 /* ════════════════════════════════════════════════════════════
    DASHBOARD
    ════════════════════════════════════════════════════════════ */
-.dash-progress-cell {
-  width: 120px;
-}
-.dash-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 4px;
-}
-.dash-pending-icon {
-  color: #d97706;
-}
-.dash-pending-icon-sm {
-  color: #d97706;
-  font-size: .7rem;
-}
-.dash-no-pending-icon {
-  color: #86efac;
-}
-.dash-announcement-border {
-  border-radius: 0 8px 8px 0;
-  padding: 10px 12px;
-  margin-bottom: 10px;
-  background: #f8fafc;
-}
-.dash-pin-icon {
-  color: #d97706;
-  font-size: .7rem;
-}
-.dash-ann-title {
-  font-size: .85rem;
-}
-.dash-ann-excerpt {
-  font-size: .78rem;
-  color: #64748b;
-  margin: 4px 0 0;
-}
-.dash-activity-name {
-  font-weight: 600;
-  font-size: .82rem;
-}
-.dash-activity-role {
-  font-size: .65rem;
-}
-.dash-activity-action {
-  font-size: .8rem;
-  color: #374151;
-}
-.dash-activity-icon {
-  color: #64748b;
-}
-.dash-announcements-icon {
-  color: #7c3aed;
-}
+.dash-progress-cell    { width: 120px; }
+.dash-progress-fill    { height: 100%; background: var(--accent); border-radius: 4px; }
+.dash-pending-icon     { color: #d97706; }
+.dash-pending-icon-sm  { color: #d97706; font-size: .7rem; }
+.dash-no-pending-icon  { color: #86efac; }
+.dash-announcement-border { border-radius: 0 8px 8px 0; padding: 10px 12px; margin-bottom: 10px; background: #f8fafc; }
+.dash-pin-icon         { color: #d97706; font-size: .7rem; }
+.dash-ann-title        { font-size: .85rem; }
+.dash-ann-excerpt      { font-size: .78rem; color: #64748b; margin: 4px 0 0; }
+.dash-activity-name    { font-weight: 600; font-size: .82rem; }
+.dash-activity-role    { font-size: .65rem; }
+.dash-activity-action  { font-size: .8rem; color: #374151; }
+.dash-activity-icon    { color: #64748b; }
+.dash-announcements-icon { color: #7c3aed; }
 
 /* ════════════════════════════════════════════════════════════
-   ANNOUNCEMENTS (admin)
+   ANNOUNCEMENTS
    ════════════════════════════════════════════════════════════ */
-.ann-empty-icon {
-  opacity: .15;
-}
-.ann-pin-icon {
-  color: #d97706;
-}
-.ann-content-text {
-  font-size: .85rem;
-  white-space: pre-wrap;
-}
-
-/* ════════════════════════════════════════════════════════════
-   ATTENDANCE (admin)
-   ════════════════════════════════════════════════════════════ */
-.att-view-toggle {
-  display: inline-flex;
-  gap: 8px;
-}
-.att-holiday-banner {
-  background: #f0fdfa;
-  border-left: 4px solid #14b8a6 !important;
-  border-radius: 0;
-}
-.att-weekend-banner {
-  background: #f8fafc;
-  border-left: 4px solid #94a3b8 !important;
-  border-radius: 0;
-}
-.att-holiday-icon {
-  color: #14b8a6;
-}
-.att-weekend-icon {
-  color: #94a3b8;
-}
-.att-emp-name {
-  font-size: .85rem;
-}
-.att-col-status  { width: 120px; }
-.att-col-timein  { width: 95px; }
-.att-col-timeout { width: 95px; }
-.att-col-ot      { width: 80px; }
-.att-col-remarks { width: 150px; }
-.att-leave-select {
-  font-size: .75rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   DEPARTMENTS
-   ════════════════════════════════════════════════════════════ */
-.dept-actions-cell {
-  white-space: nowrap;
-}
-.dept-pos-section-label {
-  font-size: .72rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #64748b;
-}
-.dept-pos-name {
-  font-size: .85rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   EMPLOYEES (admin)
-   ════════════════════════════════════════════════════════════ */
-.emp-filter-select {
-  min-width: 220px;
-}
-.emp-empty-icon {
-  color: #cbd5e1;
-}
-.emp-view-name {
-  font-size: .9rem;
-}
-.emp-view-no {
-  font-size: .82rem;
-}
-.emp-view-position {
-  font-size: .88rem;
-}
-.emp-view-table-label {
-  font-size: .82rem;
-}
-.emp-view-table-value {
-  font-size: .82rem;
-}
-.emp-leave-type-cell {
-  font-size: .85rem;
-}
-.emp-footer-actions {
-  gap: .5rem;
-}
-.emp-footer-count {
-  font-size: .82rem;
-}
-.emp-gender-notice {
-  display: none;
-  font-size: .85rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   HOLIDAYS
-   ════════════════════════════════════════════════════════════ */
-.holiday-page-icon {
-  color: var(--accent);
-}
-.holiday-legend-gap {
-  gap: .75rem;
-  flex-wrap: wrap;
-}
-.holiday-legend-badge {
-  font-size: .75rem;
-}
-.holiday-legend-dot {
-  font-size: .5rem;
-}
-.holiday-empty-icon {
-  opacity: .15;
-}
-.holiday-col-date      { width: 120px; }
-.holiday-col-recurring { width: 80px; }
-.holiday-col-actions   { width: 90px; }
-.holiday-year-select   { width: 100px; }
-.holiday-filter-gap    { gap: .5rem; }
-.holiday-name-border {
-  border-left: 3px solid currentColor;
-  padding-left: .5rem;
-}
-.holiday-actions-cell {
-  white-space: nowrap;
-}
-.holiday-help-text {
-  font-size: .8rem;
-}
-.holiday-dot-sm {
-  font-size: .5rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   LEAVE (admin)
-   ════════════════════════════════════════════════════════════ */
-.leave-footer-gap {
-  gap: .5rem;
-}
-.leave-footer-count {
-  font-size: .82rem;
-}
-.leave-gender-hint {
-  display: none;
-}
-.leave-holiday-warning {
-  display: none;
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
-  color: #0f766e;
-}
-
-/* ════════════════════════════════════════════════════════════
-   PAYROLL
-   ════════════════════════════════════════════════════════════ */
-.payroll-skip-list {
-  font-size: .82rem;
-}
-.payroll-period-select-md {
-  max-width: 200px;
-}
-.payroll-summary-badge {
-  font-size: .82rem;
-}
-.payroll-actions-cell {
-  white-space: nowrap;
-}
-.payroll-cutoff-select {
-  max-width: 175px;
-}
-.payroll-scroll-table {
-  max-height: 360px;
-  overflow-y: auto;
-}
-.payroll-cb-col {
-  width: 36px;
-}
-.payroll-employee-col {
-  max-width: 200px;
-}
-.payroll-name-col {
-  max-width: 175px;
-}
-
-/* ════════════════════════════════════════════════════════════
-   PAYROLL SETTINGS
-   ════════════════════════════════════════════════════════════ */
-.ps-header-note {
-  font-size: .82rem;
-}
-.ps-info-alert {
-  font-size: .82rem;
-}
-.ps-table {
-  font-size: .82rem;
-}
-.ps-col-employee    { min-width: 180px; }
-.ps-col-fixed       { min-width: 160px; }
-.ps-col-tax         { min-width: 160px; }
-.ps-col-govmode     { min-width: 180px; }
-.ps-col-net1        { min-width: 120px; }
-.ps-col-net2        { min-width: 120px; }
-.ps-col-total       { min-width: 110px; }
-
-/* ════════════════════════════════════════════════════════════
-   PAYSLIP (admin)
-   ════════════════════════════════════════════════════════════ */
-.payslip-company-name {
-  font-weight: 700;
-}
-.payslip-header-sub {
-  font-size: .75rem;
-  opacity: .7;
-}
-.payslip-period-label-text {
-  font-size: .75rem;
-  opacity: .7;
-}
-.payslip-period-value {
-  font-size: 1rem;
-}
-.payslip-13th-amount {
-  color: #0369a1;
-}
-.payslip-reconcile-row {
-  /* color is set dynamically via PHP/JS — class is a structural hook */
-}
-.payslip-gov-note {
-  font-size: .78rem;
-}
-.payslip-processed-label {
-  font-size: .75rem;
-}
-.payslip-empty-icon {
-  opacity: .2;
-}
-
-/* ════════════════════════════════════════════════════════════
-   RECRUITMENT (admin)
-   ════════════════════════════════════════════════════════════ */
-.recruitment-job-row {
-  cursor: pointer;
-}
-.recruitment-empty-icon {
-  color: #cbd5e1;
-}
-.recruitment-no-selection-icon {
-  color: #cbd5e1;
-}
-
-/* ════════════════════════════════════════════════════════════
-   13TH MONTH
-   ════════════════════════════════════════════════════════════ */
-.thirteenth-controls-gap {
-  gap: .75rem;
-}
-.thirteenth-year-select {
-  max-width: 120px;
-}
-.thirteenth-summary-badge {
-  font-size: .82rem;
-}
-.thirteenth-emp-name {
-  font-size: .85rem;
-}
-.thirteenth-empty-icon {
-  color: #cbd5e1;
-}
-.thirteenth-info-table {
-  font-size: .85rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   ACTIVITY LOG
-   ════════════════════════════════════════════════════════════ */
-.activity-user-name {
-  font-size: .82rem;
-}
-
-/* ════════════════════════════════════════════════════════════
-   USERS
-   ════════════════════════════════════════════════════════════ */
-
-/* ── Page header ── */
-.um-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-}
-.um-page-header h1 {
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: #1e2a3a;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-}
-.um-page-header h1 i { color: #3b82f6; font-size: 1.1rem; }
-
-/* ── Card / table ── */
-.um-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
-  overflow: hidden;
-}
-.um-table-scroll { overflow-x: auto; }
-.um-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: .85rem;
-}
-.um-table thead tr {
-  background: #f4f6fa;
-  border-bottom: 2px solid #e8ecf2;
-}
-.um-table thead th {
-  padding: .7rem 1rem;
-  font-size: .7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: #6b7a90;
-  white-space: nowrap;
-}
-.um-table tbody tr {
-  border-bottom: 1px solid #f0f2f6;
-  transition: background .12s;
-}
-.um-table tbody tr:last-child { border-bottom: none; }
-.um-table tbody tr:hover { background: #f8faff; }
-.um-table td {
-  padding: .75rem 1rem;
-  vertical-align: middle;
-  color: #2d3748;
-}
-
-/* ── Column widths ── */
-.col-name     { width: 18%; min-width: 140px; }
-.col-username { width: 13%; min-width: 110px; }
-.col-email    { width: 22%; min-width: 160px; }
-.col-role     { width: 12%; min-width: 100px; text-align: center; }
-.col-status   { width: 9%;  min-width: 80px;  text-align: center; }
-.col-created  { width: 11%; min-width: 95px;  text-align: center; }
-.col-actions  { width: 15%; min-width: 160px; text-align: center; }
-
-/* ── Cell typography ── */
-.um-name     { font-weight: 600; color: #1a202c; }
-.um-username { font-size: .78rem; color: #718096; font-family: 'Courier New', monospace; }
-.um-email    { color: #4a5568; }
-.um-date     { font-size: .78rem; color: #64748b; }
-
-/* ── Role badges ── */
-.role-badge {
-  display: inline-block;
-  padding: .2rem .65rem;
-  border-radius: 20px;
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-}
-.role-admin      { background: #dbeafe; color: #1d4ed8; }
-.role-management { background: #fef3c7; color: #92400e; }
-.role-employee   { background: #d1fae5; color: #065f46; }
-
-/* ── Status pills ── */
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: .35rem;
-  padding: .22rem .7rem;
-  border-radius: 20px;
-  font-size: .72rem;
-  font-weight: 600;
-}
-.status-pill::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.status-active            { background: #d1fae5; color: #065f46; }
-.status-active::before    { background: #10b981; }
-.status-inactive          { background: #fee2e2; color: #991b1b; }
-.status-inactive::before  { background: #ef4444; }
-
-/* ── You label ── */
-.you-label {
-  font-size: .75rem;
-  font-style: italic;
-  color: #94a3b8;
-  padding: .3rem .5rem;
-}
-/* Legacy alias kept for backwards compatibility */
-.user-you-label { font-size: .75rem; }
-
-/* ── Action buttons ── */
-.um-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .4rem;
-}
-.um-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .3rem;
-  padding: .3rem .7rem;
-  border-radius: 6px;
-  font-size: .75rem;
-  font-weight: 600;
-  border: 1.5px solid transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all .15s ease;
-  text-decoration: none;
-  line-height: 1;
-}
-.um-btn i { font-size: .7rem; }
-.um-btn-edit             { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
-.um-btn-edit:hover       { background: #f59e0b; color: #fff; }
-.um-btn-deactivate       { background: #fff5f5; border-color: #fc8181; color: #c53030; }
-.um-btn-deactivate:hover { background: #fc8181; color: #fff; }
-.um-btn-activate         { background: #f0fff4; border-color: #68d391; color: #276749; }
-.um-btn-activate:hover   { background: #68d391; color: #fff; }
-
-/* ── Add User button ── */
-.btn-add-user {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .5rem 1.1rem;
-  background: #2563eb;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: .82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .15s, transform .1s;
-  white-space: nowrap;
-}
-.btn-add-user:hover { background: #1d4ed8; transform: translateY(-1px); color: #fff; }
-.btn-add-user i     { font-size: .8rem; }
-
-/* ── Table footer (row count) ── */
-.um-table-footer {
-  padding: .6rem 1rem;
-  background: #f8faff;
-  border-top: 1px solid #e8ecf2;
-  font-size: .75rem;
-  color: #94a3b8;
-}
-
-/* ── Modal refinements ── */
-.modal-content { border-radius: 12px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
-.modal-header  { background: #f8faff; border-bottom: 1px solid #e8ecf2; border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; }
-.modal-title   { font-weight: 700; color: #1e2a3a; font-size: .95rem; }
-.modal-footer  { background: #f8faff; border-top: 1px solid #e8ecf2; border-radius: 0 0 12px 12px; }
-.modal-body .form-group label { font-size: .8rem; font-weight: 600; color: #4a5568; margin-bottom: .3rem; }
-.modal-body .form-control {
-  border-radius: 7px;
-  border: 1.5px solid #e2e8f0;
-  font-size: .85rem;
-  padding: .45rem .75rem;
-  transition: border-color .15s;
-}
-.modal-body .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
-
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  .um-table                        { font-size: .78rem; }
-  .um-table thead th, .um-table td { padding: .6rem .65rem; }
-  .col-email, .col-created         { display: none; }
-}
-
-/* ── Recruitment card header (applicants panel) ── */
-.recruitment-card-header {
-  gap: .5rem;
-}
-.recruitment-header-title {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.recruitment-header-actions {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: .35rem;
-}
-/* ════════════════════════════════════════════════════════════
-   ADDITIONAL UTILITY CLASSES (extracted from inline styles)
-   ════════════════════════════════════════════════════════════ */
-
-/* Dashboard — dynamic progress bar (width set via CSS custom property) */
-.dash-progress-fill[data-pct] {
-  /* width handled via JS: el.style.width = pct + '%' removed; use data attr + CSS var */
-}
-
-/* Announcements card — color border left (dynamic) */
-/* Type-based left border colors replace inline style="border-left:3px solid COLOR" */
+.ann-empty-icon   { opacity: .15; }
+.ann-pin-icon     { color: #d97706; }
+.ann-content-text { font-size: .85rem; white-space: pre-wrap; }
 .ann-card-general   { border-left: 3px solid #64748b !important; }
 .ann-card-important { border-left: 3px solid #dc2626 !important; }
 .ann-card-event     { border-left: 3px solid #2563eb !important; }
 .ann-card-reminder  { border-left: 3px solid #d97706 !important; }
 .ann-card-policy    { border-left: 3px solid #7c3aed !important; }
-
-/* Announcement badge colors (type-based) */
 .ann-type-general   { background: #f1f5f9 !important; color: #475569 !important; }
 .ann-type-important { background: #fee2e2 !important; color: #b91c1c !important; }
 .ann-type-event     { background: #dbeafe !important; color: #1d4ed8 !important; }
 .ann-type-reminder  { background: #fef3c7 !important; color: #92400e !important; }
 .ann-type-policy    { background: #f3e8ff !important; color: #6d28d9 !important; }
 
-/* Activity log action badge colors */
+/* ════════════════════════════════════════════════════════════
+   ATTENDANCE
+   ════════════════════════════════════════════════════════════ */
+.att-view-toggle     { display: inline-flex; gap: 8px; }
+.att-holiday-banner  { background: #f0fdfa; border-left: 4px solid #14b8a6 !important; border-radius: 0; }
+.att-weekend-banner  { background: #f8fafc; border-left: 4px solid #94a3b8 !important; border-radius: 0; }
+.att-holiday-icon    { color: #14b8a6; }
+.att-weekend-icon    { color: #94a3b8; }
+.att-emp-name        { font-size: .85rem; }
+.att-col-status      { width: 120px; }
+.att-col-timein      { width: 95px; }
+.att-col-timeout     { width: 95px; }
+.att-col-ot          { width: 80px; }
+.att-col-remarks     { width: 150px; }
+.att-leave-select    { font-size: .75rem; }
+.att-on-leave-panel         { display: none; }
+.att-on-leave-panel.visible { display: block; }
+select.status-select option[value="active"]     { color: #166534; }
+select.status-select option[value="inactive"]   { color: #64748b; }
+select.status-select option[value="resigned"]   { color: #92400e; }
+select.status-select option[value="terminated"] { color: #991b1b; }
+
+/* ════════════════════════════════════════════════════════════
+   DEPARTMENTS
+   ════════════════════════════════════════════════════════════ */
+.dept-actions-cell     { white-space: nowrap; }
+.dept-pos-section-label { font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; }
+.dept-pos-name         { font-size: .85rem; }
+
+/* ════════════════════════════════════════════════════════════
+   EMPLOYEES
+   ════════════════════════════════════════════════════════════ */
+.emp-filter-select    { min-width: 220px; }
+.emp-empty-icon       { color: #cbd5e1; }
+.emp-view-name        { font-size: .9rem; }
+.emp-view-no          { font-size: .82rem; }
+.emp-view-position    { font-size: .88rem; }
+.emp-view-table-label { font-size: .82rem; }
+.emp-view-table-value { font-size: .82rem; }
+.emp-leave-type-cell  { font-size: .85rem; }
+.emp-footer-actions   { gap: .5rem; }
+.emp-footer-count     { font-size: .82rem; }
+.emp-gender-notice    { display: none; font-size: .85rem; }
+.emp-welcome-card     { background: linear-gradient(135deg, #1e3a5f, #1a6e4a); color: #fff; border: none !important; }
+
+/* ════════════════════════════════════════════════════════════
+   HOLIDAYS
+   ════════════════════════════════════════════════════════════ */
+.holiday-page-icon     { color: var(--accent); }
+.holiday-legend-gap    { gap: .75rem; flex-wrap: wrap; }
+.holiday-legend-badge  { font-size: .75rem; }
+.holiday-legend-dot    { font-size: .5rem; }
+.holiday-empty-icon    { opacity: .15; }
+.holiday-col-date      { width: 120px; }
+.holiday-col-recurring { width: 80px; }
+.holiday-col-actions   { width: 90px; }
+.holiday-year-select   { width: 100px; }
+.holiday-filter-gap    { gap: .5rem; }
+.holiday-name-border   { border-left: 3px solid currentColor; padding-left: .5rem; }
+.holiday-actions-cell  { white-space: nowrap; }
+.holiday-help-text     { font-size: .8rem; }
+.holiday-type-regular  { color: #dc2626 !important; }
+.holiday-type-special  { color: #d97706 !important; }
+.holiday-type-default  { color: #475569 !important; }
+
+/* Holidays — mobile */
+@media (max-width: 767px) {
+  .holiday-filter-gap    { flex-direction: column; align-items: flex-start !important; }
+  .holiday-year-select   { width: 100%; }
+  .holiday-col-recurring { display: none; }
+  .holiday-col-date      { min-width: 80px; width: 80px; }
+  .holiday-col-actions   { width: 70px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   LEAVE
+   ════════════════════════════════════════════════════════════ */
+.leave-footer-gap      { gap: .5rem; }
+.leave-footer-count    { font-size: .82rem; }
+.leave-gender-hint     { display: none; }
+.leave-holiday-warning { display: none; background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; }
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL
+   ════════════════════════════════════════════════════════════ */
+.payroll-skip-list         { font-size: .82rem; }
+.payroll-period-select-md  { max-width: 200px; }
+.payroll-summary-badge     { font-size: .82rem; }
+.payroll-actions-cell      { white-space: nowrap; }
+.payroll-cutoff-select     { max-width: 175px; }
+.payroll-scroll-table      { max-height: 360px; overflow-y: auto; }
+.payroll-cb-col            { width: 36px; }
+.payroll-employee-col      { max-width: 200px; }
+.payroll-name-col          { max-width: 175px; }
+.payroll-export-total-value { color: #059669; font-weight: 700; }
+.payroll-export-er-value    { font-size: .85rem; color: #475569; }
+.payroll-export-footer-cell { text-align: center; color: #64748b; font-style: italic; font-size: .8rem; }
+
+/* Payroll — mobile */
+@media (max-width: 767px) {
+  .payroll-period-bar { flex-direction: column; align-items: stretch !important; gap: .5rem; }
+  .payroll-period-bar .form-control, .payroll-period-bar .btn { width: 100%; margin: 0 !important; }
+  .payroll-col-allowance, .payroll-col-sss, .payroll-col-philhealth,
+  .payroll-col-pagibig, .payroll-col-wtax, .payroll-col-absentded { display: none; }
+  .payroll-table td, .payroll-table th { font-size: .75rem; padding: .4rem .5rem; white-space: nowrap; }
+  .payroll-card-tools { flex-wrap: wrap; gap: .3rem; }
+}
+@media (max-width: 991px) {
+  .payroll-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 575px) {
+  .payroll-info-row .col-md-3 { flex: 0 0 50%; max-width: 50%; }
+  .info-box-number { font-size: 1rem; }
+  .info-box-text   { font-size: .72rem; }
+  .info-box-icon   { width: 60px; font-size: 1.4rem; line-height: 60px; }
+  .info-box        { min-height: 60px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL SETTINGS
+   ════════════════════════════════════════════════════════════ */
+.ps-header-note  { font-size: .82rem; }
+.ps-info-alert   { font-size: .82rem; }
+.ps-table        { font-size: .82rem; }
+.ps-col-employee { min-width: 180px; }
+.ps-col-fixed    { min-width: 160px; }
+.ps-col-tax      { min-width: 160px; }
+.ps-col-govmode  { min-width: 180px; }
+.ps-col-net1     { min-width: 120px; }
+.ps-col-net2     { min-width: 120px; }
+.ps-col-total    { min-width: 110px; }
+
+/* ════════════════════════════════════════════════════════════
+   ADMIN PAYSLIP — responsive design (matches employee layout)
+   ════════════════════════════════════════════════════════════ */
+.payslip-empty-icon    { opacity: .2; }
+.adm-ps-selector-col   { margin-bottom: 1rem; }
+.adm-ps-gov-note       { font-size: .78rem; }
+
+/* Header Bar */
+.adm-ps-header-bar {
+  background: #1e2433;
+  color: #fff;
+  padding: 18px 24px;
+  border-radius: 12px 12px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.adm-ps-company-name { font-size: 1.05rem; font-weight: 700; line-height: 1.2; }
+.adm-ps-company-sub  { font-size: .72rem; opacity: .65; margin-top: 3px; }
+.adm-ps-header-right { text-align: right; flex-shrink: 0; }
+.adm-ps-period       { font-size: .95rem; font-weight: 700; color: #fff; line-height: 1.3; }
+.adm-ps-status-pill  { margin-top: 5px; display: inline-block; }
+
+/* Card Body */
+.adm-ps-body { padding: 18px 20px !important; }
+
+/* Employee Info Grid */
+.adm-ps-emp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 20px;
+  margin-bottom: 14px;
+}
+.adm-ps-emp-field { display: flex; flex-direction: column; min-width: 0; }
+.adm-ps-emp-label { font-size: .67rem; text-transform: uppercase; letter-spacing: .6px; color: #94a3b8; margin-bottom: 1px; }
+.adm-ps-emp-value { font-size: .83rem; color: #1e293b; word-break: break-word; }
+.adm-ps-emp-name  { font-weight: 700; font-size: .9rem; }
+
+/* Earnings & Deductions Grid */
+.adm-ps-comp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+  margin: 14px 0;
+}
+.adm-ps-comp-col     { min-width: 0; }
+.adm-ps-comp-heading { font-size: .65rem; text-transform: uppercase; letter-spacing: .8px; color: #94a3b8; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; margin-bottom: 8px; }
+.adm-ps-comp-row     { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 3px 0; font-size: .81rem; }
+.adm-ps-comp-label   { flex: 1; min-width: 0; color: #475569; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-ps-comp-amount  { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adm-ps-comp-total   { border-top: 1.5px solid #e2e8f0; margin-top: 6px; padding-top: 6px; font-weight: 700; font-size: .84rem; }
+
+/* Net Pay Box */
+.adm-ps-net-box {
+  background: linear-gradient(135deg, #1e3a5f 0%, #1a6e4a 100%);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.adm-ps-net-left           { flex: 1; min-width: 0; }
+.adm-ps-net-label          { font-size: .64rem; text-transform: uppercase; letter-spacing: .7px; color: rgba(255,255,255,.65); margin-bottom: 4px; word-break: break-word; }
+.adm-ps-net-amount         { font-size: 1.8rem; font-weight: 800; color: #fff; line-height: 1.1; letter-spacing: -.5px; word-break: break-all; }
+.adm-ps-net-right          { text-align: right; flex-shrink: 0; }
+.adm-ps-net-processed-label { font-size: .64rem; color: rgba(255,255,255,.6); text-transform: uppercase; letter-spacing: .5px; }
+.adm-ps-net-processed-name  { font-size: .88rem; font-weight: 700; color: #fff; margin-top: 2px; }
+.adm-ps-net-processed-role  { font-size: .7rem; color: rgba(255,255,255,.6); }
+
+/* Footer / Actions */
+.adm-ps-footer {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px !important;
+  background: #f8fafc !important;
+}
+.adm-ps-footer-timestamp { font-size: .72rem; color: #94a3b8; }
+.adm-ps-footer-btns      { display: flex; gap: 6px; flex-wrap: wrap; }
+.adm-ps-btn              { white-space: nowrap; }
+
+/* Admin Payslip — mobile responsive */
+@media (max-width: 575px) {
+  .adm-ps-header-bar    { flex-direction: column; gap: 8px; padding: 14px 16px; }
+  .adm-ps-header-right  { text-align: left; }
+  .adm-ps-comp-grid     { grid-template-columns: 1fr; gap: 0; }
+  .adm-ps-comp-col + .adm-ps-comp-col { margin-top: 14px; padding-top: 14px; border-top: 1px dashed #e2e8f0; }
+  .adm-ps-comp-label    { white-space: normal; }
+  .adm-ps-net-box       { flex-direction: column; align-items: flex-start; padding: 16px; gap: 10px; }
+  .adm-ps-net-right     { text-align: left; }
+  .adm-ps-net-amount    { font-size: 1.5rem; }
+  .adm-ps-footer        { flex-direction: column; align-items: stretch; }
+  .adm-ps-footer-timestamp { text-align: center; }
+  .adm-ps-footer-btns   { flex-direction: column; }
+  .adm-ps-footer-btns .adm-ps-btn { width: 100%; text-align: center; }
+}
+@media (max-width: 420px) {
+  .adm-ps-emp-grid { grid-template-columns: 1fr; gap: 6px; }
+  .adm-ps-body     { padding: 14px !important; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL PRINT
+   ════════════════════════════════════════════════════════════ */
+.print-title { display: none; }
+@media print {
+  .print-title { display: block !important; font-size: 13pt; font-weight: 700; margin-bottom: 6pt; }
+  body, .wrapper, .content-wrapper, .content, .container-fluid {
+    visibility: visible !important; display: block !important;
+    overflow: visible !important; height: auto !important;
+    width: 100% !important; margin: 0 !important; padding: 0 !important; background: #fff !important;
+  }
+  .main-sidebar, .main-header, .main-footer, .no-print, .modal, .btn,
+  .card-tools, .alert, .info-box-icon, .page-title-bar,
+  #generateModal, #releaseAllModal { display: none !important; }
+  .content-wrapper { margin-left: 0 !important; padding: 0 !important; }
+  .row .col-md-3   { flex: 0 0 25%; max-width: 25%; float: left; }
+  .info-box        { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: avoid; }
+  .card            { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: auto; }
+  .table-responsive { overflow: visible !important; }
+  table            { font-size: 8.5pt; width: 100% !important; }
+  th, td           { padding: 3pt 5pt !important; border: 1px solid #dee2e6 !important; }
+  thead            { background: #f4f6fa !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .text-success    { color: #16a34a !important; }
+  .text-danger     { color: #dc2626 !important; }
+  tfoot th         { background: #f4f6fa !important; }
+  .card            { page-break-inside: avoid; }
+  thead            { display: table-header-group; }
+  tfoot            { display: table-footer-group; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   RECRUITMENT
+   ════════════════════════════════════════════════════════════ */
+.recruitment-job-row            { cursor: pointer; }
+.recruitment-no-selection-icon  { color: #cbd5e1; }
+.recruitment-card-header        { gap: .5rem; }
+.recruitment-header-title       { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.recruitment-header-actions     { display: flex; align-items: center; flex-shrink: 0; gap: .35rem; }
+.recruitment-status-new         { background: #dbeafe; color: #1e40af; }
+.recruitment-status-reviewed    { background: #f3e8ff; color: #6d28d9; }
+.recruitment-status-shortlisted { background: #fef3c7; color: #92400e; }
+.recruitment-status-hired       { background: #dcfce7; color: #166534; }
+.recruitment-status-rejected    { background: #fee2e2; color: #991b1b; }
+.recruitment-status-default     { background: #f1f5f9; color: #475569; }
+
+/* ════════════════════════════════════════════════════════════
+   13TH MONTH
+   ════════════════════════════════════════════════════════════ */
+.thirteenth-controls-gap  { gap: .75rem; }
+.thirteenth-year-select   { max-width: 120px; }
+.thirteenth-summary-badge { font-size: .82rem; }
+.thirteenth-emp-name      { font-size: .85rem; }
+.thirteenth-empty-icon    { color: #cbd5e1; }
+.thirteenth-info-table    { font-size: .85rem; }
+
+@media (max-width: 767px) {
+  .thirteenth-controls-bar { flex-direction: column; align-items: stretch !important; }
+  .thirteenth-controls-bar .form-control,
+  .thirteenth-controls-bar .btn,
+  .thirteenth-controls-bar form .btn { width: 100% !important; margin-left: 0 !important; margin-right: 0 !important; }
+  .thirteenth-controls-bar .d-inline  { display: block !important; width: 100%; }
+  .thirteenth-year-select             { max-width: 100%; width: 100%; }
+  .thirteenth-controls-bar .ml-auto   { margin-left: 0 !important; margin-top: .25rem; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   ACTIVITY LOG
+   ════════════════════════════════════════════════════════════ */
+.activity-user-name { font-size: .82rem; }
 .log-action-create  { background: #dcfce7; color: #166534; }
 .log-action-update  { background: #dbeafe; color: #1e40af; }
 .log-action-delete  { background: #fee2e2; color: #991b1b; }
@@ -802,149 +384,68 @@
 .log-action-view    { background: #fef3c7; color: #92400e; }
 .log-action-default { background: #f1f5f9; color: #475569; }
 
-/* Payroll export — summary totals */
-.payroll-export-total-value { color: #059669; font-weight: 700; }
-.payroll-export-er-value    { font-size: .85rem; color: #475569; }
-.payroll-export-footer-cell { text-align: center; color: #64748b; font-style: italic; font-size: .8rem; }
-
-/* Payslip comp-row dynamic color (profit/positive rows) */
-.comp-row-positive  { color: #059669; }
-.comp-row-negative  { color: #dc2626; }
-.comp-row-highlight { color: #0369a1; }
-
-/* Recruitment status badge colors */
-.recruitment-status-new        { background: #dbeafe; color: #1e40af; }
-.recruitment-status-reviewed   { background: #f3e8ff; color: #6d28d9; }
-.recruitment-status-shortlisted{ background: #fef3c7; color: #92400e; }
-.recruitment-status-hired      { background: #dcfce7; color: #166534; }
-.recruitment-status-rejected   { background: #fee2e2; color: #991b1b; }
-.recruitment-status-default    { background: #f1f5f9; color: #475569; }
-
-/* Holiday name border color (type-based) */
-.holiday-type-regular  { color: #dc2626 !important; }
-.holiday-type-special  { color: #d97706 !important; }
-.holiday-type-default  { color: #475569 !important; }
-
-/* Print-only hidden element (non-inline alternative) */
-.print-title {
-  display: none;
-}
-@media print {
-  .print-title { display: block !important; }
-}
-
-/* Attendance on-leave panel toggle (JS-controlled; default hidden) */
-.att-on-leave-panel {
-  display: none;
-}
-.att-on-leave-panel.visible {
-  display: block;
-}
-
-/* Select option color coding (status) */
-select.status-select option[value="active"]     { color: #166534; }
-select.status-select option[value="inactive"]   { color: #64748b; }
-select.status-select option[value="resigned"]   { color: #92400e; }
-select.status-select option[value="terminated"] { color: #991b1b; }
-
-/* Welcome card gradient (employee dashboard) */
-.emp-welcome-card {
-  background: linear-gradient(135deg, #1e3a5f, #1a6e4a);
-  color: #fff;
-  border: none !important;
-}
-
 /* ════════════════════════════════════════════════════════════
-   HOLIDAYS — mobile responsive fixes
+   USER MANAGEMENT
    ════════════════════════════════════════════════════════════ */
-@media (max-width: 767px) {
-  /* Stack the year filter form vertically */
-  .holiday-filter-gap {
-    flex-direction: column;
-    align-items: flex-start !important;
-    gap: .5rem;
-  }
-  .holiday-year-select {
-    width: 100%;
-  }
+.um-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.um-page-header h1 { font-size: 1.35rem; font-weight: 700; color: #1e2a3a; margin: 0; display: flex; align-items: center; gap: .5rem; }
+.um-page-header h1 i { color: #3b82f6; font-size: 1.1rem; }
+.um-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04); overflow: hidden; }
+.um-card-mb     { margin-bottom: 1.5rem; }
+.um-table-scroll { overflow-x: auto; }
+.um-table        { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.um-table thead tr { background: #f4f6fa; border-bottom: 2px solid #e8ecf2; }
+.um-table thead th { padding: .7rem 1rem; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6b7a90; white-space: nowrap; }
+.um-table tbody tr { border-bottom: 1px solid #f0f2f6; transition: background .12s; }
+.um-table tbody tr:last-child { border-bottom: none; }
+.um-table tbody tr:hover { background: #f8faff; }
+.um-table td     { padding: .75rem 1rem; vertical-align: middle; color: #2d3748; }
+.col-name        { width: 18%; min-width: 140px; }
+.col-username    { width: 13%; min-width: 110px; }
+.col-email       { width: 22%; min-width: 160px; }
+.col-role        { width: 12%; min-width: 100px; text-align: center; }
+.col-status      { width: 9%;  min-width: 80px;  text-align: center; }
+.col-created     { width: 11%; min-width: 95px;  text-align: center; }
+.col-actions     { width: 15%; min-width: 160px; text-align: center; }
+.um-name         { font-weight: 600; color: #1a202c; }
+.um-username     { font-size: .78rem; color: #718096; font-family: 'Courier New', monospace; }
+.um-email        { color: #4a5568; }
+.um-date         { font-size: .78rem; color: #64748b; }
+.role-badge      { display: inline-block; padding: .2rem .65rem; border-radius: 20px; font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.role-admin      { background: #dbeafe; color: #1d4ed8; }
+.role-management { background: #fef3c7; color: #92400e; }
+.role-employee   { background: #d1fae5; color: #065f46; }
+.status-pill     { display: inline-flex; align-items: center; gap: .35rem; padding: .22rem .7rem; border-radius: 20px; font-size: .72rem; font-weight: 600; }
+.status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.status-active           { background: #d1fae5; color: #065f46; }
+.status-active::before   { background: #10b981; }
+.status-inactive         { background: #fee2e2; color: #991b1b; }
+.status-inactive::before { background: #ef4444; }
+.you-label       { font-size: .75rem; font-style: italic; color: #94a3b8; padding: .3rem .5rem; }
+.um-actions      { display: flex; align-items: center; justify-content: center; gap: .4rem; }
+.um-btn          { display: inline-flex; align-items: center; gap: .3rem; padding: .3rem .7rem; border-radius: 6px; font-size: .75rem; font-weight: 600; border: 1.5px solid transparent; cursor: pointer; white-space: nowrap; transition: all .15s ease; text-decoration: none; line-height: 1; }
+.um-btn i        { font-size: .7rem; }
+.um-btn-edit             { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+.um-btn-edit:hover       { background: #f59e0b; color: #fff; }
+.um-btn-deactivate       { background: #fff5f5; border-color: #fc8181; color: #c53030; }
+.um-btn-deactivate:hover { background: #fc8181; color: #fff; }
+.um-btn-activate         { background: #f0fff4; border-color: #68d391; color: #276749; }
+.um-btn-activate:hover   { background: #68d391; color: #fff; }
+.btn-add-user    { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1.1rem; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: .82rem; font-weight: 600; cursor: pointer; transition: background .15s, transform .1s; white-space: nowrap; }
+.btn-add-user:hover { background: #1d4ed8; transform: translateY(-1px); color: #fff; }
+.um-table-footer { padding: .6rem 1rem; background: #f8faff; border-top: 1px solid #e8ecf2; font-size: .75rem; color: #94a3b8; }
+.modal-content   { border-radius: 12px; border: none; box-shadow: 0 20px 60px rgba(0,0,0,.15); }
+.modal-header    { background: #f8faff; border-bottom: 1px solid #e8ecf2; border-radius: 12px 12px 0 0; padding: 1rem 1.25rem; }
+.modal-title     { font-weight: 700; color: #1e2a3a; font-size: .95rem; }
+.modal-footer    { background: #f8faff; border-top: 1px solid #e8ecf2; border-radius: 0 0 12px 12px; }
+.modal-body .form-group label { font-size: .8rem; font-weight: 600; color: #4a5568; margin-bottom: .3rem; }
+.modal-body .form-control { border-radius: 7px; border: 1.5px solid #e2e8f0; font-size: .85rem; padding: .45rem .75rem; transition: border-color .15s; }
+.modal-body .form-control:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
 
-  /* Hide less-critical columns on small screens */
-  .holiday-col-recurring {
-    display: none;
-  }
-
-  /* Keep action cell from wrapping */
-  .holiday-actions-cell {
-    white-space: nowrap;
-  }
-
-  /* Shrink date column */
-  .holiday-col-date {
-    min-width: 80px;
-    width: 80px;
-  }
-  .holiday-col-actions {
-    width: 70px;
-  }
-}
-
-@media (max-width: 479px) {
-  /* On extra small, also hide Type column label text — badge handles it */
-  .holiday-col-date {
-    min-width: 70px;
-    width: 70px;
-  }
-}
-
-/* ════════════════════════════════════════════════════════════
-   USER MANAGEMENT — responsive & gap fixes
-   ════════════════════════════════════════════════════════════ */
-
-/* Add bottom margin to push away from footer */
-.um-card-mb {
-  margin-bottom: 1.5rem;
-}
-
-@media (max-width: 767px) {
-  .um-table                         { font-size: .78rem; }
-  .um-table thead th,
-  .um-table td                      { padding: .5rem .6rem; }
-  .col-email,
-  .col-created                      { display: none; }
-  .um-btn                           { padding: .25rem .5rem; font-size: .7rem; }
-  .btn-add-user                     { font-size: .78rem; padding: .4rem .9rem; }
-}
-
-/* ════════════════════════════════════════════════════════════
-   13TH MONTH PAY — mobile responsive fixes
-   ════════════════════════════════════════════════════════════ */
-@media (max-width: 767px) {
-  .thirteenth-controls-bar {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-  .thirteenth-controls-bar label {
-    margin-bottom: 0;
-  }
-  .thirteenth-controls-bar .form-control,
-  .thirteenth-controls-bar .btn,
-  .thirteenth-controls-bar a.btn,
-  .thirteenth-controls-bar form,
-  .thirteenth-controls-bar form .btn {
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-  }
-  .thirteenth-controls-bar .d-inline {
-    display: block !important;
-    width: 100%;
-  }
-  .thirteenth-year-select {
-    max-width: 100%;
-    width: 100%;
-  }
-  .thirteenth-controls-bar .ml-auto {
-    margin-left: 0 !important;
-    margin-top: .25rem;
-  }
+@media (max-width: 768px) {
+  .um-table { font-size: .78rem; }
+  .um-table thead th, .um-table td { padding: .5rem .6rem; }
+  .col-email, .col-created { display: none; }
+  .um-btn { padding: .25rem .5rem; font-size: .7rem; }
+  .btn-add-user { font-size: .78rem; padding: .4rem .9rem; }
 }
