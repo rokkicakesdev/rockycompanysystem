@@ -194,6 +194,56 @@ class PayrollModel extends BaseModel
         return (bool) $stmt->execute([$payrollId]);
     }
 
+    /**
+     * Update the status of a payroll record.
+     * Allowed statuses: released, pending, modification
+     */
+    public static function updateStatus(int $payrollId, string $status): bool
+    {
+        $allowed = ['released', 'pending', 'modification'];
+        if (!in_array($status, $allowed, true)) return false;
+        $releasedAt = $status === 'released' ? ', released_at = NOW()' : '';
+        $stmt = self::db()->prepare("UPDATE payroll_records SET status = :status{$releasedAt} WHERE id = :id");
+        return (bool) $stmt->execute([':status' => $status, ':id' => $payrollId]);
+    }
+
+    /**
+     * Save a note for a payroll record into payroll_notes table.
+     * Creates the table if it doesn't exist yet (graceful bootstrap).
+     */
+    public static function addNote(int $payrollId, string $note, int $userId): bool
+    {
+        // Auto-create table if missing
+        self::db()->exec("
+            CREATE TABLE IF NOT EXISTS `payroll_notes` (
+                `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `payroll_id` INT UNSIGNED NOT NULL,
+                `note`       VARCHAR(100) NOT NULL,
+                `created_by` INT UNSIGNED DEFAULT NULL,
+                `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_payroll_id` (`payroll_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $stmt = self::db()->prepare("INSERT INTO payroll_notes (payroll_id, note, created_by) VALUES (?, ?, ?)");
+        return (bool) $stmt->execute([$payrollId, $note, $userId]);
+    }
+
+    /**
+     * Get all notes for a payroll record ordered ASC by date.
+     */
+    public static function getNotes(int $payrollId): array
+    {
+        // Return empty if table doesn't exist yet
+        try {
+            $stmt = self::db()->prepare("SELECT pn.*, u.name AS created_by_name FROM payroll_notes pn LEFT JOIN users u ON u.id = pn.created_by WHERE pn.payroll_id = ? ORDER BY pn.created_at ASC");
+            $stmt->execute([$payrollId]);
+            return $stmt->fetchAll();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
     public static function releaseAllForPeriod(string $period): bool
     {
         $stmt = self::db()->prepare("UPDATE payroll_records SET status = 'released', released_at = NOW() WHERE period = ? AND status = 'pending'");

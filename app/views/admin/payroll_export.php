@@ -18,8 +18,16 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', ['admin',
 $period = trim($_GET['period'] ?? '');
 $format = trim($_GET['format'] ?? 'excel');
 
-if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
-    die('Invalid period format. Expected YYYY-MM.');
+// Accept both YYYY-MM-1 / YYYY-MM-2 (semi-monthly) and legacy YYYY-MM
+if (preg_match('/^(\d{4}-\d{2})-[12]$/', $period, $m)) {
+    // Semi-monthly format — use the base (YYYY-MM) for display, keep full period for DB query
+    $periodBase  = $m[1];
+    $periodLabel = date('F Y', strtotime($periodBase . '-01'));
+} elseif (preg_match('/^\d{4}-\d{2}$/', $period)) {
+    $periodBase  = $period;
+    $periodLabel = date('F Y', strtotime($period . '-01'));
+} else {
+    die('Invalid period format. Expected YYYY-MM or YYYY-MM-1 / YYYY-MM-2.');
 }
 
 $records = Model::getPayrollByPeriod($period);
@@ -41,7 +49,6 @@ foreach ($records as $r) {
 }
 
 $companyName = defined('COMPANY_NAME') ? COMPANY_NAME : 'Rocky Company';
-$periodLabel = date('F Y', strtotime($period . '-01'));
 $generatedAt = date('F d, Y h:i A');
 $processedBy = $_SESSION['name'] ?? 'System';
 

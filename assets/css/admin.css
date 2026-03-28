@@ -449,3 +449,31 @@ select.status-select option[value="terminated"] { color: #991b1b; }
   .um-btn { padding: .25rem .5rem; font-size: .7rem; }
   .btn-add-user { font-size: .78rem; padding: .4rem .9rem; }
 }
+/* ════════════════════════════════════════════════════════════
+   EMPLOYEES — Additional (QA Feedback)
+   ════════════════════════════════════════════════════════════ */
+.badge-pink              { background-color: #f472b6; color: #fff; font-size: .7rem; }
+.badge-blue              { background-color: #60a5fa; color: #fff; font-size: .7rem; }
+.leave-field-wrap        { transition: opacity .2s; }
+.leave-field-disabled    { opacity: .45; }
+.emp-gender-notice-visible { display: block; }
+.emp-gender-notice-hidden  { display: none; }
+
+/* ════════════════════════════════════════════════════════════
+   ATTENDANCE — Additional (QA Feedback)
+   ════════════════════════════════════════════════════════════ */
+.att-confirm-sub    { font-size: .85rem; }
+.att-leave-visible  { display: block; }
+.att-leave-hidden   { display: none; }
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL — Edit Status & Notes (QA Feedback)
+   ════════════════════════════════════════════════════════════ */
+.payroll-note-hidden       { display: none; }
+.payroll-note-visible      { display: block; }
+.payroll-notes-cell        { white-space: nowrap; }
+.payroll-edit-emp-label    { font-size: .88rem; }
+.payroll-note-date         { font-size: .75rem; margin-bottom: 2px; }
+.payroll-note-text         { font-size: .85rem; }
+.payroll-notes-empty-icon  { opacity: .3; }
+.badge-modification        { background-color: #6c757d; color: #fff; }

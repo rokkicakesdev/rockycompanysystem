@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ── Auto-create linked user account ───────────────────────────
             // Format:   username = firstname.emp  (unique, suffixed if taken)
-            // Password: Rocky@2026  (employee must change on first login)
+            // Password: admin123  (employee must change on first login)
             $autoUsername = Model::generateEmployeeUsername($data['name']);
             $userCreated  = false;
             if ($newEmpId > 0) {
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'name'        => $data['name'],
                     'username'    => $autoUsername,
                     'email'       => $data['email'] ?? ($autoUsername . '@rocky.com'),
-                    'password'    => 'Rocky@2026',
+                    'password'    => 'admin123',
                     'role'        => 'employee',
                     'employee_id' => $newEmpId,
                     'status'      => 'active',
@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? "<br><small><i class=\"fas fa-user-check mr-1\"></i>
                    User account created &mdash;
                    Username: <strong>{$autoUsername}</strong> &nbsp;|&nbsp;
-                   Default password: <strong>Rocky@2026</strong></small>"
+                   Default password: <strong>admin123</strong></small>"
                 : '';
 
             $msg = "<div class=\"alert alert-success alert-dismissible fade show\" role=\"alert\">
@@ -181,11 +181,6 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
 ?>
 
 <!-- Page Title Bar -->
-<style>
-  .badge-pink { background-color:#f472b6; color:#fff; font-size:.7rem; }
-  .badge-blue { background-color:#60a5fa; color:#fff; font-size:.7rem; }
-  .leave-field-wrap { transition: opacity .2s; }
-</style>
 <div class="page-title-bar">
   <i class="fas fa-users text-primary"></i>
   <h1>Employees Management</h1>
@@ -617,7 +612,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>Full Name <span class="text-danger">*</span></label>
-                    <input type="text" name="name" id="fName" class="form-control" required>
+                    <input type="text" name="name" id="fName" class="form-control" required maxlength="150" autocomplete="off">
                   </div>
                 </div>
                 <div class="col-md-3">
@@ -651,19 +646,19 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 <div class="col-md-4">
                   <div class="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" id="fEmail" class="form-control">
+                    <input type="email" name="email" id="fEmail" class="form-control" maxlength="150" autocomplete="off">
                   </div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-group">
                     <label>Phone</label>
-                    <input type="text" name="phone" id="fPhone" class="form-control">
+                    <input type="tel" name="phone" id="fPhone" class="form-control" maxlength="15" placeholder="e.g. 09XXXXXXXXX">
                   </div>
                 </div>
                 <div class="col-12">
                   <div class="form-group">
                     <label>Address</label>
-                    <textarea name="address" id="fAddress" class="form-control" rows="2"></textarea>
+                    <textarea name="address" id="fAddress" class="form-control" rows="2" maxlength="300"></textarea>
                   </div>
                 </div>
                 <div class="col-md-6">
@@ -743,25 +738,25 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>SSS No.</label>
-                    <input type="text" name="sss_no" id="fSssNo" class="form-control" placeholder="XX-XXXXXXX-X">
+                    <input type="text" name="sss_no" id="fSssNo" class="form-control" placeholder="XX-XXXXXXX-X" maxlength="12">
                   </div>
                 </div>
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>PhilHealth No.</label>
-                    <input type="text" name="philhealth_no" id="fPhilhealthNo" class="form-control" placeholder="XX-XXXXXXXXX-X">
+                    <input type="text" name="philhealth_no" id="fPhilhealthNo" class="form-control" placeholder="XX-XXXXXXXXX-X" maxlength="14">
                   </div>
                 </div>
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>Pag-IBIG No.</label>
-                    <input type="text" name="pagibig_no" id="fPagibigNo" class="form-control" placeholder="XXXX-XXXX-XXXX">
+                    <input type="text" name="pagibig_no" id="fPagibigNo" class="form-control" placeholder="XXXX-XXXX-XXXX" maxlength="14">
                   </div>
                 </div>
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>TIN No.</label>
-                    <input type="text" name="tin_no" id="fTinNo" class="form-control" placeholder="XXX-XXX-XXX-XXX">
+                    <input type="text" name="tin_no" id="fTinNo" class="form-control" placeholder="XXX-XXX-XXX-XXX" maxlength="15">
                   </div>
                 </div>
               </div>
@@ -815,19 +810,19 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 <div class="col-md-4">
                   <div class="form-group">
                     <label>Contact Name</label>
-                    <input type="text" name="emergency_contact_name" id="fEcName" class="form-control">
+                    <input type="text" name="emergency_contact_name" id="fEcName" class="form-control" maxlength="150" autocomplete="off">
                   </div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-group">
                     <label>Contact Phone</label>
-                    <input type="text" name="emergency_contact_phone" id="fEcPhone" class="form-control">
+                    <input type="tel" name="emergency_contact_phone" id="fEcPhone" class="form-control" maxlength="15" placeholder="e.g. 09XXXXXXXXX">
                   </div>
                 </div>
                 <div class="col-md-4">
                   <div class="form-group">
                     <label>Relationship</label>
-                    <input type="text" name="emergency_contact_relation" id="fEcRelation" class="form-control" placeholder="e.g. Spouse, Parent">
+                    <input type="text" name="emergency_contact_relation" id="fEcRelation" class="form-control" placeholder="e.g. Spouse, Parent" maxlength="50">
                   </div>
                 </div>
               </div>
@@ -954,7 +949,7 @@ $(document).ready(function () {
       if (disabled) {
         input.value    = 0;
         input.disabled = true;
-        wrap.style.opacity = '0.45';
+        wrap.classList.add('leave-field-disabled');
         wrap.title     = 'Not applicable for selected gender';
       } else {
         // Restore default value only if currently 0 or empty (don't overwrite edited values)
@@ -962,7 +957,7 @@ $(document).ready(function () {
           input.value = LEAVE_DEFAULTS[input.name] ?? input.value;
         }
         input.disabled = false;
-        wrap.style.opacity = '1';
+        wrap.classList.remove('leave-field-disabled');
         wrap.title     = '';
       }
     });
@@ -971,9 +966,11 @@ $(document).ready(function () {
     if (gender === 'male' || gender === 'female') {
       const label = gender === 'male' ? 'Male' : 'Female';
       noticeText.textContent = label + ' selected. ';
-      notice.style.display = 'block';
+      notice.classList.add('emp-gender-notice-visible');
+      notice.classList.remove('emp-gender-notice-hidden');
     } else {
-      notice.style.display = 'none';
+      notice.classList.remove('emp-gender-notice-visible');
+      notice.classList.add('emp-gender-notice-hidden');
     }
   }
 
