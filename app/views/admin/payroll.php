@@ -193,6 +193,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_all'])) {
     }
 }
 
+// ===========================================================================
+//  POST: EDIT STATUS
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token.</div>";
+    } else {
+        $editId     = (int)($_POST['payroll_id']   ?? 0);
+        $newStatus  = trim($_POST['new_status']    ?? '');
+        $noteText   = trim($_POST['status_note']   ?? '');
+        $editPeriod = trim($_POST['edit_period']   ?? '');
+        $allowed    = ['released', 'pending', 'modification'];
+
+        if ($editId && in_array($newStatus, $allowed, true)) {
+            $payRecord = Model::findPayrollById($editId);
+            $empName   = $payRecord['employee_name'] ?? "ID:{$editId}";
+            $oldStatus = $payRecord['status']         ?? 'unknown';
+
+            if (Model::updatePayrollStatus($editId, $newStatus)) {
+                // Save note if status requires it or a note was provided
+                if (!empty($noteText)) {
+                    Model::addPayrollNote($editId, substr($noteText, 0, 100), $_SESSION['user_id']);
+                }
+                Model::log(
+                    $_SESSION['user_id'],
+                    'EDIT_PAYROLL_STATUS',
+                    "Changed payroll ID:{$editId} ({$empName}) status from {$oldStatus} to {$newStatus} for period {$editPeriod}"
+                    . (!empty($noteText) ? " | Note: " . substr($noteText, 0, 80) : '')
+                );
+                header("Location: payroll.php?period={$editPeriod}&msg=status_updated&name=" . urlencode($empName));
+                exit;
+            }
+        }
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update status.</div>";
+    }
+}
+
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 $msg = '';
@@ -238,6 +275,9 @@ if (!$msg) {
         $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Payroll released for <strong>{$name}</strong>.</div>";
     } elseif ($msgParam === 'released_all') {
         $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>All pending payroll records released.</div>";
+    } elseif ($msgParam === 'status_updated') {
+        $name = htmlspecialchars($_GET['name'] ?? 'Employee');
+        $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Payroll status updated for <strong>{$name}</strong>.</div>";
     }
 }
 
@@ -248,7 +288,14 @@ $totalDed         = array_sum(array_column($periodPayroll, 'total_deductions'));
 $totalNet         = array_sum(array_column($periodPayroll, 'net_pay'));
 $pendingList      = array_filter($periodPayroll, fn($p) => $p['status'] === 'pending');
 $releasedList     = array_filter($periodPayroll, fn($p) => $p['status'] === 'released');
+$modificationList = array_filter($periodPayroll, fn($p) => $p['status'] === 'modification');
 $alreadyGenerated = Model::periodExists($selectedPeriod);
+
+// Pre-fetch notes for all payroll records in this period
+$payrollNotes = [];
+foreach ($periodPayroll as $p) {
+    $payrollNotes[$p['id']] = Model::getPayrollNotes((int)$p['id']);
+}
 ?>
 
 <?= $msg ?>
@@ -344,6 +391,9 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
     <div class="card-tools d-flex align-items-center payroll-card-tools">
       <span class="badge badge-warning mr-2"><?= count($pendingList) ?> Pending</span>
       <span class="badge badge-success mr-2"><?= count($releasedList) ?> Released</span>
+      <?php if (count($modificationList) > 0): ?>
+      <span class="badge badge-secondary mr-2"><?= count($modificationList) ?> Modification</span>
+      <?php endif; ?>
       <?php if (!empty($periodPayroll)): ?>
       <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=pdf"
          target="_blank"
@@ -386,6 +436,7 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
             <th>Total Ded.</th>
             <th class="text-success">Net Pay</th>
             <th>Status</th>
+            <th class="text-center no-print">Notes</th>
             <th class="text-center no-print">Action</th>
           </tr>
         </thead>
@@ -408,15 +459,42 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
             <td class="text-danger font-weight-bold">&#8369;<?= number_format($p['total_deductions'], 2) ?></td>
             <td class="text-success font-weight-bold">&#8369;<?= number_format($p['net_pay'], 2) ?></td>
             <td>
-              <?= $p['status'] === 'released'
-                ? '<span class="badge badge-success">Released</span>'
-                : '<span class="badge badge-warning">Pending</span>' ?>
+              <?php
+              $badgeMap = [
+                  'released'     => 'badge-success',
+                  'pending'      => 'badge-warning',
+                  'modification' => 'badge-secondary',
+              ];
+              $badgeCls = $badgeMap[$p['status']] ?? 'badge-secondary';
+              ?>
+              <span class="badge <?= $badgeCls ?>"><?= ucfirst($p['status']) ?></span>
+            </td>
+            <td class="text-center payroll-notes-cell no-print">
+              <?php $rowNotes = $payrollNotes[$p['id']] ?? []; ?>
+              <button type="button"
+                      class="btn btn-sm btn-outline-secondary payroll-notes-btn"
+                      title="View Notes"
+                      data-payroll-id="<?= $p['id'] ?>"
+                      data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
+                      data-notes="<?= htmlspecialchars(json_encode($rowNotes)) ?>">
+                <i class="fas fa-book"></i>
+              </button>
             </td>
             <td class="text-center payroll-actions-cell no-print">
               <a href="payslip.php?emp=<?= $p['employee_id'] ?>&period=<?= $selectedPeriod ?>"
                  class="btn btn-sm btn-info" title="View Payslip">
                 <i class="fas fa-receipt"></i>
               </a>
+              <?php if (in_array($p['status'], ['released', 'pending', 'modification'])): ?>
+              <button type="button"
+                      class="btn btn-sm btn-warning payroll-edit-status-btn"
+                      title="Edit Status"
+                      data-payroll-id="<?= $p['id'] ?>"
+                      data-current-status="<?= $p['status'] ?>"
+                      data-employee="<?= htmlspecialchars($p['employee_name']) ?>">
+                <i class="fas fa-edit"></i>
+              </button>
+              <?php endif; ?>
               <?php if ($p['status'] === 'pending'): ?>
               <form method="POST" class="action-form-inline"
                     onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($p['employee_name'])) ?>?')">
@@ -440,12 +518,78 @@ $alreadyGenerated = Model::periodExists($selectedPeriod);
             <th colspan="6"></th>
             <th class="text-danger">&#8369;<?= number_format($totalDed, 2) ?></th>
             <th class="text-success">&#8369;<?= number_format($totalNet, 2) ?></th>
-            <th colspan="2" class="no-print"></th>
+            <th colspan="3" class="no-print"></th>
           </tr>
         </tfoot>
       </table>
     </div>
     <?php endif; ?>
+  </div>
+</div>
+
+<!-- ── EDIT STATUS MODAL ────────────────────────────────────── -->
+<div class="modal fade no-print" id="editStatusModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="fas fa-edit mr-2"></i>Edit Payroll Status</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form method="POST" id="editStatusForm">
+        <input type="hidden" name="edit_status"  value="1">
+        <input type="hidden" name="payroll_id"   id="editStatusPayrollId">
+        <input type="hidden" name="edit_period"  value="<?= htmlspecialchars($selectedPeriod) ?>">
+        <input type="hidden" name="csrf_token"   value="<?= htmlspecialchars($csrf_token) ?>">
+        <div class="modal-body">
+          <p class="text-muted mb-3 payroll-edit-emp-label">
+            <i class="fas fa-user mr-1"></i><strong id="editStatusEmpName"></strong>
+          </p>
+          <div class="form-group">
+            <label class="font-weight-bold">New Status <span class="text-danger">*</span></label>
+            <select name="new_status" id="editStatusSelect" class="form-control" required>
+              <option value="released">Released</option>
+              <option value="pending">Pending</option>
+              <option value="modification">Modification</option>
+            </select>
+          </div>
+          <div class="form-group payroll-note-hidden" id="editStatusNoteGroup">
+            <label class="font-weight-bold">Notes <span class="text-danger">*</span></label>
+            <textarea name="status_note" id="editStatusNote" class="form-control" rows="3"
+                      maxlength="100" placeholder="Enter reason or notes (max 100 characters)..."></textarea>
+            <small class="text-muted"><span id="editStatusNoteCount">0</span>/100 characters</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-warning" id="editStatusSaveBtn">
+            <i class="fas fa-save mr-1"></i>Update Status
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── NOTES VIEW MODAL ─────────────────────────────────────── -->
+<div class="modal fade no-print" id="payrollNotesModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title"><i class="fas fa-book mr-2"></i>Payroll Notes</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3 payroll-edit-emp-label">
+          <i class="fas fa-user mr-1"></i><strong id="notesModalEmpName"></strong>
+        </p>
+        <div id="notesModalContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -615,6 +759,72 @@ function confirmGenerate() {
     var cutoffLabel = document.getElementById('genPeriodCutoff').selectedOptions[0].text;
     return confirm('Generate payroll for ' + checked + ' employee(s)?\\nPeriod: ' + period + ' (' + cutoffLabel + ')\\nThis cannot be undone.');
 }
+
+// ── Edit Status Modal ───────────────────────────────────────────
+document.querySelectorAll('.payroll-edit-status-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var payrollId     = this.dataset.payrollId;
+        var currentStatus = this.dataset.currentStatus;
+        var empName       = this.dataset.employee;
+
+        document.getElementById('editStatusPayrollId').value = payrollId;
+        document.getElementById('editStatusEmpName').textContent  = empName;
+        document.getElementById('editStatusSelect').value    = currentStatus;
+        document.getElementById('editStatusNote').value      = '';
+        document.getElementById('editStatusNoteCount').textContent = '0';
+
+        // Show/hide note field based on initial status
+        toggleNoteField(currentStatus);
+        $('#editStatusModal').modal('show');
+    });
+});
+
+function toggleNoteField(status) {
+    var noteGroup = document.getElementById('editStatusNoteGroup');
+    var noteField = document.getElementById('editStatusNote');
+    if (status === 'modification' || status === 'pending') {
+        noteGroup.classList.remove('payroll-note-hidden');
+        noteGroup.classList.add('payroll-note-visible');
+        noteField.required = true;
+    } else {
+        noteGroup.classList.remove('payroll-note-visible');
+        noteGroup.classList.add('payroll-note-hidden');
+        noteField.required = false;
+    }
+}
+
+document.getElementById('editStatusSelect') && document.getElementById('editStatusSelect').addEventListener('change', function() {
+    toggleNoteField(this.value);
+});
+
+document.getElementById('editStatusNote') && document.getElementById('editStatusNote').addEventListener('input', function() {
+    document.getElementById('editStatusNoteCount').textContent = this.value.length;
+});
+
+// ── Notes View Modal ────────────────────────────────────────────
+document.querySelectorAll('.payroll-notes-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var empName = this.dataset.employee;
+        var notes   = JSON.parse(this.dataset.notes || '[]');
+        document.getElementById('notesModalEmpName').textContent = empName;
+
+        var content = document.getElementById('notesModalContent');
+        if (!notes || notes.length === 0) {
+            content.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-book-open fa-2x mb-2 d-block payroll-notes-empty-icon"></i>No notes on record.</p>';
+        } else {
+            var html = '<ul class="list-group list-group-flush">';
+            notes.forEach(function(n) {
+                html += '<li class="list-group-item px-0">'
+                      + '<small class="text-muted payroll-note-date d-block"><i class="fas fa-clock mr-1"></i>' + (n.created_at || '') + ' &mdash; ' + (n.created_by_name || 'System') + '</small>'
+                      + '<span class="payroll-note-text">' + n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>'
+                      + '</li>';
+            });
+            html += '</ul>';
+            content.innerHTML = html;
+        }
+        $('#payrollNotesModal').modal('show');
+    });
+});
 JSEOF;
 
 require_once __DIR__ . '/../layouts/admin_footer.php';

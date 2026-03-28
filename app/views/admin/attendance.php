@@ -187,7 +187,7 @@ $statusOptions = [
   </div>
   <?php endif; ?>
   <div class="card-body p-0">
-    <form method="POST" onsubmit="return confirm('Save attendance changes for all <?= count($employees) ?> employees on <?= date('M j, Y', strtotime($selectedDate)) ?>?');">
+    <form method="POST" id="attendanceForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
       <input type="hidden" name="att_date" value="<?= $selectedDate ?>">
       <input type="hidden" name="save_attendance" value="1">
@@ -250,7 +250,9 @@ $statusOptions = [
         </table>
       </div>
       <div class="card-footer d-flex justify-content-between align-items-center">
-        <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>Save Attendance</button>
+        <button type="button" class="btn btn-primary" onclick="showAttendanceConfirm(<?= count($employees) ?>, '<?= date('M j, Y', strtotime($selectedDate)) ?>')">
+          <i class="fas fa-save mr-1"></i>Save Attendance
+        </button>
         <span class="text-muted"><?= count($employees) ?> employees | <?= date('M j, Y', strtotime($selectedDate)) ?></span>
       </div>
     </form>
@@ -258,6 +260,34 @@ $statusOptions = [
 </div>
 
 <?php else: ?>
+<!-- Attendance Confirm Modal (AdminLTE) -->
+<div class="modal fade" id="attendanceConfirmModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary">
+        <h5 class="modal-title text-white"><i class="fas fa-save mr-2"></i>Save Attendance</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-clipboard-check fa-2x text-primary mr-3 mt-1"></i>
+          <div>
+            <p class="mb-1 font-weight-600" id="attConfirmMsg">Save attendance for all employees?</p>
+            <p class="text-muted mb-0 att-confirm-sub">This will overwrite any existing records for this date.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i>Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="attConfirmSaveBtn">
+          <i class="fas fa-save mr-1"></i>Save Attendance
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- MONTHLY SUMMARY -->
 <div class="card">
   <div class="card-header">
@@ -311,14 +341,26 @@ document.querySelectorAll('.att-status').forEach(function(sel) {
     sel.addEventListener('change', function() {
         var empId    = this.dataset.empid;
         var leaveSel = document.querySelector('.leave-type-select-' + empId);
-        if (leaveSel) leaveSel.style.display = this.value === 'on_leave' ? 'block' : 'none';
+        if (leaveSel) {
+            leaveSel.classList.toggle('att-leave-visible', this.value === 'on_leave');
+            leaveSel.classList.toggle('att-leave-hidden',  this.value !== 'on_leave');
+        }
     });
     sel.dispatchEvent(new Event('change'));
 });
 
+// Attendance confirm modal
+window.showAttendanceConfirm = function(empCount, dateLabel) {
+    var msg = document.getElementById('attConfirmMsg');
+    if (msg) msg.textContent = 'Save attendance for ' + empCount + ' employee(s) on ' + dateLabel + '?';
+    $('#attendanceConfirmModal').modal('show');
+};
+document.getElementById('attConfirmSaveBtn') && document.getElementById('attConfirmSaveBtn').addEventListener('click', function() {
+    $('#attendanceConfirmModal').modal('hide');
+    document.getElementById('attendanceForm').submit();
+});
+
 // Auto-set all statuses to Rest Day when date picker changes to Saturday/Sunday.
-// Mirrors the server-side logic so the form reflects the correct default immediately
-// without a page reload — user can still override individual rows before saving.
 var datePicker = document.querySelector('input[name="date"]');
 if (datePicker) {
     datePicker.addEventListener('change', function() {

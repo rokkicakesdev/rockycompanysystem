@@ -153,6 +153,9 @@ class Model
     public static function getPayrollPeriods(): array                              { return PayrollModel::getPeriods(); }
     public static function createPayrollRecord(array $d): bool                     { return PayrollModel::create($d); }
     public static function releasePayroll(int $id): bool                           { return PayrollModel::release($id); }
+    public static function updatePayrollStatus(int $id, string $status): bool      { return PayrollModel::updateStatus($id, $status); }
+    public static function addPayrollNote(int $payrollId, string $note, int $uid): bool { return PayrollModel::addNote($payrollId, $note, $uid); }
+    public static function getPayrollNotes(int $payrollId): array                  { return PayrollModel::getNotes($payrollId); }
     public static function releaseAllPayrollForPeriod(string $p): bool             { return PayrollModel::releaseAllForPeriod($p); }
     public static function computePayroll(array $employee): array                  { return PayrollModel::computeForEmployee($employee); }
 
