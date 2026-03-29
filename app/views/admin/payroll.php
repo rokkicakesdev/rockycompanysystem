@@ -245,7 +245,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
 
 require_once __DIR__ . '/../layouts/admin_header.php';
 
-$msg = '';
+// Preserve any $msg set by POST handlers above — only init if not already set
+if (!isset($msg)) { $msg = ''; }
 
 // ===========================================================================
 //  SETUP: Period selection and data

@@ -66,12 +66,13 @@ $('.view-payslip-btn').on('click', function () {
   $('#ps-cutoff-note').text('(' + (cutoffNum === 1 ? '1st cutoff' : '2nd cutoff') + ')');
 
   // Status badge
-  var statusClass = d.status === 'released' ? 'badge-released' : 'badge-pending';
+  var statusClass = d.status === 'released' ? 'badge-released' : (d.status === 'modification' ? 'badge-modification' : 'badge-pending');
   $('#ps-status-badge')
     .attr('class', 'status-badge ' + statusClass)
-    .text(d.status.charAt(0).toUpperCase() + d.status.slice(1));
+    .text(d.status ? (d.status.charAt(0).toUpperCase() + d.status.slice(1)) : '—');
 
-  // Earnings
+  // Earnings — allowance is halved (semi-monthly)
+  $('#ps-allowance').text(fmt(parseFloat(d.allowance || 0) / 2));
   $('#ps-gross').text(fmt(d.gross));
 
   // Gov deductions — show/hide based on cutoff
@@ -91,8 +92,8 @@ $('.view-payslip-btn').on('click', function () {
   var reconcile = parseFloat(d.reconciliation || 0);
   if (reconcile !== 0) {
     var sign  = reconcile > 0 ? '− ' : '+ ';
-    var color = reconcile > 0 ? '#dc2626' : '#16a34a';
-    $('#ps-reconcile').text(sign + fmt(Math.abs(reconcile))).css('color', color);
+    var cls   = reconcile > 0 ? 'text-danger' : 'text-success';
+    $('#ps-reconcile').text(sign + fmt(Math.abs(reconcile))).removeClass('text-danger text-success').addClass(cls);
     $('#ps-reconcile-label').text(reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)');
     $('#ps-reconcile-row').show();
   } else {
@@ -161,6 +162,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
           <tr>
             <th>Period</th>
             <th>Basic Salary</th>
+            <th>Allowance</th>
             <th>Gross Pay</th>
             <th>Total Deductions</th>
             <th class="text-success">Net Pay</th>
@@ -176,11 +178,20 @@ require_once __DIR__ . '/../layouts/employee_header.php';
           <tr>
             <td><strong><?= htmlspecialchars(Model::periodLabel($row['period'])) ?></strong></td>
             <td>&#8369; <?= number_format(($employee['basic_salary'] ?? 0) / 2, 2) ?></td>
+            <td>&#8369; <?= number_format(($full['allowance'] ?? $employee['allowance'] ?? 0) / 2, 2) ?></td>
             <td>&#8369; <?= number_format($row['gross_pay'] ?? 0, 2) ?></td>
             <td class="text-danger">&#8369; <?= number_format($row['total_deductions'] ?? 0, 2) ?></td>
             <td class="text-success font-weight-bold">&#8369; <?= number_format($row['net_pay'] ?? 0, 2) ?></td>
             <td class="text-center">
-              <span class="status-badge badge-<?= $row['status'] === 'released' ? 'released' : 'pending' ?>">
+              <?php
+              $statusMap = [
+                  'released'     => 'badge-released',
+                  'pending'      => 'badge-pending',
+                  'modification' => 'badge-modification',
+              ];
+              $statusCls = $statusMap[$row['status']] ?? 'badge-pending';
+              ?>
+              <span class="status-badge <?= $statusCls ?>">
                 <?= ucfirst($row['status'] ?? '—') ?>
               </span>
             </td>
@@ -190,6 +201,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
                 data-id="<?= $full['id'] ?>"
                 data-period="<?= htmlspecialchars($row['period']) ?>"
                 data-gross="<?= $full['gross_pay'] ?>"
+                data-allowance="<?= $full['allowance'] ?>"
                 data-net="<?= $full['net_pay'] ?>"
                 data-deductions="<?= $full['total_deductions'] ?>"
                 data-sss="<?= $full['sss_ee'] ?>"
@@ -290,7 +302,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
               </div>
               <div class="ps-comp-row">
                 <span class="ps-comp-label">Allowance</span>
-                <span class="ps-comp-amount">&#8369;&nbsp;<?= number_format($employee['allowance'] ?? 0, 2) ?></span>
+                <span class="ps-comp-amount" id="ps-allowance">&#8369;&nbsp;0.00</span>
               </div>
               <div class="ps-comp-row ps-modal-13th-row" id="ps-thirteenth-row">
                 <span class="ps-comp-label">13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
@@ -398,22 +410,122 @@ require_once __DIR__ . '/../layouts/employee_header.php';
   </div>
 </div>
 
-<!-- printPayslip opens a clean print window without any header/footer chrome -->
+<!-- printPayslip opens a clean, formatted print window with CONFIDENTIAL watermark -->
 <script>
 function printPayslip() {
-  var el = document.getElementById('payslipPrintArea');
-  if (!el) return;
+  var area = document.getElementById('payslipPrintArea');
+  if (!area) return;
+
+  // Collect displayed values from modal
+  var period      = $('#ps-period-label').text();
+  var empName     = '<?= addslashes(htmlspecialchars($employee['name'] ?? '')) ?>';
+  var empNo       = '<?= addslashes(htmlspecialchars($employee['employee_no'] ?? '')) ?>';
+  var dept        = '<?= addslashes(htmlspecialchars($employee['department'] ?? '')) ?>';
+  var pos         = '<?= addslashes(htmlspecialchars($employee['position'] ?? '')) ?>';
+  var hired       = '<?= addslashes(htmlspecialchars($employee['date_hired'] ?? '')) ?>';
+  var company     = '<?= addslashes(htmlspecialchars(COMPANY_NAME)) ?>';
+  var statusTxt   = $('#ps-status-badge').text().trim();
+  var statusCls   = $('#ps-status-badge').hasClass('badge-released') ? 'pill-released' : 'pill-pending';
+  var basic       = '<?= number_format(($employee['basic_salary'] ?? 0) / 2, 2) ?>';
+  var allowance   = $('#ps-allowance').text().replace('₱\u00a0','');
+  var gross       = $('#ps-gross').text().replace('₱\u00a0','');
+  var sss         = $('#ps-sss').text().replace('−\u00a0₱\u00a0','');
+  var philhealth  = $('#ps-philhealth').text().replace('−\u00a0₱\u00a0','');
+  var pagibig     = $('#ps-pagibig').text().replace('−\u00a0₱\u00a0','');
+  var tax         = $('#ps-tax').text().replace('−\u00a0₱\u00a0','');
+  var deductions  = $('#ps-deductions').text().replace('₱\u00a0','');
+  var net         = $('#ps-net').text().replace('₱\u00a0','');
+  var processedBy = $('#ps-processedby').text();
+  var cutoffNote  = $('#ps-cutoff-note').text();
+  var govHidden   = $('#ps-gov-rows').css('display') === 'none';
+
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Payslip</title>'
+    + '<style>'
+    + '*{margin:0;padding:0;box-sizing:border-box}'
+    + 'body{font-family:Arial,sans-serif;font-size:9pt;color:#111;background:#fff}'
+    + '.page{padding:16mm 14mm;position:relative}'
+    + '.watermark{position:fixed;top:35%;left:5%;font-size:52pt;font-weight:bold;color:rgba(30,58,95,0.07);transform:rotate(-30deg);letter-spacing:4px;z-index:0;pointer-events:none}'
+    + '.hdr{width:100%;border-bottom:3px solid #1e3a5f;padding-bottom:8px;margin-bottom:10px;display:flex;justify-content:space-between}'
+    + '.company-name{font-size:14pt;font-weight:bold;color:#1e3a5f}'
+    + '.company-sub{font-size:8pt;color:#666;margin-top:1px}'
+    + '.hdr-right{text-align:right}'
+    + '.period-lbl{font-size:8pt;color:#888}'
+    + '.period-val{font-size:11pt;font-weight:bold;color:#1e3a5f}'
+    + '.pill-released{background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:6px;font-size:8pt;font-weight:bold}'
+    + '.pill-pending{background:#fef9c3;color:#b45309;padding:2px 8px;border-radius:6px;font-size:8pt;font-weight:bold}'
+    + '.emp-box{border:1px solid #e2e8f0;border-radius:4px;padding:8px 10px;margin-bottom:10px}'
+    + 'table.info{width:100%;border-collapse:collapse}'
+    + '.lbl{color:#888;width:35%;font-size:8.5pt;padding:2px 4px}'
+    + '.val{font-size:8.5pt;padding:2px 4px}'
+    + '.sec-title{font-size:8pt;font-weight:bold;color:#1e3a5f;text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid #e2e8f0;padding-bottom:3px;margin-bottom:5px;margin-top:8px}'
+    + '.split{width:100%;border-collapse:collapse}'
+    + '.split td{vertical-align:top;width:50%}'
+    + '.split .left{padding-right:8px}.split .right{padding-left:8px}'
+    + 'table.comp{width:100%;border-collapse:collapse}'
+    + 'table.comp td{font-size:8.5pt;padding:2px 2px;border-bottom:1px dotted #eee}'
+    + 'table.comp .amt{text-align:right}'
+    + 'table.comp .total td{font-weight:bold;border-bottom:2px solid #cbd5e1}'
+    + '.green{color:#15803d}.red{color:#dc2626}'
+    + '.net-box{background:#f0f5ff;border:2px solid #1e3a5f;border-radius:6px;padding:10px 14px;margin:10px 0}'
+    + '.net-amt{font-size:20pt;font-weight:bold;color:#1e3a5f}'
+    + '.net-meta{font-size:8pt;color:#888}'
+    + '.sig-tbl{width:100%;border-collapse:collapse;margin-top:24px}'
+    + '.sig-td{width:50%;text-align:center;padding:0 12px}'
+    + '.sig-line{border-top:1px solid #555;padding-top:4px;font-size:8pt;color:#555;margin-top:28px}'
+    + '.footer{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:5px;font-size:7pt;color:#aaa;display:flex;justify-content:space-between}'
+    + '</style></head><body><div class="page">'
+    + '<div class="watermark">CONFIDENTIAL</div>'
+    + '<div class="hdr">'
+    + '<div><div class="company-name">' + company + '</div><div class="company-sub">Official Payroll Slip</div></div>'
+    + '<div class="hdr-right"><div class="period-lbl">Pay Period</div><div class="period-val">' + period + '</div>'
+    + '<span class="' + statusCls + '">' + statusTxt + '</span></div>'
+    + '</div>'
+    + '<div class="emp-box"><table class="info"><tr>'
+    + '<td class="left"><table>'
+    + '<tr><td class="lbl">Employee No.</td><td class="val"><strong>' + empNo + '</strong></td></tr>'
+    + '<tr><td class="lbl">Name</td><td class="val"><strong>' + empName + '</strong></td></tr>'
+    + '<tr><td class="lbl">Department</td><td class="val">' + dept + '</td></tr>'
+    + '</table></td>'
+    + '<td class="right"><table>'
+    + '<tr><td class="lbl">Position</td><td class="val">' + pos + '</td></tr>'
+    + '<tr><td class="lbl">Date Hired</td><td class="val">' + hired + '</td></tr>'
+    + '</table></td>'
+    + '</tr></table></div>'
+    + '<table class="split"><tr>'
+    + '<td class="left"><div class="sec-title">Earnings</div><table class="comp">'
+    + '<tr><td>Basic Salary <small>' + cutoffNote + '</small></td><td class="amt">&#8369; ' + basic + '</td></tr>'
+    + '<tr><td>Allowance</td><td class="amt">&#8369; ' + allowance + '</td></tr>'
+    + '<tr class="total"><td class="green">Gross Pay</td><td class="amt green">&#8369; ' + gross + '</td></tr>'
+    + '</table></td>'
+    + '<td class="right"><div class="sec-title">Deductions</div><table class="comp">';
+
+  if (govHidden) {
+    html += '<tr><td colspan="2" style="font-size:7pt;color:#888;font-style:italic;padding:3px 0">Gov. deductions not collected on 1st cutoff</td></tr>';
+  } else {
+    html += '<tr><td>SSS</td><td class="amt red">&minus; &#8369; ' + sss + '</td></tr>'
+          + '<tr><td>PhilHealth</td><td class="amt red">&minus; &#8369; ' + philhealth + '</td></tr>'
+          + '<tr><td>Pag-IBIG</td><td class="amt red">&minus; &#8369; ' + pagibig + '</td></tr>';
+  }
+  html += '<tr><td>Withholding Tax</td><td class="amt red">&minus; &#8369; ' + tax + '</td></tr>'
+        + '<tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; ' + deductions + '</td></tr>'
+        + '</table></td></tr></table>'
+        + '<div class="net-box"><table style="width:100%"><tr>'
+        + '<td><div class="net-meta">NET PAY FOR ' + period.toUpperCase() + '</div><div class="net-amt">&#8369; ' + net + '</div></td>'
+        + '<td style="text-align:right;vertical-align:middle"><div class="net-meta">Processed by</div><strong>' + processedBy + '</strong><br><span class="net-meta">Payroll Administrator</span></td>'
+        + '</tr></table></div>'
+        + '<table class="sig-tbl"><tr>'
+        + '<td class="sig-td"><div class="sig-line">Employee Signature / Date<br><small style="color:#bbb">' + empName + '</small></div></td>'
+        + '<td class="sig-td"><div class="sig-line">Authorized Signatory / Date<br><small style="color:#bbb">&nbsp;</small></div></td>'
+        + '</tr></table>'
+        + '<div class="footer"><span>' + company + ' &mdash; Official Payroll Slip &mdash; ' + period + '</span>'
+        + '<span>Generated: ' + new Date().toLocaleString() + '</span></div>'
+        + '</div></body></html>';
+
   var win = window.open('', '_blank', 'width=900,height=700');
-  win.document.write(
-    '<!DOCTYPE html><html><head><title>Payslip</title>'
-    + '<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/common.css">'
-    + '<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/employee.css">'
-    + '<style>body{background:#fff!important;margin:0}.no-print{display:none!important}.modal-header{display:none!important}.modal-footer{display:none!important}</style>'
-    + '</head><body>' + el.innerHTML + '</body></html>'
-  );
+  win.document.write(html);
   win.document.close();
   win.focus();
-  setTimeout(function(){ win.print(); win.close(); }, 600);
+  setTimeout(function(){ win.print(); win.close(); }, 800);
 }
 </script>
 
