@@ -72,6 +72,26 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
     </div>
   </div>
 
+  <!-- Validation Modal (AdminLTE) -->
+  <div class="modal fade" id="payslipValidationModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
+      <div class="modal-content">
+        <div class="modal-header bg-warning">
+          <h5 class="modal-title"><i class="fas fa-exclamation-triangle mr-2"></i>Selection Required</h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0" id="payslipValidationMsg">Please select an employee and period.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-warning btn-sm" data-dismiss="modal">
+            <i class="fas fa-check mr-1"></i>OK
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="col-md-8 col-12 adm-ps-content-col">
     <?php if($selectedEmp && $payrollRecord): ?>
     <?php
@@ -186,8 +206,16 @@ document.getElementById('empSelect').addEventListener('change', function() {
 function loadPayslip() {
     var emp    = document.getElementById('empSelect').value;
     var period = document.getElementById('periodSelect').value;
-    if (!emp)    { alert('Please select an employee.'); return; }
-    if (!period) { alert('Please select a period.'); return; }
+    if (!emp) {
+        document.getElementById('payslipValidationMsg').textContent = 'Please select an employee first.';
+        $('#payslipValidationModal').modal('show');
+        return;
+    }
+    if (!period) {
+        document.getElementById('payslipValidationMsg').textContent = 'Please select a payslip period.';
+        $('#payslipValidationModal').modal('show');
+        return;
+    }
     window.location = 'payslip.php?emp=' + emp + '&period=' + period;
 }
 

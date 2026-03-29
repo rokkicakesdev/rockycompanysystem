@@ -101,15 +101,26 @@ $selectedDate  = $_GET['date']   ?? date('Y-m-d');
 $selectedMonth = $_GET['month']  ?? date('Y-m');
 $viewMode      = $_GET['view']   ?? 'daily';
 
-$employees       = Model::getAllEmployees('active');
+$allEmployees    = Model::getAllEmployees('active');
 $existingRecords = [];
 
+// Filter: only show employees hired on or before the selected date (daily view)
+// or on or before the last day of the selected month (monthly view)
 if ($viewMode === 'daily') {
+    $employees = array_filter($allEmployees, fn($e) =>
+        !empty($e['date_hired']) && $e['date_hired'] <= $selectedDate
+    );
+    $employees = array_values($employees);
     $recs = Model::getAttendanceByMonth(substr($selectedDate, 0, 7));
     foreach ($recs as $r) {
         if ($r['date'] === $selectedDate) $existingRecords[$r['employee_id']] = $r;
     }
 } else {
+    $lastDayOfMonth = date('Y-m-t', strtotime($selectedMonth . '-01'));
+    $employees = array_filter($allEmployees, fn($e) =>
+        !empty($e['date_hired']) && $e['date_hired'] <= $lastDayOfMonth
+    );
+    $employees = array_values($employees);
     $recs = Model::getAttendanceByMonth($selectedMonth);
     foreach ($recs as $r) $existingRecords[$r['employee_id'] . '_' . $r['date']] = $r;
 }
@@ -261,8 +272,9 @@ $statusOptions = [
   </div>
 </div>
 
-<?php else: ?>
-<!-- Attendance Confirm Modal (AdminLTE) -->
+<?php endif; ?>
+
+<!-- Attendance Confirm Modal (AdminLTE) — rendered always, works for daily view -->
 <div class="modal fade" id="attendanceConfirmModal" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
@@ -290,6 +302,8 @@ $statusOptions = [
     </div>
   </div>
 </div>
+
+<?php if ($viewMode !== 'daily'): ?>
 <!-- MONTHLY SUMMARY -->
 <div class="card">
   <div class="card-header">
