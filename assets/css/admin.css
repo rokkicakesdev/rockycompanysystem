@@ -477,3 +477,11 @@ select.status-select option[value="terminated"] { color: #991b1b; }
 .payroll-note-text         { font-size: .85rem; }
 .payroll-notes-empty-icon  { opacity: .3; }
 .badge-modification        { background-color: #6c757d; color: #fff; }
+
+/* ════════════════════════════════════════════════════════════
+   PAYSLIPS — Admin (QA Feedback)
+   ════════════════════════════════════════════════════════════ */
+.adm-ps-footer          { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.adm-ps-footer-btns     { display: flex; gap: .5rem; margin-left: auto; }
+.adm-ps-btn             { white-space: nowrap; }
+.payslip-print-body     { background: #fff !important; margin: 0; }

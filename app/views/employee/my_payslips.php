@@ -175,7 +175,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
           ?>
           <tr>
             <td><strong><?= htmlspecialchars(Model::periodLabel($row['period'])) ?></strong></td>
-            <td>&#8369; <?= number_format($employee['basic_salary'] ?? 0, 2) ?></td>
+            <td>&#8369; <?= number_format(($employee['basic_salary'] ?? 0) / 2, 2) ?></td>
             <td>&#8369; <?= number_format($row['gross_pay'] ?? 0, 2) ?></td>
             <td class="text-danger">&#8369; <?= number_format($row['total_deductions'] ?? 0, 2) ?></td>
             <td class="text-success font-weight-bold">&#8369; <?= number_format($row['net_pay'] ?? 0, 2) ?></td>
@@ -286,7 +286,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
               <div class="ps-comp-heading">Earnings</div>
               <div class="ps-comp-row">
                 <span class="ps-comp-label">Basic Salary <small class="ps-cutoff-note text-muted" id="ps-cutoff-note"></small></span>
-                <span class="ps-comp-amount">&#8369;&nbsp;<?= number_format($employee['basic_salary'] ?? 0, 2) ?></span>
+                <span class="ps-comp-amount">&#8369;&nbsp;<?= number_format(($employee['basic_salary'] ?? 0) / 2, 2) ?></span>
               </div>
               <div class="ps-comp-row">
                 <span class="ps-comp-label">Allowance</span>
@@ -385,13 +385,10 @@ require_once __DIR__ . '/../layouts/employee_header.php';
           Generated: <?= date('M d, Y h:i A') ?>
         </div>
         <div class="ps-modal-btns">
-          <button type="button" class="btn btn-secondary ps-btn" data-dismiss="modal">
-            <i class="fas fa-times mr-1"></i>Close
-          </button>
           <button type="button" class="btn btn-success ps-btn" onclick="printPayslip()">
             <i class="fas fa-print mr-1"></i>Print Payslip
           </button>
-          <a id="ps-pdf-link" href="#" target="_blank" class="btn btn-primary ps-btn">
+          <a id="ps-pdf-link" href="#" class="btn btn-primary ps-btn">
             <i class="fas fa-file-pdf mr-1"></i>Export PDF
           </a>
         </div>
@@ -401,11 +398,22 @@ require_once __DIR__ . '/../layouts/employee_header.php';
   </div>
 </div>
 
-<!-- printPayslip stays here in a plain <script> — no jQuery needed,
-     must be globally accessible for the onclick="" attribute above. -->
+<!-- printPayslip opens a clean print window without any header/footer chrome -->
 <script>
 function printPayslip() {
-  window.print();
+  var el = document.getElementById('payslipPrintArea');
+  if (!el) return;
+  var win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(
+    '<!DOCTYPE html><html><head><title>Payslip</title>'
+    + '<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/common.css">'
+    + '<link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/employee.css">'
+    + '<style>body{background:#fff!important;margin:0}.no-print{display:none!important}.modal-header{display:none!important}.modal-footer{display:none!important}</style>'
+    + '</head><body>' + el.innerHTML + '</body></html>'
+  );
+  win.document.close();
+  win.focus();
+  setTimeout(function(){ win.print(); win.close(); }, 600);
 }
 </script>
 

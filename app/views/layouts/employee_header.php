@@ -65,8 +65,7 @@ $currentPath = basename($_SERVER['PHP_SELF']);
           <i class="fas fa-user-circle mr-2"></i> My Profile
         </a>
         <div class="dropdown-divider"></div>
-        <a href="<?= BASE_URL ?>/logout.php" class="dropdown-item"
-           onclick="return confirm('Are you sure you want to log out?');">
+        <a href="#" class="dropdown-item" onclick="$('#logoutConfirmModal').modal('show'); return false;">
           <i class="fas fa-sign-out-alt mr-2"></i> Logout
         </a>
       </div>
@@ -143,6 +142,29 @@ $currentPath = basename($_SERVER['PHP_SELF']);
     </nav>
   </div>
 </aside>
+
+<!-- Logout Confirm Modal -->
+<div class="modal fade" id="logoutConfirmModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-danger">
+        <h5 class="modal-title text-white"><i class="fas fa-sign-out-alt mr-2"></i>Confirm Logout</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">Are you sure you want to log out?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i>Cancel
+        </button>
+        <a href="<?= BASE_URL ?>/logout.php" class="btn btn-danger">
+          <i class="fas fa-sign-out-alt mr-1"></i>Logout
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Content Wrapper -->
 <div class="content-wrapper">

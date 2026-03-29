@@ -220,9 +220,10 @@ $leaveBalances = [
             <div class="col-md-6">
               <div class="form-group">
                 <label>Phone Number</label>
-                <input type="text" name="phone" class="form-control"
+                <input type="tel" name="phone" class="form-control"
                   value="<?= htmlspecialchars($employee['phone'] ?? '') ?>"
-                  placeholder="e.g. 09171234567">
+                  placeholder="e.g. 09171234567"
+                  maxlength="15" autocomplete="off">
               </div>
             </div>
             <div class="col-md-6">
@@ -230,7 +231,8 @@ $leaveBalances = [
                 <label>Home Address</label>
                 <input type="text" name="address" class="form-control"
                   value="<?= htmlspecialchars($employee['address'] ?? '') ?>"
-                  placeholder="Street, City, Province">
+                  placeholder="Street, City, Province"
+                  maxlength="300" autocomplete="off">
               </div>
             </div>
           </div>
@@ -246,15 +248,17 @@ $leaveBalances = [
                 <label>Name</label>
                 <input type="text" name="emergency_contact_name" class="form-control"
                   value="<?= htmlspecialchars($employee['emergency_contact_name'] ?? '') ?>"
-                  placeholder="Full name">
+                  placeholder="Full name"
+                  maxlength="150" autocomplete="off">
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-group">
                 <label>Phone</label>
-                <input type="text" name="emergency_contact_phone" class="form-control"
+                <input type="tel" name="emergency_contact_phone" class="form-control"
                   value="<?= htmlspecialchars($employee['emergency_contact_phone'] ?? '') ?>"
-                  placeholder="Contact number">
+                  placeholder="Contact number"
+                  maxlength="15" autocomplete="off">
               </div>
             </div>
             <div class="col-md-4">
@@ -262,7 +266,8 @@ $leaveBalances = [
                 <label>Relationship</label>
                 <input type="text" name="emergency_contact_relation" class="form-control"
                   value="<?= htmlspecialchars($employee['emergency_contact_relation'] ?? '') ?>"
-                  placeholder="e.g. Spouse, Parent">
+                  placeholder="e.g. Spouse, Parent"
+                  maxlength="50" autocomplete="off">
               </div>
             </div>
           </div>
@@ -287,20 +292,20 @@ $leaveBalances = [
             <div class="col-md-4">
               <div class="form-group">
                 <label>Current Password</label>
-                <input type="password" name="current_password" class="form-control" required placeholder="••••••••">
+                <input type="password" name="current_password" class="form-control" required placeholder="••••••••" maxlength="128" autocomplete="current-password">
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-group">
                 <label>New Password</label>
                 <input type="password" name="new_password" id="newPw" class="form-control" required
-                  minlength="8" placeholder="Min. 8 characters">
+                  minlength="8" maxlength="128" placeholder="Min. 8 characters" autocomplete="new-password">
               </div>
             </div>
             <div class="col-md-4">
               <div class="form-group">
                 <label>Confirm New Password</label>
-                <input type="password" name="confirm_password" id="confirmPw" class="form-control" required placeholder="Repeat new password">
+                <input type="password" name="confirm_password" id="confirmPw" class="form-control" required placeholder="Repeat new password" maxlength="128" autocomplete="new-password">
               </div>
             </div>
           </div>

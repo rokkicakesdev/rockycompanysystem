@@ -143,6 +143,34 @@ class PayrollModel extends BaseModel
         return self::db()->query('SELECT DISTINCT period FROM payroll_records ORDER BY period DESC')->fetchAll(PDO::FETCH_COLUMN);
     }
 
+    /** Get payroll periods for a specific employee (for dependent dropdown). */
+    public static function getPeriodsForEmployee(int $employeeId): array
+    {
+        $stmt = self::db()->prepare('SELECT DISTINCT period FROM payroll_records WHERE employee_id = ? ORDER BY period DESC');
+        $stmt->execute([$employeeId]);
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    /** Check employees in a period that have missing attendance for that month. Returns array of employee names. */
+    public static function getEmployeesWithMissingAttendance(array $employeeIds, string $period): array
+    {
+        $yearMonth = static::periodBase($period);
+        $missing = [];
+        foreach ($employeeIds as $empId) {
+            $empId = (int)$empId;
+            $stmt  = self::db()->prepare('SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND DATE_FORMAT(date, "%Y-%m") = ?');
+            $stmt->execute([$empId, $yearMonth]);
+            $count = (int)$stmt->fetchColumn();
+            if ($count === 0) {
+                $emp = self::db()->prepare('SELECT name FROM employees WHERE id = ?');
+                $emp->execute([$empId]);
+                $row = $emp->fetch();
+                if ($row) $missing[] = htmlspecialchars($row['name']);
+            }
+        }
+        return $missing;
+    }
+
     public static function create(array $d): bool
     {
         $stmt = self::db()->prepare('

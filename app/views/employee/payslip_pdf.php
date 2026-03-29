@@ -78,7 +78,7 @@ $empNo          = htmlspecialchars($employee['employee_no'] ?? '');
 $p = fn($v) => number_format((float)$v, 2);   // peso format helper
 
 // Values
-$basicSalary    = $p($employee['basic_salary']              ?? 0);
+$basicSalary    = $p(($employee['basic_salary'] ?? 0) / 2);
 $allowance      = $p($employee['allowance']                 ?? 0);
 $grossPay       = $p($payrollRecord['gross_pay']            ?? 0);
 $sssEE          = $p($payrollRecord['sss_ee']               ?? 0);
@@ -130,10 +130,8 @@ if ($daysWorked !== null) {
 HTML;
 }
 
-// Watermark for non-released payslips
-$watermark = $payrollRecord['status'] !== 'released'
-    ? '<div class="watermark">PENDING</div>'
-    : '';
+// Watermark — always show CONFIDENTIAL on employee copy
+$watermark = '<div class="watermark">CONFIDENTIAL</div>';
 
 // ── Build HTML ────────────────────────────────────────────────────
 $html = <<<HTML

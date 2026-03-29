@@ -122,26 +122,26 @@ if ($format === 'excel') {
     $sheet->getRowDimension(3)->setRowHeight(6);
 
     // Rows 4-5 — Two-row header (group + sub-header)
-    // Group merges
-    foreach (['A4:A5','B4:B5','C4:C5','D4:D5','M4:M5','N4:N5','O4:O5','S4:S5'] as $m) {
+    // Group merges — Status (O) and Days Worked (S) removed
+    foreach (['A4:A5','B4:B5','C4:C5','D4:D5','M4:M5','N4:N5'] as $m) {
         $sheet->mergeCells($m);
     }
     $sheet->mergeCells('E4:G4');
     $sheet->mergeCells('H4:L4');
-    $sheet->mergeCells('P4:R4');
+    $sheet->mergeCells('O4:Q4');
 
     $row4 = ['A4'=>'#','B4'=>'Emp No.','C4'=>'Employee Name','D4'=>'Department',
              'E4'=>'EARNINGS','H4'=>'EMPLOYEE DEDUCTIONS',
-             'M4'=>'Total Ded.','N4'=>'Net Pay','O4'=>'Status',
-             'P4'=>'EMPLOYER CONTRIBUTIONS','S4'=>'Days Worked'];
+             'M4'=>'Total Ded.','N4'=>'Net Pay',
+             'O4'=>'EMPLOYER CONTRIBUTIONS'];
     foreach ($row4 as $cell => $val) { $sheet->setCellValue($cell, $val); }
 
     $row5 = ['E5'=>'Basic Salary','F5'=>'Allowance','G5'=>'Gross Pay',
              'H5'=>'SSS','I5'=>'PhilHealth','J5'=>'Pag-IBIG','K5'=>'W/Tax','L5'=>'Others',
-             'P5'=>'SSS (ER)','Q5'=>'PhilHealth (ER)','R5'=>'Pag-IBIG (ER)'];
+             'O5'=>'SSS (ER)','P5'=>'PhilHealth (ER)','Q5'=>'Pag-IBIG (ER)'];
     foreach ($row5 as $cell => $val) { $sheet->setCellValue($cell, $val); }
 
-    $sheet->getStyle('A4:S5')->applyFromArray($headerStyle);
+    $sheet->getStyle('A4:Q5')->applyFromArray($headerStyle);
     $sheet->getRowDimension(4)->setRowHeight(18);
     $sheet->getRowDimension(5)->setRowHeight(28);
 
@@ -164,26 +164,25 @@ if ($format === 'excel') {
         $sheet->setCellValue("L{$row}", (float)($r['other_deductions'] ?? 0));
         $sheet->setCellValue("M{$row}", (float)($r['total_deductions'] ?? 0));
         $sheet->setCellValue("N{$row}", (float)($r['net_pay']          ?? 0));
-        $sheet->setCellValue("O{$row}", ucfirst($r['status']           ?? ''));
-        $sheet->setCellValue("P{$row}", (float)($r['sss_er']           ?? 0));
-        $sheet->setCellValue("Q{$row}", (float)($r['philhealth_er']    ?? 0));
-        $sheet->setCellValue("R{$row}", (float)($r['pagibig_er']       ?? 0));
-        $sheet->setCellValue("S{$row}", $r['days_worked'] !== null ? (float)$r['days_worked'] : 'N/A');
+        // Status (O) and Days Worked (S) columns removed per QA feedback
+        $sheet->setCellValue("O{$row}", (float)($r['sss_er']           ?? 0));
+        $sheet->setCellValue("P{$row}", (float)($r['philhealth_er']    ?? 0));
+        $sheet->setCellValue("Q{$row}", (float)($r['pagibig_er']       ?? 0));
 
         // Base row style
-        $sheet->getStyle("A{$row}:S{$row}")->applyFromArray(array_merge($thinBorder, [
+        $sheet->getStyle("A{$row}:Q{$row}")->applyFromArray(array_merge($thinBorder, [
             'font'      => ['size' => 9],
             'alignment' => ['vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
         ]));
 
         // Alternating row bg
         if ($isAlt) {
-            $sheet->getStyle("A{$row}:S{$row}")->getFill()
+            $sheet->getStyle("A{$row}:Q{$row}")->getFill()
                 ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB($ALT_ROW);
         }
 
         // Currency format
-        foreach (['E','F','G','H','I','J','K','L','M','P','Q','R'] as $col) {
+        foreach (['E','F','G','H','I','J','K','L','M','O','P','Q'] as $col) {
             $sheet->getStyle("{$col}{$row}")->getNumberFormat()->setFormatCode($phpNum);
         }
         // Net pay — bold green
@@ -191,10 +190,8 @@ if ($format === 'excel') {
             'font'         => ['bold' => true, 'color' => ['rgb' => $GREEN_TEXT]],
             'numberFormat' => ['formatCode' => $phpNum],
         ]);
-        // Center cols
+        // Center col A
         $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle("O{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle("S{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
         $sheet->getRowDimension($row)->setRowHeight(15);
         $row++;
@@ -203,14 +200,14 @@ if ($format === 'excel') {
     // Totals row
     $sheet->setCellValue("A{$row}", 'TOTALS (' . count($records) . ' employees)');
     $sheet->mergeCells("A{$row}:D{$row}");
-    $sheet->getStyle("A{$row}:S{$row}")->applyFromArray($totalStyle);
+    $sheet->getStyle("A{$row}:Q{$row}")->applyFromArray($totalStyle);
     $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_RIGHT);
 
     $totalMap = [
         'E'=>'basic_salary','F'=>'allowance','G'=>'gross_pay',
         'H'=>'sss_ee','I'=>'philhealth_ee','J'=>'pagibig_ee',
         'K'=>'withholding_tax','L'=>'other_deductions','M'=>'total_deductions',
-        'N'=>'net_pay','P'=>'sss_er','Q'=>'philhealth_er','R'=>'pagibig_er',
+        'N'=>'net_pay','O'=>'sss_er','P'=>'philhealth_er','Q'=>'pagibig_er',
     ];
     foreach ($totalMap as $col => $key) {
         $sheet->setCellValue("{$col}{$row}", $totals[$key]);
@@ -250,8 +247,8 @@ if ($format === 'excel') {
         'A'=>5,'B'=>11,'C'=>22,'D'=>18,
         'E'=>14,'F'=>12,'G'=>14,
         'H'=>10,'I'=>12,'J'=>10,'K'=>10,'L'=>10,
-        'M'=>14,'N'=>14,'O'=>10,
-        'P'=>11,'Q'=>15,'R'=>13,'S'=>12,
+        'M'=>14,'N'=>14,
+        'O'=>11,'P'=>15,'Q'=>13,
     ] as $col => $w) {
         $sheet->getColumnDimension($col)->setWidth($w);
     }
@@ -369,7 +366,6 @@ $erTotal = $totals['sss_er'] + $totals['philhealth_er'] + $totals['pagibig_er'];
         <th colspan="5">EMPLOYEE DEDUCTIONS</th>
         <th rowspan="2">Total Ded.</th>
         <th rowspan="2">Net Pay</th>
-        <th rowspan="2">Status</th>
       </tr>
       <tr>
         <th>Basic</th><th>Allow.</th><th>Gross</th>
@@ -393,7 +389,6 @@ $erTotal = $totals['sss_er'] + $totals['philhealth_er'] + $totals['pagibig_er'];
         <td class="num">&#8369;<?= number_format((float)$r['other_deductions'],2) ?></td>
         <td class="num">&#8369;<?= number_format((float)$r['total_deductions'],2) ?></td>
         <td class="num net">&#8369;<?= number_format((float)$r['net_pay'],2) ?></td>
-        <td class="ctr"><span class="pill pill-<?= $r['status'] ?>"><?= ucfirst($r['status']??'') ?></span></td>
       </tr>
       <?php endforeach; ?>
       <tr class="totals-row">
@@ -408,7 +403,6 @@ $erTotal = $totals['sss_er'] + $totals['philhealth_er'] + $totals['pagibig_er'];
         <td class="num">&#8369;<?= number_format($totals['other_deductions'],2) ?></td>
         <td class="num">&#8369;<?= number_format($totals['total_deductions'],2) ?></td>
         <td class="num">&#8369;<?= number_format($totals['net_pay'],2) ?></td>
-        <td></td>
       </tr>
     </tbody>
   </table>

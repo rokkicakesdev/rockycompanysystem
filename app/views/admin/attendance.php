@@ -27,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_attendance'])) {
             $timeIn  = $record['time_in']  ?? null;
             $timeOut = $record['time_out'] ?? null;
             $hoursWorked = null;
+            $overtimeHours = min(12, max(0, (float)($record['overtime_hours'] ?? 0)));
+            $remarks = substr(strip_tags(trim($record['remarks'] ?? '')), 0, 50);
 
             if ($timeIn && $timeOut) {
                 $in  = strtotime($timeIn);
@@ -45,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_attendance'])) {
                 'date'           => $_POST['att_date'],
                 'time_in'        => $timeIn,
                 'time_out'       => $timeOut,
-                'status'         => $record['status']        ?? 'present',
-                'leave_type'     => $record['leave_type']    ?? null,
-                'remarks'        => $record['remarks']       ?? null,
+                'status'         => $record['status']     ?? 'present',
+                'leave_type'     => $record['leave_type'] ?? null,
+                'remarks'        => $remarks,
                 'hours_worked'   => $hoursWorked,
-                'overtime_hours' => (float)($record['overtime_hours'] ?? 0),
-                'is_overtime'    => !empty($record['overtime_hours']) ? 1 : 0,
+                'overtime_hours' => $overtimeHours,
+                'is_overtime'    => $overtimeHours > 0 ? 1 : 0,
                 'created_by'     => $_SESSION['user_id'] ?? null,
             ]);
 
@@ -242,8 +244,8 @@ $statusOptions = [
               </td>
               <td><input type="time" name="attendance[<?= $emp['id'] ?>][time_in]"  value="<?= $rec['time_in']  ?? '08:00' ?>" class="form-control form-control-sm"></td>
               <td><input type="time" name="attendance[<?= $emp['id'] ?>][time_out]" value="<?= $rec['time_out'] ?? '17:00' ?>" class="form-control form-control-sm"></td>
-              <td><input type="number" step="0.5" min="0" max="12" name="attendance[<?= $emp['id'] ?>][overtime_hours]" value="<?= $rec['overtime_hours'] ?? 0 ?>" class="form-control form-control-sm"></td>
-              <td><input type="text" name="attendance[<?= $emp['id'] ?>][remarks]"  value="<?= htmlspecialchars($rec['remarks'] ?? '') ?>" class="form-control form-control-sm" placeholder="Optional remarks"></td>
+              <td><input type="number" step="0.5" min="0" max="12" name="attendance[<?= $emp['id'] ?>][overtime_hours]" value="<?= $rec['overtime_hours'] ?? 0 ?>" class="form-control form-control-sm" maxlength="2" oninput="this.value=this.value.slice(0,4)"></td>
+              <td><input type="text" name="attendance[<?= $emp['id'] ?>][remarks]"  value="<?= htmlspecialchars($rec['remarks'] ?? '') ?>" class="form-control form-control-sm" placeholder="Optional remarks" maxlength="50" autocomplete="off"></td>
             </tr>
             <?php endforeach; ?>
           </tbody>
