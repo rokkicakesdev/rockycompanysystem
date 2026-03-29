@@ -43,6 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
         } elseif (empty($selectedEmpIds)) {
             $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>No employees selected.</div>";
         } else {
+            // ── Check for missing attendance logs ─────────────────────
+            $missingAttendance = Model::getEmployeesWithMissingAttendance($selectedEmpIds, $genPeriod);
+            if (!empty($missingAttendance)) {
+                $missingList = '<ul class="mb-0 mt-1 payroll-skip-list">';
+                foreach ($missingAttendance as $name) {
+                    $missingList .= '<li>' . $name . '</li>';
+                }
+                $missingList .= '</ul>';
+                $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>"
+                     . "<strong>Cannot generate payroll.</strong> The following employee(s) have no attendance log for this period:"
+                     . $missingList . "</div>";
+            } else {
             $generated   = 0;
             $skipped     = 0;
             $skipReasons = [];
@@ -150,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                 header("Location: payroll.php?period={$genPeriod}&msg=generated&count={$generated}&skipped={$skipped}{$skipParam}");
                 exit;
             }
+            } // end missing attendance else
         }
     }
 }
@@ -495,7 +508,7 @@ foreach ($periodPayroll as $p) {
                 <i class="fas fa-edit"></i>
               </button>
               <?php endif; ?>
-              <?php if ($p['status'] === 'pending'): ?>
+              <?php if (in_array($p['status'], ['pending', 'modification'])): ?>
               <form method="POST" class="action-form-inline"
                     onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($p['employee_name'])) ?>?')">
                 <input type="hidden" name="release_single"  value="1">

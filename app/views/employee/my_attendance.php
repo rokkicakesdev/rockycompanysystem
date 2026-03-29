@@ -6,18 +6,24 @@ if (session_status() === PHP_SESSION_NONE) { session_start(); }
 $pageTitle = 'My Attendance';
 require_once __DIR__ . '/../layouts/employee_header.php';
 
-$employeeId   = (int)($_SESSION['employee_id'] ?? 0);
-$filterMonth  = $_GET['month'] ?? date('Y-m');
+$employeeId  = (int)($_SESSION['employee_id'] ?? 0);
+$filterMonth = $_GET['month'] ?? date('Y-m');
 
-$attendance   = $employeeId ? Model::getAttendanceByEmployee($employeeId, $filterMonth) : [];
-$summary      = $employeeId ? Model::getAttendanceSummary($employeeId, $filterMonth) : [];
+$attendance = $employeeId ? Model::getAttendanceByEmployee($employeeId, $filterMonth) : [];
+$summary    = $employeeId ? Model::getAttendanceSummary($employeeId, $filterMonth) : [];
+$employee   = $employeeId ? Model::findEmployeeById($employeeId) : null;
 
-// Build month options (last 12 months)
+// Build month options from hire date up to current month
 $monthOptions = [];
-for ($i = 0; $i < 12; $i++) {
-    $val   = date('Y-m', strtotime("-$i months"));
-    $label = date('F Y', strtotime($val . '-01'));
-    $monthOptions[$val] = $label;
+$hireDate     = $employee['date_hired'] ?? null;
+$startYm      = $hireDate ? date('Y-m', strtotime($hireDate)) : date('Y-m', strtotime('-24 months'));
+$currentYm    = date('Y-m');
+
+$cursor = $currentYm;
+while ($cursor >= $startYm) {
+    $label              = date('F Y', strtotime($cursor . '-01'));
+    $monthOptions[$cursor] = $label;
+    $cursor = date('Y-m', strtotime($cursor . '-01 -1 month'));
 }
 
 $statusLabels = [
