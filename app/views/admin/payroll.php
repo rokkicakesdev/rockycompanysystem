@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
             $generated   = 0;
             $skipped     = 0;
             $skipReasons = [];
-            $workingDays = WORKING_DAYS;
+            $workingDays = WORKING_DAYS;  // full month working days (default 22)
             $db          = Database::getInstance();
             $db->beginTransaction();
             $txSuccess = false;
@@ -72,19 +72,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     if ($emp['status'] !== 'active') { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - not active ({$emp['status']})"; continue; }
                     if (Model::employeeExistsInPeriod($empId, $genPeriod)) { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - already has a record for {$genPeriod}"; continue; }
 
-                    $settings        = Model::getEmployeePayrollSettings($empId);
-                    $fixedAmount     = $settings['cutoff1_fixed_amount'] !== null ? (float)$settings['cutoff1_fixed_amount'] : null;
-                    $taxMethod       = $settings['tax_method'];
-                    $govMode         = $settings['gov_deduction_mode'];
-                    $cutoffNum       = Model::periodCutoff($genPeriod);
+                    $settings    = Model::getEmployeePayrollSettings($empId);
+                    $fixedAmount = $settings['cutoff1_fixed_amount'] !== null ? (float)$settings['cutoff1_fixed_amount'] : null;
+                    $taxMethod   = $settings['tax_method'];
+                    $govMode     = $settings['gov_deduction_mode'];
+                    $cutoffNum   = Model::periodCutoff($genPeriod);
+                    $yearMonth   = Model::periodBase($genPeriod);  // e.g. "2026-01"
+                    $dateHired   = $emp['date_hired'] ?? '';
 
-                    $attendance      = Model::getAttendanceSummary($empId, Model::periodBase($genPeriod));
-                    $daysAbsent      = (int)($attendance['days_absent'] ?? 0);
-                    $daysHalf        = (int)($attendance['days_half']   ?? 0);
-                    $halfMonthDays   = round($workingDays / 2);
-                    $dailyRate       = $halfMonthDays > 0 ? (float)$emp['basic_salary'] / $workingDays : 0.0;
-                    $absentDeduction = round(($daysAbsent * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
+                    // ── Determine cutoff date range ─────────────────────────────
+                    // 1st cutoff: 1st–15th of the month
+                    // 2nd cutoff: 16th–last day of the month
+                    [$year, $month] = explode('-', $yearMonth);
+                    $lastDay = date('t', mktime(0, 0, 0, (int)$month, 1, (int)$year));
+                    if ($cutoffNum === 1) {
+                        $cutoffFrom = "{$yearMonth}-01";
+                        $cutoffTo   = "{$yearMonth}-15";
+                    } else {
+                        $cutoffFrom = "{$yearMonth}-16";
+                        $cutoffTo   = "{$yearMonth}-{$lastDay}";
+                    }
 
+                    // ── Get cutoff-specific attendance ──────────────────────────
+                    $attData       = Model::getCutoffAttendanceSummary($empId, $cutoffFrom, $cutoffTo, $dateHired);
+                    $scheduledDays = (int)($attData['scheduled_days'] ?? 0);  // working days employee should attend
+                    $totalAbsent   = (int)($attData['total_absent']   ?? 0);  // absent + unlogged weekdays
+                    $daysHalf      = (int)($attData['days_half']      ?? 0);
+
+                    // ── Compute daily rate and absent deduction ─────────────────
+                    // Daily rate = semi-monthly basic ÷ scheduled working days in cutoff
+                    // If scheduledDays = 0 (all holidays/weekends), no deduction
+                    if ($scheduledDays > 0) {
+                        // Semi-monthly basic for this cutoff
+                        $cutoffBasicAmount = $fixedAmount !== null ? $fixedAmount : round((float)$emp['basic_salary'] / 2, 2);
+                        $dailyRate         = round($cutoffBasicAmount / $scheduledDays, 4);
+                        $absentDeduction   = round(($totalAbsent * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
+                    } else {
+                        $dailyRate       = 0.0;
+                        $absentDeduction = 0.0;
+                    }
+
+                    // ── 13th month (December 1st cutoff only) ──────────────────
                     $thirteenthAmount = 0.0;
                     if (Model::isDecember1stCutoff($genPeriod)) {
                         $rec13 = Model::get13thMonthByEmployee($empId, Model::periodYear($genPeriod));
@@ -93,17 +121,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         }
                     }
 
+                    // ── Year-end reconciliation (December 2nd cutoff only) ──────
                     $reconciliation = 0.0;
                     if (Model::isDecember2ndCutoff($genPeriod)) {
-                        $year          = Model::periodYear($genPeriod);
-                        $annualBasic   = Model::getTotalBasicByYear($empId, $year) + ((float)$emp['basic_salary'] / 2);
-                        $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year);
-                        $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year);
+                        $year4         = Model::periodYear($genPeriod);
+                        $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + ((float)$emp['basic_salary'] / 2);
+                        $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year4);
+                        $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year4);
                         $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
                             $annualBasic, $annualGovDeds, $annualTaxPaid
                         );
                     }
 
+                    // ── Compute payroll deductions ──────────────────────────────
                     if ($cutoffNum === 1) {
                         $deductions = PhilippineDeductions::computeFirstCutoff(
                             (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
@@ -117,29 +147,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     }
 
                     $record = [
-                        'employee_id'      => $empId,
-                        'period'           => $genPeriod,
-                        'basic_salary'     => $deductions['basic_salary'],
-                        'allowance'        => $deductions['allowance'],
-                        'gross_pay'        => $deductions['gross_pay'],
-                        'sss_msc'          => $deductions['sss_msc'],
-                        'sss_ee'           => $deductions['sss_ee'],
-                        'sss_er'           => $deductions['sss_er'],
-                        'philhealth_mbs'   => $deductions['philhealth_mbs'],
-                        'philhealth_ee'    => $deductions['philhealth_ee'],
-                        'philhealth_er'    => $deductions['philhealth_er'],
-                        'pagibig_mfs'      => $deductions['pagibig_mfs'],
-                        'pagibig_ee'       => $deductions['pagibig_ee'],
-                        'pagibig_er'       => $deductions['pagibig_er'],
-                        'taxable_income'   => $deductions['taxable_income'],
-                        'withholding_tax'  => $deductions['withholding_tax'],
-                        'other_deductions' => round($deductions['absent_deduction'] + ($deductions['reconciliation'] ?? 0), 2),
-                        'total_deductions' => $deductions['total_deductions'],
-                        'net_pay'          => $deductions['net_pay'],
-                        'remarks'          => ($thirteenthAmount > 0 ? '13th month included. ' : '')
-                                           . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
-                        'status'           => 'pending',
-                        'processed_by'     => $_SESSION['user_id'],
+                        'employee_id'           => $empId,
+                        'period'                => $genPeriod,
+                        'basic_salary'          => $deductions['basic_salary'],
+                        'allowance'             => $deductions['allowance'],
+                        'gross_pay'             => $deductions['gross_pay'],
+                        'sss_msc'               => $deductions['sss_msc'],
+                        'sss_ee'                => $deductions['sss_ee'],
+                        'sss_er'                => $deductions['sss_er'],
+                        'philhealth_mbs'        => $deductions['philhealth_mbs'],
+                        'philhealth_ee'         => $deductions['philhealth_ee'],
+                        'philhealth_er'         => $deductions['philhealth_er'],
+                        'pagibig_mfs'           => $deductions['pagibig_mfs'],
+                        'pagibig_ee'            => $deductions['pagibig_ee'],
+                        'pagibig_er'            => $deductions['pagibig_er'],
+                        'taxable_income'        => $deductions['taxable_income'],
+                        'withholding_tax'       => $deductions['withholding_tax'],
+                        'other_deductions'      => round($deductions['absent_deduction'] + ($deductions['reconciliation'] ?? 0), 2),
+                        'total_deductions'      => $deductions['total_deductions'],
+                        'net_pay'               => $deductions['net_pay'],
+                        'days_worked'           => max(0, $scheduledDays - $totalAbsent - $daysHalf),
+                        'days_absent'           => $totalAbsent,
+                        'absent_deduction'      => $absentDeduction,
+                        'working_days_in_month' => $scheduledDays,
+                        'remarks'               => ($thirteenthAmount > 0 ? '13th month included. ' : '')
+                                                 . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
+                        'status'                => 'pending',
+                        'processed_by'          => $_SESSION['user_id'],
                     ];
 
                     if (Model::createPayrollRecord($record)) { $generated++; }

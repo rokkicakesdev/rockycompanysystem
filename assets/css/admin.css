@@ -485,3 +485,57 @@ select.status-select option[value="terminated"] { color: #991b1b; }
 .adm-ps-footer-btns     { display: flex; gap: .5rem; margin-left: auto; }
 .adm-ps-btn             { white-space: nowrap; }
 .payslip-print-body     { background: #fff !important; margin: 0; }
+
+/* ════════════════════════════════════════════════════════════
+   PAYSLIP — Employer Contributions, Attendance, YTD sections
+   ════════════════════════════════════════════════════════════ */
+.adm-ps-section-heading {
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: #94a3b8;
+  font-weight: 700;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 10px;
+  margin-top: 4px;
+}
+.adm-ps-section-note { font-weight: 400; font-size: .7rem; color: #94a3b8; }
+
+/* Attendance grid */
+.adm-ps-att-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.adm-ps-att-cell {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.adm-ps-att-num { font-size: 1.35rem; font-weight: 800; line-height: 1.1; color: #1e293b; }
+.adm-ps-att-lbl { font-size: .65rem; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; margin-top: 3px; }
+
+/* Employer contribution amounts */
+.adm-ps-er-amount { color: #1d4ed8; }
+.adm-ps-er-total  { color: #1d4ed8; }
+
+/* YTD grid — 3 columns */
+.adm-ps-ytd-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.adm-ps-ytd-col { min-width: 0; }
+
+@media (max-width: 767px) {
+  .adm-ps-att-grid  { grid-template-columns: repeat(2, 1fr); }
+  .adm-ps-ytd-grid  { grid-template-columns: 1fr; gap: 10px; }
+}
+@media print {
+  .adm-ps-att-grid  { grid-template-columns: repeat(4, 1fr); }
+  .adm-ps-ytd-grid  { grid-template-columns: repeat(3, 1fr); }
+}

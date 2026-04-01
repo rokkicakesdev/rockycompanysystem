@@ -1,22 +1,24 @@
 <?php
 // core/PhilippineDeductions.php
-// 2025 Philippine Statutory Deduction Computations
+// 2026 Philippine Statutory Deduction Computations
 // Updated: Semi-monthly payroll support
-// Sources: SSS Circular 2024-006, PhilHealth PA2025-0002,
-//          Pag-IBIG Circular 460, BIR TRAIN Law (RR 13-2023)
+// Sources: SSS Circular 2024-006 (EE 5% / ER 10%, effective Jan 2025 → current in 2026),
+//          PhilHealth PA2025-0002 (5% premium rate, ceiling ₱100,000),
+//          Pag-IBIG Circular 460 (2% EE, capped ₱200/month),
+//          BIR TRAIN Law (RR 13-2023, annual bracket method)
 
 declare(strict_types=1);
 
 final class PhilippineDeductions
 {
     // ── SSS ───────────────────────────────────────────────────────
-    // 2025 rates per SSS Circular 2024-006 (effective Jan 2025):
-    // EE = 4.5%, ER = 9.5%, EC = 1% (borne by ER) → total employee share = 4.5%
-    // For salaries above the MSC ceiling (35,000), contribution is computed
-    // as rate × actual salary (not capped), matching real-world practice.
-    private const SSS_RATE_TOTAL    = 0.14;
-    private const SSS_RATE_EMPLOYEE = 0.045;
-    private const SSS_RATE_EMPLOYER = 0.095;
+    // 2026 rates per SSS Circular 2024-006 (effective Jan 2025, unchanged 2026):
+    // EE = 5.0%, ER = 10.0%, EC = 1.0% (borne by ER) → total ER contribution = 10%
+    // MSC ceiling = ₱35,000 — any salary above this uses the max bracket.
+    // At ₱35,000 MSC: EE = ₱1,750/month, ER = ₱3,500/month.
+    private const SSS_RATE_TOTAL    = 0.15;
+    private const SSS_RATE_EMPLOYEE = 0.05;
+    private const SSS_RATE_EMPLOYER = 0.10;
     private const SSS_MIN_MSC       = 5000.0;
     private const SSS_MAX_MSC       = 35000.0;
 
@@ -34,70 +36,72 @@ final class PhilippineDeductions
     private const PAGIBIG_MFS_CAP      = 5000.0;
     private const PAGIBIG_MAX_PER_SIDE = 100.00;
 
-    // SSS 2025 bracket table [salary_min, salary_max, msc, ee(4.5%), er(9.5%)]
+    // SSS 2026 contribution table — [salary_min, salary_max, msc, ee(5.0%), er(10.0%)]
+    // Source: SSS Circular 2024-006, effective January 2025, unchanged for 2026.
+    // EE = 5% of MSC, ER = 10% of MSC. Max MSC = ₱35,000 → EE ₱1,750 / ER ₱3,500.
     private static array $sssTable = [
-        [0,         4999.99,  5000,   225.00,   475.00],
-        [5000,      5249.99,  5000,   225.00,   475.00],
-        [5250.01,   5749.99,  5500,   247.50,   522.50],
-        [5750.01,   6249.99,  6000,   270.00,   570.00],
-        [6250.01,   6749.99,  6500,   292.50,   617.50],
-        [6750.01,   7249.99,  7000,   315.00,   665.00],
-        [7250.01,   7749.99,  7500,   337.50,   712.50],
-        [7750.01,   8249.99,  8000,   360.00,   760.00],
-        [8250.01,   8749.99,  8500,   382.50,   807.50],
-        [8750.01,   9249.99,  9000,   405.00,   855.00],
-        [9250.01,   9749.99,  9500,   427.50,   902.50],
-        [9750.01,   10249.99, 10000,  450.00,   950.00],
-        [10250.01,  10749.99, 10500,  472.50,   997.50],
-        [10750.01,  11249.99, 11000,  495.00,  1045.00],
-        [11250.01,  11749.99, 11500,  517.50,  1092.50],
-        [11750.01,  12249.99, 12000,  540.00,  1140.00],
-        [12250.01,  12749.99, 12500,  562.50,  1187.50],
-        [12750.01,  13249.99, 13000,  585.00,  1235.00],
-        [13250.01,  13749.99, 13500,  607.50,  1282.50],
-        [13750.01,  14249.99, 14000,  630.00,  1330.00],
-        [14250.01,  14749.99, 14500,  652.50,  1377.50],
-        [14750.01,  15249.99, 15000,  675.00,  1425.00],
-        [15250.01,  15749.99, 15500,  697.50,  1472.50],
-        [15750.01,  16249.99, 16000,  720.00,  1520.00],
-        [16250.01,  16749.99, 16500,  742.50,  1567.50],
-        [16750.01,  17249.99, 17000,  765.00,  1615.00],
-        [17250.01,  17749.99, 17500,  787.50,  1662.50],
-        [17750.01,  18249.99, 18000,  810.00,  1710.00],
-        [18250.01,  18749.99, 18500,  832.50,  1757.50],
-        [18750.01,  19249.99, 19000,  855.00,  1805.00],
-        [19250.01,  19749.99, 19500,  877.50,  1852.50],
-        [19750.01,  20249.99, 20000,  900.00,  1900.00],
-        [20250.01,  20749.99, 20500,  922.50,  1947.50],
-        [20750.01,  21249.99, 21000,  945.00,  1995.00],
-        [21250.01,  21749.99, 21500,  967.50,  2042.50],
-        [21750.01,  22249.99, 22000,  990.00,  2090.00],
-        [22250.01,  22749.99, 22500, 1012.50,  2137.50],
-        [22750.01,  23249.99, 23000, 1035.00,  2185.00],
-        [23250.01,  23749.99, 23500, 1057.50,  2232.50],
-        [23750.01,  24249.99, 24000, 1080.00,  2280.00],
-        [24250.01,  24749.99, 24500, 1102.50,  2327.50],
-        [24750.01,  25249.99, 25000, 1125.00,  2375.00],
-        [25250.01,  25749.99, 25500, 1147.50,  2422.50],
-        [25750.01,  26249.99, 26000, 1170.00,  2470.00],
-        [26250.01,  26749.99, 26500, 1192.50,  2517.50],
-        [26750.01,  27249.99, 27000, 1215.00,  2565.00],
-        [27250.01,  27749.99, 27500, 1237.50,  2612.50],
-        [27750.01,  28249.99, 28000, 1260.00,  2660.00],
-        [28250.01,  28749.99, 28500, 1282.50,  2707.50],
-        [28750.01,  29249.99, 29000, 1305.00,  2755.00],
-        [29250.01,  29749.99, 29500, 1327.50,  2802.50],
-        [29750.01,  30249.99, 30000, 1350.00,  2850.00],
-        [30250.01,  30749.99, 30500, 1372.50,  2897.50],
-        [30750.01,  31249.99, 31000, 1395.00,  2945.00],
-        [31250.01,  31749.99, 31500, 1417.50,  2992.50],
-        [31750.01,  32249.99, 32000, 1440.00,  3040.00],
-        [32250.01,  32749.99, 32500, 1462.50,  3087.50],
-        [32750.01,  33249.99, 33000, 1485.00,  3135.00],
-        [33250.01,  33749.99, 33500, 1507.50,  3182.50],
-        [33750.01,  34249.99, 34000, 1530.00,  3230.00],
-        [34250.01,  34749.99, 34500, 1552.50,  3277.50],
-        [34750.01,  PHP_INT_MAX, 35000, 1575.00, 3325.00],
+        [        0.00,      4999.99,   5000,   250.00,   500.00],
+        [     5000.00,      5249.99,   5000,   250.00,   500.00],
+        [     5250.01,      5749.99,   5500,   275.00,   550.00],
+        [     5750.01,      6249.99,   6000,   300.00,   600.00],
+        [     6250.01,      6749.99,   6500,   325.00,   650.00],
+        [     6750.01,      7249.99,   7000,   350.00,   700.00],
+        [     7250.01,      7749.99,   7500,   375.00,   750.00],
+        [     7750.01,      8249.99,   8000,   400.00,   800.00],
+        [     8250.01,      8749.99,   8500,   425.00,   850.00],
+        [     8750.01,      9249.99,   9000,   450.00,   900.00],
+        [     9250.01,      9749.99,   9500,   475.00,   950.00],
+        [     9750.01,     10249.99,  10000,   500.00,  1000.00],
+        [    10250.01,     10749.99,  10500,   525.00,  1050.00],
+        [    10750.01,     11249.99,  11000,   550.00,  1100.00],
+        [    11250.01,     11749.99,  11500,   575.00,  1150.00],
+        [    11750.01,     12249.99,  12000,   600.00,  1200.00],
+        [    12250.01,     12749.99,  12500,   625.00,  1250.00],
+        [    12750.01,     13249.99,  13000,   650.00,  1300.00],
+        [    13250.01,     13749.99,  13500,   675.00,  1350.00],
+        [    13750.01,     14249.99,  14000,   700.00,  1400.00],
+        [    14250.01,     14749.99,  14500,   725.00,  1450.00],
+        [    14750.01,     15249.99,  15000,   750.00,  1500.00],
+        [    15250.01,     15749.99,  15500,   775.00,  1550.00],
+        [    15750.01,     16249.99,  16000,   800.00,  1600.00],
+        [    16250.01,     16749.99,  16500,   825.00,  1650.00],
+        [    16750.01,     17249.99,  17000,   850.00,  1700.00],
+        [    17250.01,     17749.99,  17500,   875.00,  1750.00],
+        [    17750.01,     18249.99,  18000,   900.00,  1800.00],
+        [    18250.01,     18749.99,  18500,   925.00,  1850.00],
+        [    18750.01,     19249.99,  19000,   950.00,  1900.00],
+        [    19250.01,     19749.99,  19500,   975.00,  1950.00],
+        [    19750.01,     20249.99,  20000,  1000.00,  2000.00],
+        [    20250.01,     20749.99,  20500,  1025.00,  2050.00],
+        [    20750.01,     21249.99,  21000,  1050.00,  2100.00],
+        [    21250.01,     21749.99,  21500,  1075.00,  2150.00],
+        [    21750.01,     22249.99,  22000,  1100.00,  2200.00],
+        [    22250.01,     22749.99,  22500,  1125.00,  2250.00],
+        [    22750.01,     23249.99,  23000,  1150.00,  2300.00],
+        [    23250.01,     23749.99,  23500,  1175.00,  2350.00],
+        [    23750.01,     24249.99,  24000,  1200.00,  2400.00],
+        [    24250.01,     24749.99,  24500,  1225.00,  2450.00],
+        [    24750.01,     25249.99,  25000,  1250.00,  2500.00],
+        [    25250.01,     25749.99,  25500,  1275.00,  2550.00],
+        [    25750.01,     26249.99,  26000,  1300.00,  2600.00],
+        [    26250.01,     26749.99,  26500,  1325.00,  2650.00],
+        [    26750.01,     27249.99,  27000,  1350.00,  2700.00],
+        [    27250.01,     27749.99,  27500,  1375.00,  2750.00],
+        [    27750.01,     28249.99,  28000,  1400.00,  2800.00],
+        [    28250.01,     28749.99,  28500,  1425.00,  2850.00],
+        [    28750.01,     29249.99,  29000,  1450.00,  2900.00],
+        [    29250.01,     29749.99,  29500,  1475.00,  2950.00],
+        [    29750.01,     30249.99,  30000,  1500.00,  3000.00],
+        [    30250.01,     30749.99,  30500,  1525.00,  3050.00],
+        [    30750.01,     31249.99,  31000,  1550.00,  3100.00],
+        [    31250.01,     31749.99,  31500,  1575.00,  3150.00],
+        [    31750.01,     32249.99,  32000,  1600.00,  3200.00],
+        [    32250.01,     32749.99,  32500,  1625.00,  3250.00],
+        [    32750.01,     33249.99,  33000,  1650.00,  3300.00],
+        [    33250.01,     33749.99,  33500,  1675.00,  3350.00],
+        [    33750.01,     34249.99,  34000,  1700.00,  3400.00],
+        [    34250.01,     34749.99,  34500,  1725.00,  3450.00],
+        [    34750.01,  PHP_INT_MAX,  35000,  1750.00,  3500.00],
     ];
 
     // ════════════════════════════════════════════════════════════
@@ -163,18 +167,9 @@ final class PhilippineDeductions
     }
 
     /**
-     * Compute monthly withholding tax using the TRAIN Law annual bracket method.
-     *
-     * BIR correct approach (RR 11-2018, RR 13-2023):
-     *   Step 1 — Compute monthly taxable income (basic − gov deductions)
-     *   Step 2 — Annualize: monthly taxable × 12
-     *   Step 3 — Apply annual BIR TRAIN bracket to get annual tax
-     *   Step 4 — Divide annual tax by 12 → monthly withholding tax
-     *
-     * This is the only correct method. The old "monthly bracket" approach
-     * (with thresholds like 20,833 / 33,332 / 66,666) was simply the annual
-     * bracket divided by 12 pre-applied — but doing it that way introduces
-     * rounding errors and doesn't match the official BIR withholding tables.
+     * Compute monthly withholding tax (annualised / 12).
+     * Used ONLY by the legacy computeAll() and computeWithholdingTax() methods.
+     * Semi-monthly cutoff methods use computeAnnualTax() directly and divide by 24.
      */
     private static function applyMonthlyBracket(float $monthlyTaxable): float
     {
@@ -213,15 +208,17 @@ final class PhilippineDeductions
      *
      * Rules:
      * - Earnings  = cutoff1_amount (fixed override) OR basic_salary/2, plus allowance/2
-     * - Deductions = withholding tax ONLY (no gov deductions)
-     * - Tax method = half_monthly (monthly_tax/2) OR bir_table (fresh compute on half salary)
-     * - Gov deductions = all zeros
+     * - Gov deductions = ALL ZERO on 1st cutoff (collected entirely on 2nd cutoff)
+     * - Withholding tax = annualised computation on semi-monthly gross (no gov deds),
+     *   divided by 24. This is the BIR-correct method: there are no government
+     *   deductions to subtract from the 1st cutoff taxable base because SSS,
+     *   PhilHealth and Pag-IBIG have not yet been collected this month.
      * - 13th month = added to gross/net on December 1st cutoff only
      *
      * @param float       $basicSalary   Full monthly basic salary
      * @param float       $allowance     Full monthly allowance
      * @param float|null  $fixedAmount   If set, overrides basic/2 for earnings split
-     * @param string      $taxMethod     'half_monthly' or 'bir_table'
+     * @param string      $taxMethod     Reserved for future use — always uses annualised method
      * @param float       $thirteenth    13th month amount to include (0 if not December)
      * @param float       $absentDeduction Deduction for absences
      */
@@ -247,18 +244,18 @@ final class PhilippineDeductions
         $absentDeduction = max(0.0, $absentDeduction);
         $grossPay        = round(max(0.0, $grossPay - $absentDeduction), 2);
 
-        // Withholding tax — NO gov deductions on 1st cutoff
-        if ($taxMethod === 'bir_table') {
-            // Fresh compute on the half salary (no gov deductions to subtract)
-            $taxableIncome   = max(0.0, $cutoffBasic);
-            $withholdingTax  = self::applyMonthlyBracket($taxableIncome);
-        } else {
-            // Default: half of full monthly tax
-            $fullMonthlyTax  = self::computeFullMonthlyTax($basicSalary);
-            $withholdingTax  = round($fullMonthlyTax / 2, 2);
-            $taxableIncome   = max(0.0, $cutoffBasic);
-        }
-        $withholdingTax = round($withholdingTax, 2);
+        // ── Withholding tax — BIR annualised method, NO gov deductions ──────────
+        // On the 1st cutoff, SSS/PhilHealth/Pag-IBIG have not been collected yet,
+        // so the taxable base is the full semi-monthly earnings (basic + allowance).
+        // Correct steps per BIR RR 11-2018 / RR 13-2023:
+        //   1. Taxable = cutoffBasic (allowance is excluded from tax base)
+        //   2. Annualise: taxable × 24
+        //   3. Apply annual TRAIN bracket → annual tax
+        //   4. Monthly tax = annual tax ÷ 12; semi-monthly tax = annual tax ÷ 24
+        $taxableIncome  = max(0.0, $cutoffBasic);
+        $annualTaxable  = $taxableIncome * 24;
+        $annualTax      = self::computeAnnualTax($annualTaxable);
+        $withholdingTax = round($annualTax / 24, 2);
 
         $totalDeductions = round($withholdingTax + $absentDeduction, 2);
         $netPay          = round(max(0.0, $grossPay - $withholdingTax), 2);
@@ -292,7 +289,7 @@ final class PhilippineDeductions
 
             // Meta
             'cutoff'           => 1,
-            'tax_method'       => $taxMethod,
+            'tax_method'       => 'annualised',
         ];
     }
 
@@ -361,18 +358,15 @@ final class PhilippineDeductions
             $piMfs        = $pagibig['mfs'];
         }
 
-        // Withholding tax
-        if ($taxMethod === 'bir_table') {
-            // Fresh compute: taxable = cutoff basic minus gov deductions applied here
-            $taxableIncome  = max(0.0, $cutoffBasic - $sssEe - $phEe - $piEe);
-            $withholdingTax = self::applyMonthlyBracket($taxableIncome);
-        } else {
-            // half_monthly: half of full monthly tax
-            $fullMonthlyTax = self::computeFullMonthlyTax($basicSalary);
-            $withholdingTax = round($fullMonthlyTax / 2, 2);
-            $taxableIncome  = max(0.0, $cutoffBasic - $sssEe - $phEe - $piEe);
-        }
-        $withholdingTax = round($withholdingTax, 2);
+        // ── Withholding tax — BIR annualised method ──────────────────────────────
+        // Taxable base = semi-monthly basic minus the gov deductions collected here.
+        // Annualise × 24, apply annual TRAIN bracket, divide by 24.
+        // The 'bir_table' / 'half_monthly' distinction is removed — annualised ÷ 24
+        // is the only BIR-correct method for semi-monthly payroll.
+        $taxableIncome  = max(0.0, $cutoffBasic - $sssEe - $phEe - $piEe);
+        $annualTaxable  = $taxableIncome * 24;
+        $annualTax      = self::computeAnnualTax($annualTaxable);
+        $withholdingTax = round($annualTax / 24, 2);
 
         // Year-end reconciliation: add any shortfall (or refund excess) to December 2nd cutoff
         // Positive reconciliation = extra tax owed by employee (deducted)
@@ -417,7 +411,7 @@ final class PhilippineDeductions
 
             // Meta
             'cutoff'           => 2,
-            'tax_method'       => $taxMethod,
+            'tax_method'       => 'annualised',
             'gov_mode'         => $govMode,
         ];
     }

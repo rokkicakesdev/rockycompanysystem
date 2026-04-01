@@ -98,6 +98,8 @@ class Model
     public static function getAttendanceByMonth(string $ym): array                     { return AttendanceModel::getByMonth($ym); }
     public static function getAttendanceByEmployee(int $id, string $ym = ''): array    { return AttendanceModel::getByEmployee($id, $ym); }
     public static function getAttendanceSummary(int $id, string $ym): array            { return AttendanceModel::getSummary($id, $ym); }
+    public static function getCutoffAttendanceSummary(int $id, string $from, string $to, string $hired = ''): array { return AttendanceModel::getCutoffSummary($id, $from, $to, $hired); }
+    public static function getPayrollYTD(int $id, string $period): array               { return PayrollModel::getYTDByEmployee($id, $period); }
     public static function saveAttendance(array $data): bool                           { return AttendanceModel::save($data); }
 
     // ════════════════════════════════════════════════════════

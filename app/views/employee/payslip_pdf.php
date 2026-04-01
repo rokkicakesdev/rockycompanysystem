@@ -89,6 +89,16 @@ $otherDed       = $p($payrollRecord['other_deductions']     ?? 0);
 $absDeduction   = (float)($payrollRecord['absent_deduction'] ?? 0);
 $absDedFmt      = $p($absDeduction);
 
+// Employer contributions
+$sssER        = (float)($payrollRecord['sss_er']        ?? 0);
+$philhealthER = (float)($payrollRecord['philhealth_er'] ?? 0);
+$pagibigER    = (float)($payrollRecord['pagibig_er']    ?? 0);
+$totalER      = round($sssER + $philhealthER + $pagibigER, 2);
+$sssERFmt     = $p($sssER);
+$phERFmt      = $p($philhealthER);
+$piERFmt      = $p($pagibigER);
+$totalERFmt   = $p($totalER);
+
 // 13th month
 $amount13th     = $record13th ? (float)$record13th['amount'] : 0;
 $amount13thFmt  = $p($amount13th);
@@ -109,25 +119,80 @@ $absRow = $absDeduction > 0
     ? "<tr><td class='lbl'>Absent Deduction</td><td class='red'>&minus; &#8369; {$absDedFmt}</td></tr>"
     : '';
 
-// Attendance block (only if data exists)
+// Attendance block
 $daysWorked  = $payrollRecord['days_worked']           ?? null;
-$daysAbsent  = $payrollRecord['days_absent']           ?? 0;
-$paidLeave   = $payrollRecord['days_paid_leave']       ?? 0;
-$workingDays = $payrollRecord['working_days_in_month'] ?? 22;
+$daysAbsent  = (int)($payrollRecord['days_absent']     ?? 0);
+$paidLeave   = (int)($payrollRecord['days_paid_leave'] ?? 0);
+$schedDays   = $payrollRecord['working_days_in_month'] ?? null;
 
 $attBlock = '';
-if ($daysWorked !== null) {
-    $attBlock = <<<HTML
+if ($schedDays !== null) {
+    $daysWorkedVal = (int)($daysWorked ?? max(0, $schedDays - $daysAbsent));
+    $attBlock = <<<ATTHTML
 <h4 class="section-title">Attendance Summary</h4>
 <table class="att-table">
   <tr>
-    <td class="att-cell"><div class="att-num">{$workingDays}</div><div class="att-lbl">Working Days</div></td>
-    <td class="att-cell"><div class="att-num">{$daysWorked}</div><div class="att-lbl">Days Worked</div></td>
+    <td class="att-cell"><div class="att-num">{$schedDays}</div><div class="att-lbl">Scheduled Days</div></td>
+    <td class="att-cell"><div class="att-num green">{$daysWorkedVal}</div><div class="att-lbl">Days Worked</div></td>
     <td class="att-cell"><div class="att-num red">{$daysAbsent}</div><div class="att-lbl">Days Absent</div></td>
-    <td class="att-cell"><div class="att-num amber">{$paidLeave}</div><div class="att-lbl">Paid Leave</div></td>
+    <td class="att-cell"><div class="att-num amber">{$paidLeave}</div><div class="att-lbl">On Leave</div></td>
   </tr>
 </table>
-HTML;
+ATTHTML;
+}
+
+// Employer contributions block (show on 2nd cutoff only)
+$erBlock = '';
+if (!$isFirstCut && $totalER > 0) {
+    $erBlock = <<<ERHTML
+<h4 class="section-title">Employer Contributions <span style="font-weight:400;font-size:7pt;color:#888;">(not deducted from employee)</span></h4>
+<table class="split-table"><tr>
+  <td class="split-left"><table class="comp">
+    <tr><td>SSS (Employer Share)</td><td class="amt blue">&#8369; {$sssERFmt}</td></tr>
+    <tr><td>PhilHealth (Employer Share)</td><td class="amt blue">&#8369; {$phERFmt}</td></tr>
+  </table></td>
+  <td class="split-right"><table class="comp">
+    <tr><td>Pag-IBIG (Employer Share)</td><td class="amt blue">&#8369; {$piERFmt}</td></tr>
+    <tr class="total"><td>Total ER Contributions</td><td class="amt blue">&#8369; {$totalERFmt}</td></tr>
+  </table></td>
+</tr></table>
+ERHTML;
+}
+
+// YTD block
+$ytd = Model::getPayrollYTD($employeeId, $period);
+$ytdBlock = '';
+if (!empty($ytd) && (float)($ytd['ytd_gross'] ?? 0) > 0) {
+    $yBasic   = $p($ytd['ytd_basic']         ?? 0);
+    $yAllow   = $p($ytd['ytd_allowance']     ?? 0);
+    $yGross   = $p($ytd['ytd_gross']         ?? 0);
+    $ySssEe   = $p($ytd['ytd_sss_ee']        ?? 0);
+    $yPhEe    = $p($ytd['ytd_philhealth_ee'] ?? 0);
+    $yPiEe    = $p($ytd['ytd_pagibig_ee']    ?? 0);
+    $yTax     = $p($ytd['ytd_tax']           ?? 0);
+    $yDed     = $p($ytd['ytd_deductions']    ?? 0);
+    $yNet     = $p($ytd['ytd_net']           ?? 0);
+    $yPeriods = (int)($ytd['ytd_periods']    ?? 0);
+    $ytdBlock = <<<YTDHTML
+<h4 class="section-title">Year-to-Date Summary ({$yPeriods} pay period(s))</h4>
+<table class="split-table"><tr>
+  <td class="split-left"><table class="comp">
+    <tr><td colspan="2" style="font-size:7pt;color:#888;font-weight:bold;padding-bottom:2px;">EARNINGS YTD</td></tr>
+    <tr><td>Basic Salary</td><td class="amt">&#8369; {$yBasic}</td></tr>
+    <tr><td>Allowance</td><td class="amt">&#8369; {$yAllow}</td></tr>
+    <tr class="total"><td class="green">Gross Pay</td><td class="amt green">&#8369; {$yGross}</td></tr>
+    <tr class="total"><td>Net Pay YTD</td><td class="amt">&#8369; {$yNet}</td></tr>
+  </table></td>
+  <td class="split-right"><table class="comp">
+    <tr><td colspan="2" style="font-size:7pt;color:#888;font-weight:bold;padding-bottom:2px;">DEDUCTIONS YTD</td></tr>
+    <tr><td>SSS (EE)</td><td class="amt red">&#8369; {$ySssEe}</td></tr>
+    <tr><td>PhilHealth (EE)</td><td class="amt red">&#8369; {$yPhEe}</td></tr>
+    <tr><td>Pag-IBIG (EE)</td><td class="amt red">&#8369; {$yPiEe}</td></tr>
+    <tr><td>Withholding Tax</td><td class="amt red">&#8369; {$yTax}</td></tr>
+    <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$yDed}</td></tr>
+  </table></td>
+</tr></table>
+YTDHTML;
 }
 
 // Watermark — always show CONFIDENTIAL on employee copy
@@ -176,6 +241,7 @@ $html = <<<HTML
   .green { color:#15803d; }
   .red   { color:#dc2626; }
   .amber { color:#d97706; }
+  .blue  { color:#1d4ed8; }
 
   /* Net pay */
   .net-box { background:#f0f5ff; border:2px solid #1e3a5f; border-radius:6px;
@@ -321,6 +387,10 @@ $html .= <<<HTML
 </div>
 
 {$attBlock}
+
+{$erBlock}
+
+{$ytdBlock}
 
 <!-- Signature Lines -->
 <table class="sig-table"><tr>

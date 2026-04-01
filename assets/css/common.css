@@ -151,7 +151,7 @@ body {
   transition: margin-left var(--transition);
   min-height: calc(100vh - var(--topbar-height));
 }
-.content { padding-top: 0.5rem; }
+.content { padding-top: 0.5rem !important; }
 .main-footer {
   display: flex !important;
   align-items: center;

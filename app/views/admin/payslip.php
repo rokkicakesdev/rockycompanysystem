@@ -102,6 +102,21 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
       $otherDed      = (float)($payrollRecord['other_deductions'] ?? 0);
       $reconcile     = round($otherDed - $absentDed, 2);
       $cutoffLabel   = $isCutoff1 ? '1st cutoff' : '2nd cutoff';
+
+      // Employer contributions (stored in payroll_records)
+      $sssEr     = (float)($payrollRecord['sss_er']        ?? 0);
+      $phEr      = (float)($payrollRecord['philhealth_er'] ?? 0);
+      $piEr      = (float)($payrollRecord['pagibig_er']    ?? 0);
+      $totalEr   = round($sssEr + $phEr + $piEr, 2);
+
+      // Attendance info
+      $daysWorked  = $payrollRecord['days_worked']           ?? null;
+      $daysAbsent  = $payrollRecord['days_absent']           ?? 0;
+      $paidLeave   = $payrollRecord['days_paid_leave']       ?? 0;
+      $schedDays   = $payrollRecord['working_days_in_month'] ?? null;
+
+      // YTD aggregates
+      $ytd = Model::getPayrollYTD($selectedEmpId, $payrollRecord['period']);
     ?>
     <div class="card payslip-card" id="payslipPrintArea">
       <div class="adm-ps-header-bar">
@@ -157,6 +172,76 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
             <div class="adm-ps-net-processed-role">Payroll Administrator</div>
           </div>
         </div>
+
+        <?php if($schedDays !== null): ?>
+        <!-- Attendance Summary -->
+        <div class="payslip-divider"></div>
+        <div class="adm-ps-section-heading">Attendance Summary</div>
+        <div class="adm-ps-att-grid">
+          <div class="adm-ps-att-cell">
+            <div class="adm-ps-att-num"><?= (int)$schedDays ?></div>
+            <div class="adm-ps-att-lbl">Scheduled Days</div>
+          </div>
+          <div class="adm-ps-att-cell">
+            <div class="adm-ps-att-num text-success"><?= (int)$daysWorked ?></div>
+            <div class="adm-ps-att-lbl">Days Worked</div>
+          </div>
+          <div class="adm-ps-att-cell">
+            <div class="adm-ps-att-num text-danger"><?= (int)$daysAbsent ?></div>
+            <div class="adm-ps-att-lbl">Days Absent</div>
+          </div>
+          <div class="adm-ps-att-cell">
+            <div class="adm-ps-att-num text-info"><?= (int)$paidLeave ?></div>
+            <div class="adm-ps-att-lbl">On Leave</div>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <?php if(!$isCutoff1 && $totalEr > 0): ?>
+        <!-- Employer Contributions -->
+        <div class="payslip-divider"></div>
+        <div class="adm-ps-section-heading">Employer Contributions <small class="adm-ps-section-note">(not deducted from employee)</small></div>
+        <div class="adm-ps-comp-grid">
+          <div class="adm-ps-comp-col">
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">SSS (Employer Share)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($sssEr,2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">PhilHealth (Employer Share)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($phEr,2) ?></span></div>
+          </div>
+          <div class="adm-ps-comp-col">
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Pag-IBIG (Employer Share)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($piEr,2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total adm-ps-er-total"><span class="adm-ps-comp-label">Total ER Contribution</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($totalEr,2) ?></span></div>
+          </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- YTD Summary -->
+        <?php if(!empty($ytd) && (float)($ytd['ytd_gross'] ?? 0) > 0): ?>
+        <div class="payslip-divider"></div>
+        <div class="adm-ps-section-heading">Year-to-Date Summary</div>
+        <div class="adm-ps-ytd-grid">
+          <div class="adm-ps-ytd-col">
+            <div class="adm-ps-comp-heading">Earnings YTD</div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Basic Salary</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_basic'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Allowance</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_allowance'],2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total text-success"><span class="adm-ps-comp-label">Gross Pay</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_gross'],2) ?></span></div>
+          </div>
+          <div class="adm-ps-ytd-col">
+            <div class="adm-ps-comp-heading">Deductions YTD</div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">SSS (EE)</span><span class="adm-ps-comp-amount text-danger">&#8369;&nbsp;<?= number_format($ytd['ytd_sss_ee'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">PhilHealth (EE)</span><span class="adm-ps-comp-amount text-danger">&#8369;&nbsp;<?= number_format($ytd['ytd_philhealth_ee'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Pag-IBIG (EE)</span><span class="adm-ps-comp-amount text-danger">&#8369;&nbsp;<?= number_format($ytd['ytd_pagibig_ee'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Withholding Tax</span><span class="adm-ps-comp-amount text-danger">&#8369;&nbsp;<?= number_format($ytd['ytd_tax'],2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total text-danger"><span class="adm-ps-comp-label">Total Deductions</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_deductions'],2) ?></span></div>
+          </div>
+          <div class="adm-ps-ytd-col">
+            <div class="adm-ps-comp-heading">Employer Contributions YTD</div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">SSS (ER)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_sss_er'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">PhilHealth (ER)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_philhealth_er'],2) ?></span></div>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Pag-IBIG (ER)</span><span class="adm-ps-comp-amount adm-ps-er-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_pagibig_er'],2) ?></span></div>
+            <div class="adm-ps-comp-row adm-ps-comp-total adm-ps-er-total"><span class="adm-ps-comp-label">Net Pay YTD</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($ytd['ytd_net'],2) ?></span></div>
+          </div>
+        </div>
+        <?php endif; ?>
+
         <div class="row mt-4 pt-3 print-only">
           <div class="col-6 text-center"><div class="signature-line">Employee Signature / Date</div></div>
           <div class="col-6 text-center"><div class="signature-line">Authorized Signatory</div></div>

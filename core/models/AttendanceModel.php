@@ -58,6 +58,89 @@ class AttendanceModel extends BaseModel
         return $stmt->fetch() ?: [];
     }
 
+    /**
+     * Get attendance summary for a specific cutoff date range.
+     * Also counts scheduled working days (Mon–Fri) in the range,
+     * excluding dates before the employee's hire date.
+     *
+     * @param int    $employeeId
+     * @param string $dateFrom    Y-m-d  (e.g. 2026-01-01)
+     * @param string $dateTo      Y-m-d  (e.g. 2026-01-15)
+     * @param string $dateHired   Y-m-d  employee hire date (for proration)
+     */
+    public static function getCutoffSummary(
+        int    $employeeId,
+        string $dateFrom,
+        string $dateTo,
+        string $dateHired = ''
+    ): array {
+        // Clamp date range to hire date if employee was hired mid-cutoff
+        $effectiveFrom = $dateFrom;
+        if ($dateHired && $dateHired > $dateFrom) {
+            $effectiveFrom = $dateHired;
+        }
+
+        // Count scheduled working days (Mon–Fri) in effective range,
+        // excluding holidays and rest_days from attendance
+        $scheduledDays = 0;
+        $cur = new DateTime($effectiveFrom);
+        $end = new DateTime($dateTo);
+        while ($cur <= $end) {
+            $dow = (int)$cur->format('N'); // 1=Mon … 7=Sun
+            if ($dow <= 5) $scheduledDays++;
+            $cur->modify('+1 day');
+        }
+
+        // Pull attendance records for employee within the cutoff range
+        $stmt = self::db()->prepare('
+            SELECT
+              COALESCE(SUM(status IN ("present","late")),                         0) AS days_present,
+              COALESCE(SUM(status = "absent"),                                    0) AS days_absent,
+              COALESCE(SUM(status = "on_leave"),                                  0) AS days_on_leave,
+              COALESCE(SUM(status = "late"),                                      0) AS days_late,
+              COALESCE(SUM(status = "half_day"),                                  0) AS days_half,
+              COALESCE(SUM(status IN ("holiday","rest_day")),                     0) AS days_nonwork,
+              COALESCE(SUM(overtime_hours),                                       0) AS total_overtime,
+              COALESCE(SUM(hours_worked),                                         0) AS total_hours
+            FROM attendance
+            WHERE employee_id = ? AND date >= ? AND date <= ?
+        ');
+        $stmt->execute([$employeeId, $effectiveFrom, $dateTo]);
+        $row = $stmt->fetch() ?: [];
+
+        // Days worked = present + late (late means they showed up)
+        // Days paid = present + late + on_leave + holiday
+        // Absent days = scheduled days not covered by any attendance status,
+        //               plus explicitly marked absent
+        $daysPresent  = (int)($row['days_present']  ?? 0);
+        $daysAbsent   = (int)($row['days_absent']   ?? 0);
+        $daysOnLeave  = (int)($row['days_on_leave'] ?? 0);
+        $daysHalf     = (int)($row['days_half']     ?? 0);
+        $daysNonWork  = (int)($row['days_nonwork']  ?? 0);
+        $totalLogged  = $daysPresent + $daysAbsent + $daysOnLeave + $daysHalf + $daysNonWork;
+
+        // Weekdays with no attendance log at all are treated as absent
+        $unloggedAbsent = max(0, $scheduledDays - $totalLogged + $daysNonWork);
+
+        // Total effective absences (explicit + unlogged weekdays)
+        $totalAbsent = $daysAbsent + ($scheduledDays - ($daysPresent + $daysAbsent + $daysOnLeave + $daysHalf));
+        $totalAbsent = max(0, $totalAbsent);
+
+        return [
+            'scheduled_days' => $scheduledDays,     // working days employee is expected
+            'effective_from' => $effectiveFrom,      // actual start (clamped to hire date)
+            'days_present'   => $daysPresent,
+            'days_absent'    => $daysAbsent,
+            'days_on_leave'  => $daysOnLeave,
+            'days_late'      => (int)($row['days_late'] ?? 0),
+            'days_half'      => $daysHalf,
+            'days_nonwork'   => $daysNonWork,
+            'total_absent'   => $totalAbsent,        // used for deduction
+            'total_overtime' => (float)($row['total_overtime'] ?? 0),
+            'total_hours'    => (float)($row['total_hours']    ?? 0),
+        ];
+    }
+
     public static function save(array $data): bool
     {
         $stmt = self::db()->prepare('
