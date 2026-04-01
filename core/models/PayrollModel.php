@@ -353,6 +353,38 @@ class PayrollModel extends BaseModel
         return (float) $stmt->fetchColumn();
     }
 
+    /**
+     * Get full YTD aggregate for an employee up to (and including) a given period.
+     * Used for the YTD section on payslips.
+     */
+    public static function getYTDByEmployee(int $employeeId, string $upToPeriod): array
+    {
+        $year = (int) substr($upToPeriod, 0, 4);
+        $stmt = self::db()->prepare('
+            SELECT
+                COALESCE(SUM(basic_salary),      0) AS ytd_basic,
+                COALESCE(SUM(allowance),          0) AS ytd_allowance,
+                COALESCE(SUM(gross_pay),          0) AS ytd_gross,
+                COALESCE(SUM(sss_ee),             0) AS ytd_sss_ee,
+                COALESCE(SUM(sss_er),             0) AS ytd_sss_er,
+                COALESCE(SUM(philhealth_ee),      0) AS ytd_philhealth_ee,
+                COALESCE(SUM(philhealth_er),      0) AS ytd_philhealth_er,
+                COALESCE(SUM(pagibig_ee),         0) AS ytd_pagibig_ee,
+                COALESCE(SUM(pagibig_er),         0) AS ytd_pagibig_er,
+                COALESCE(SUM(withholding_tax),    0) AS ytd_tax,
+                COALESCE(SUM(total_deductions),   0) AS ytd_deductions,
+                COALESCE(SUM(net_pay),            0) AS ytd_net,
+                COALESCE(SUM(other_deductions),   0) AS ytd_other_deductions,
+                COUNT(*)                              AS ytd_periods
+            FROM payroll_records
+            WHERE employee_id = ?
+              AND period LIKE ?
+              AND period <= ?
+        ');
+        $stmt->execute([$employeeId, $year . '-%', $upToPeriod]);
+        return $stmt->fetch() ?: [];
+    }
+
     // ════════════════════════════════════════════════════════
     //  13TH MONTH PAY
     // ════════════════════════════════════════════════════════
