@@ -122,15 +122,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     }
 
                     // ── Year-end reconciliation (December 2nd cutoff only) ──────
+                    // Only applies to employees who have been with the company for at least
+                    // one full cutoff BEFORE December. New hires in December are excluded
+                    // because they haven't had enough periods for any tax over/under-payment.
                     $reconciliation = 0.0;
                     if (Model::isDecember2ndCutoff($genPeriod)) {
-                        $year4         = Model::periodYear($genPeriod);
-                        $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + ((float)$emp['basic_salary'] / 2);
-                        $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year4);
-                        $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year4);
-                        $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
-                            $annualBasic, $annualGovDeds, $annualTaxPaid
-                        );
+                        $year4 = Model::periodYear($genPeriod);
+                        if (Model::hasPayrollBeforeDecember($empId, $year4)) {
+                            $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + ((float)$emp['basic_salary'] / 2);
+                            $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year4);
+                            $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year4);
+                            $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
+                                $annualBasic, $annualGovDeds, $annualTaxPaid
+                            );
+                        }
                     }
 
                     // ── Compute payroll deductions ──────────────────────────────
@@ -251,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
         $newStatus  = trim($_POST['new_status']    ?? '');
         $noteText   = trim($_POST['status_note']   ?? '');
         $editPeriod = trim($_POST['edit_period']   ?? '');
-        $allowed    = ['released', 'pending', 'modification'];
+        $allowed    = ['released', 'pending'];
 
         if ($editId && in_array($newStatus, $allowed, true)) {
             $payRecord = Model::findPayrollById($editId);
@@ -277,6 +282,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
     }
 }
 
+// ===========================================================================
+//  POST: DELETE PAYROLL RECORD
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payroll'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token.</div>";
+    } else {
+        $deleteId     = (int)($_POST['payroll_id']     ?? 0);
+        $deletePeriod = trim($_POST['delete_period']   ?? '');
+        if ($deleteId) {
+            $payRecord = Model::findPayrollById($deleteId);
+            $empName   = $payRecord['employee_name'] ?? "ID:{$deleteId}";
+            if (Model::deletePayrollRecord($deleteId)) {
+                Model::log($_SESSION['user_id'], 'DELETE_PAYROLL',
+                    "Deleted payroll ID:{$deleteId} for {$empName} period {$deletePeriod}");
+                header("Location: payroll.php?period={$deletePeriod}&msg=deleted&name=" . urlencode($empName));
+                exit;
+            }
+        }
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to delete record.</div>";
+    }
+}
+
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 // Preserve any $msg set by POST handlers above — only init if not already set
@@ -286,14 +314,36 @@ if (!isset($msg)) { $msg = ''; }
 //  SETUP: Period selection and data
 // ===========================================================================
 $todayCutoff     = date('j') <= 15 ? '1' : '2';
-$selectedPeriod  = $_GET['period'] ?? (date('Y-m') . '-' . $todayCutoff);
 $existingPeriods = Model::getPayrollPeriods();
+$oldestPeriod    = Model::getOldestPayrollPeriod();
 
+// Default selected period: from GET, or oldest existing record, or current cutoff
+$defaultPeriod  = $oldestPeriod ?? (date('Y-m') . '-' . $todayCutoff);
+$selectedPeriod = $_GET['period'] ?? $defaultPeriod;
+
+// Build period options: merge last 6 months + all existing periods (oldest to newest range)
 $periodOptions = [];
-for ($i = 0; $i < 6; $i++) {
-    $base = date('Y-m', strtotime("-{$i} months"));
-    $periodOptions[] = $base . '-2';
-    $periodOptions[] = $base . '-1';
+if ($oldestPeriod) {
+    // Generate from oldest period up to 1 month in the future
+    $cursor = $oldestPeriod;
+    $limit  = date('Y-m', strtotime('+1 month')) . '-2';
+    while ($cursor <= $limit) {
+        $periodOptions[] = $cursor;
+        // increment by half-month
+        $parts = explode('-', $cursor);
+        if ($parts[2] === '1') {
+            $cursor = $parts[0] . '-' . $parts[1] . '-2';
+        } else {
+            $next = date('Y-m', strtotime($parts[0] . '-' . $parts[1] . '-01 +1 month'));
+            $cursor = $next . '-1';
+        }
+    }
+} else {
+    for ($i = 5; $i >= 0; $i--) {
+        $base = date('Y-m', strtotime("-{$i} months"));
+        $periodOptions[] = $base . '-1';
+        $periodOptions[] = $base . '-2';
+    }
 }
 $periodOptions = array_unique(array_merge($periodOptions, $existingPeriods));
 usort($periodOptions, fn($a, $b) => strcmp($b, $a));
@@ -326,6 +376,9 @@ if (!$msg) {
     } elseif ($msgParam === 'status_updated') {
         $name = htmlspecialchars($_GET['name'] ?? 'Employee');
         $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Payroll status updated for <strong>{$name}</strong>.</div>";
+    } elseif ($msgParam === 'deleted') {
+        $name = htmlspecialchars($_GET['name'] ?? 'Employee');
+        $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Payroll record deleted for <strong>{$name}</strong>.</div>";
     }
 }
 
@@ -336,7 +389,7 @@ $totalDed         = array_sum(array_column($periodPayroll, 'total_deductions'));
 $totalNet         = array_sum(array_column($periodPayroll, 'net_pay'));
 $pendingList      = array_filter($periodPayroll, fn($p) => $p['status'] === 'pending');
 $releasedList     = array_filter($periodPayroll, fn($p) => $p['status'] === 'released');
-$modificationList = array_filter($periodPayroll, fn($p) => $p['status'] === 'modification');
+// Modification status removed per requirements
 $alreadyGenerated = Model::periodExists($selectedPeriod);
 
 // Pre-fetch notes for all payroll records in this period
@@ -439,9 +492,6 @@ foreach ($periodPayroll as $p) {
     <div class="card-tools d-flex align-items-center payroll-card-tools">
       <span class="badge badge-warning mr-2"><?= count($pendingList) ?> Pending</span>
       <span class="badge badge-success mr-2"><?= count($releasedList) ?> Released</span>
-      <?php if (count($modificationList) > 0): ?>
-      <span class="badge badge-secondary mr-2"><?= count($modificationList) ?> Modification</span>
-      <?php endif; ?>
       <?php if (!empty($periodPayroll)): ?>
       <a href="payroll_export.php?period=<?= urlencode($selectedPeriod) ?>&format=pdf"
          target="_blank"
@@ -509,11 +559,10 @@ foreach ($periodPayroll as $p) {
             <td>
               <?php
               $badgeMap = [
-                  'released'     => 'badge-success',
-                  'pending'      => 'badge-warning',
-                  'modification' => 'badge-secondary',
+                  'released' => 'badge-success',
+                  'pending'  => 'badge-warning',
               ];
-              $badgeCls = $badgeMap[$p['status']] ?? 'badge-secondary';
+              $badgeCls = $badgeMap[$p['status']] ?? 'badge-warning';
               ?>
               <span class="badge <?= $badgeCls ?>"><?= ucfirst($p['status']) ?></span>
             </td>
@@ -529,32 +578,40 @@ foreach ($periodPayroll as $p) {
               </button>
             </td>
             <td class="text-center payroll-actions-cell no-print">
-              <a href="payslip.php?emp=<?= $p['employee_id'] ?>&period=<?= $selectedPeriod ?>"
-                 class="btn btn-sm btn-info" title="View Payslip">
-                <i class="fas fa-receipt"></i>
-              </a>
-              <?php if (in_array($p['status'], ['released', 'pending', 'modification'])): ?>
-              <button type="button"
-                      class="btn btn-sm btn-warning payroll-edit-status-btn"
-                      title="Edit Status"
-                      data-payroll-id="<?= $p['id'] ?>"
-                      data-current-status="<?= $p['status'] ?>"
-                      data-employee="<?= htmlspecialchars($p['employee_name']) ?>">
-                <i class="fas fa-edit"></i>
-              </button>
-              <?php endif; ?>
-              <?php if (in_array($p['status'], ['pending', 'modification'])): ?>
-              <form method="POST" class="action-form-inline"
-                    onsubmit="return confirm('Release payroll for <?= htmlspecialchars(addslashes($p['employee_name'])) ?>?')">
-                <input type="hidden" name="release_single"  value="1">
-                <input type="hidden" name="payroll_id"      value="<?= $p['id'] ?>">
-                <input type="hidden" name="release_period"  value="<?= $selectedPeriod ?>">
-                <input type="hidden" name="csrf_token"      value="<?= htmlspecialchars($csrf_token) ?>">
-                <button type="submit" class="btn btn-sm btn-success" title="Release Payslip">
-                  <i class="fas fa-paper-plane"></i>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" data-toggle="dropdown">
+                  <i class="fas fa-ellipsis-v"></i>
                 </button>
-              </form>
-              <?php endif; ?>
+                <div class="dropdown-menu dropdown-menu-right">
+                  <a class="dropdown-item" href="payslip.php?emp=<?= $p['employee_id'] ?>&period=<?= $selectedPeriod ?>">
+                    <i class="fas fa-receipt mr-2 text-info"></i>View Payslip
+                  </a>
+                  <div class="dropdown-divider"></div>
+                  <?php if (in_array($p['status'], ['released', 'pending'])): ?>
+                  <a class="dropdown-item payroll-edit-status-btn" href="#"
+                     data-payroll-id="<?= $p['id'] ?>"
+                     data-current-status="<?= $p['status'] ?>"
+                     data-employee="<?= htmlspecialchars($p['employee_name']) ?>">
+                    <i class="fas fa-edit mr-2 text-warning"></i>Edit Status
+                  </a>
+                  <?php endif; ?>
+                  <?php if ($p['status'] === 'pending'): ?>
+                  <a class="dropdown-item payroll-release-btn" href="#"
+                     data-payroll-id="<?= $p['id'] ?>"
+                     data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
+                     data-period="<?= htmlspecialchars($selectedPeriod) ?>">
+                    <i class="fas fa-paper-plane mr-2 text-success"></i>Release
+                  </a>
+                  <?php endif; ?>
+                  <div class="dropdown-divider"></div>
+                  <a class="dropdown-item payroll-delete-btn" href="#"
+                     data-payroll-id="<?= $p['id'] ?>"
+                     data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
+                     data-period="<?= htmlspecialchars($selectedPeriod) ?>">
+                    <i class="fas fa-trash mr-2 text-danger"></i>Delete
+                  </a>
+                </div>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>
@@ -597,7 +654,6 @@ foreach ($periodPayroll as $p) {
             <select name="new_status" id="editStatusSelect" class="form-control" required>
               <option value="released">Released</option>
               <option value="pending">Pending</option>
-              <option value="modification">Modification</option>
             </select>
           </div>
           <div class="form-group payroll-note-hidden" id="editStatusNoteGroup">
@@ -636,6 +692,107 @@ foreach ($periodPayroll as $p) {
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE PAYROLL MODAL ──────────────────────────────────── -->
+<div class="modal fade no-print" id="deletePayrollModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger">
+        <h5 class="modal-title text-white"><i class="fas fa-trash mr-2"></i>Delete Payroll Record</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form method="POST" id="deletePayrollForm">
+        <input type="hidden" name="delete_payroll" value="1">
+        <input type="hidden" name="payroll_id"     id="deletePayrollId">
+        <input type="hidden" name="delete_period"  id="deletePayrollPeriod">
+        <input type="hidden" name="csrf_token"     value="<?= htmlspecialchars($csrf_token) ?>">
+        <div class="modal-body">
+          <div class="d-flex align-items-start">
+            <i class="fas fa-exclamation-triangle fa-2x text-danger mr-3 mt-1"></i>
+            <div>
+              <p class="mb-1 font-weight-bold">Are you sure you want to delete this payroll record?</p>
+              <p class="text-muted mb-1 payroll-delete-emp-label"><i class="fas fa-user mr-1"></i><strong id="deletePayrollEmpName"></strong></p>
+              <p class="text-danger mb-0"><small>This action cannot be undone. The record will be permanently removed.</small></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash mr-1"></i>Delete Record
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── RELEASE SINGLE MODAL ───────────────────────────────────── -->
+<div class="modal fade no-print" id="releasePayrollModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success">
+        <h5 class="modal-title text-white"><i class="fas fa-paper-plane mr-2"></i>Release Payroll</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form method="POST" id="releasePayrollForm">
+        <input type="hidden" name="release_single"  value="1">
+        <input type="hidden" name="payroll_id"      id="releasePayrollId">
+        <input type="hidden" name="release_period"  id="releasePayrollPeriod">
+        <input type="hidden" name="csrf_token"      value="<?= htmlspecialchars($csrf_token) ?>">
+        <div class="modal-body">
+          <div class="d-flex align-items-start">
+            <i class="fas fa-paper-plane fa-2x text-success mr-3 mt-1"></i>
+            <div>
+              <p class="mb-1 font-weight-bold">Release payroll for this employee?</p>
+              <p class="text-muted mb-1"><i class="fas fa-user mr-1"></i><strong id="releasePayrollEmpName"></strong></p>
+              <p class="text-muted mb-0"><small>Once released, the employee can view their payslip. This cannot be undone.</small></p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-paper-plane mr-1"></i>Release
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── GENERATE CONFIRM MODAL ────────────────────────────────── -->
+<div class="modal fade no-print" id="generateConfirmModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success">
+        <h5 class="modal-title text-white"><i class="fas fa-cogs mr-2"></i>Confirm Payroll Generation</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-start">
+          <i class="fas fa-info-circle fa-2x text-success mr-3 mt-1"></i>
+          <div>
+            <p class="mb-1 font-weight-bold" id="genConfirmMsg">Generate payroll?</p>
+            <p class="text-muted mb-0"><small>Deductions will be computed from attendance records. This cannot be undone.</small></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i>Cancel
+        </button>
+        <button type="button" class="btn btn-success" id="genConfirmOkBtn">
+          <i class="fas fa-play mr-1"></i>Confirm &amp; Generate
+        </button>
       </div>
     </div>
   </div>
@@ -805,32 +962,70 @@ function confirmGenerate() {
     if (!period) { alert('Please select a payroll period.'); return false; }
     if (checked === 0) { alert('Please select at least one employee.'); return false; }
     var cutoffLabel = document.getElementById('genPeriodCutoff').selectedOptions[0].text;
-    return confirm('Generate payroll for ' + checked + ' employee(s)?\\nPeriod: ' + period + ' (' + cutoffLabel + ')\\nThis cannot be undone.');
+    // Show AdminLTE confirm modal instead of native confirm()
+    var msg = 'Generate payroll for <strong>' + checked + '</strong> employee(s)?<br>'
+            + '<small class="text-muted">Period: ' + period + ' (' + cutoffLabel + ')</small>';
+    document.getElementById('genConfirmMsg').innerHTML = msg;
+    // Store the form reference and show the modal
+    window._pendingGenerateForm = document.querySelector('#generateModal form');
+    $('#generateModal').modal('hide');
+    setTimeout(function() { $('#generateConfirmModal').modal('show'); }, 300);
+    return false; // Prevent native submit — modal handles it
 }
 
-// ── Edit Status Modal ───────────────────────────────────────────
-document.querySelectorAll('.payroll-edit-status-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var payrollId     = this.dataset.payrollId;
-        var currentStatus = this.dataset.currentStatus;
-        var empName       = this.dataset.employee;
+document.getElementById('genConfirmOkBtn') && document.getElementById('genConfirmOkBtn').addEventListener('click', function() {
+    $('#generateConfirmModal').modal('hide');
+    if (window._pendingGenerateForm) {
+        // Bypass the onsubmit that calls confirmGenerate (would loop)
+        window._pendingGenerateForm.onsubmit = null;
+        window._pendingGenerateForm.submit();
+    }
+});
 
-        document.getElementById('editStatusPayrollId').value = payrollId;
-        document.getElementById('editStatusEmpName').textContent  = empName;
-        document.getElementById('editStatusSelect').value    = currentStatus;
-        document.getElementById('editStatusNote').value      = '';
-        document.getElementById('editStatusNoteCount').textContent = '0';
+// ── Delete Payroll Modal ────────────────────────────────────────
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.payroll-delete-btn');
+    if (!btn) return;
+    e.preventDefault();
+    document.getElementById('deletePayrollId').value      = btn.dataset.payrollId;
+    document.getElementById('deletePayrollPeriod').value  = btn.dataset.period;
+    document.getElementById('deletePayrollEmpName').textContent = btn.dataset.employee;
+    $('#deletePayrollModal').modal('show');
+});
 
-        // Show/hide note field based on initial status
-        toggleNoteField(currentStatus);
-        $('#editStatusModal').modal('show');
-    });
+// ── Release Single Modal ────────────────────────────────────────
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.payroll-release-btn');
+    if (!btn) return;
+    e.preventDefault();
+    document.getElementById('releasePayrollId').value      = btn.dataset.payrollId;
+    document.getElementById('releasePayrollPeriod').value  = btn.dataset.period;
+    document.getElementById('releasePayrollEmpName').textContent = btn.dataset.employee;
+    $('#releasePayrollModal').modal('show');
+});
+
+// ── Edit Status (now on <a> not button) ────────────────────────
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.payroll-edit-status-btn');
+    if (!btn) return;
+    e.preventDefault();
+    var payrollId     = btn.dataset.payrollId;
+    var currentStatus = btn.dataset.currentStatus;
+    var empName       = btn.dataset.employee;
+
+    document.getElementById('editStatusPayrollId').value = payrollId;
+    document.getElementById('editStatusEmpName').textContent  = empName;
+    document.getElementById('editStatusSelect').value    = currentStatus;
+    document.getElementById('editStatusNote').value      = '';
+    document.getElementById('editStatusNoteCount').textContent = '0';
+    toggleNoteField(currentStatus);
+    $('#editStatusModal').modal('show');
 });
 
 function toggleNoteField(status) {
     var noteGroup = document.getElementById('editStatusNoteGroup');
     var noteField = document.getElementById('editStatusNote');
-    if (status === 'modification' || status === 'pending') {
+    if (status === 'pending') {
         noteGroup.classList.remove('payroll-note-hidden');
         noteGroup.classList.add('payroll-note-visible');
         noteField.required = true;

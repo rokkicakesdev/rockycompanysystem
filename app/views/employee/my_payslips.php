@@ -14,13 +14,18 @@ $employeeId = (int)($_SESSION['employee_id'] ?? 0);
 require_once __DIR__ . '/../../../core/Model.php';
 
 $records  = Model::getPayrollRecordsByEmployee($employeeId);
+// Employees only see Released payslips
+$records  = array_filter($records, fn($r) => ($r['status'] ?? '') === 'released');
+$records  = array_values($records);
 $employee = $employeeId ? Model::findEmployeeById($employeeId) : null;
 
-// Build full payroll records keyed by period for modal data
+// Build full payroll records keyed by period for modal data (released only)
 $fullRecords = [];
 if ($employeeId) {
     foreach (Model::getPayrollByEmployee($employeeId) as $r) {
-        $fullRecords[$r['period']] = $r;
+        if (($r['status'] ?? '') === 'released') {
+            $fullRecords[$r['period']] = $r;
+        }
     }
 }
 
