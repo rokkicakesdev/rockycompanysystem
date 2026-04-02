@@ -153,8 +153,11 @@ class Model
     public static function employeeExistsInPeriod(int $id, string $p): bool        { return PayrollModel::employeeExistsInPeriod($id, $p); }
     public static function getTotalNetPayForPeriod(string $p): float               { return PayrollModel::getTotalNetPayForPeriod($p); }
     public static function getPayrollPeriods(): array                              { return PayrollModel::getPeriods(); }
+    public static function getOldestPayrollPeriod(): ?string                       { return PayrollModel::getOldestPeriod(); }
     public static function getPayrollPeriodsForEmployee(int $id): array           { return PayrollModel::getPeriodsForEmployee($id); }
     public static function getEmployeesWithMissingAttendance(array $ids, string $p): array { return PayrollModel::getEmployeesWithMissingAttendance($ids, $p); }
+    public static function deletePayrollRecord(int $id): bool                     { return PayrollModel::deleteRecord($id); }
+    public static function hasPayrollBeforeDecember(int $empId, int $year): bool  { return PayrollModel::hasPayrollBeforeDecember($empId, $year); }
     public static function createPayrollRecord(array $d): bool                     { return PayrollModel::create($d); }
     public static function releasePayroll(int $id): bool                           { return PayrollModel::release($id); }
     public static function updatePayrollStatus(int $id, string $status): bool      { return PayrollModel::updateStatus($id, $status); }

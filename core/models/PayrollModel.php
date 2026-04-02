@@ -143,6 +143,13 @@ class PayrollModel extends BaseModel
         return self::db()->query('SELECT DISTINCT period FROM payroll_records ORDER BY period DESC')->fetchAll(PDO::FETCH_COLUMN);
     }
 
+    /** Returns the oldest existing payroll period (for default period selector). */
+    public static function getOldestPeriod(): ?string
+    {
+        $row = self::db()->query('SELECT MIN(period) FROM payroll_records')->fetchColumn();
+        return $row ?: null;
+    }
+
     /** Get payroll periods for a specific employee (for dependent dropdown). */
     public static function getPeriodsForEmployee(int $employeeId): array
     {
@@ -151,25 +158,82 @@ class PayrollModel extends BaseModel
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
 
-    /** Check employees in a period that have missing attendance for that month. Returns array of employee names. */
+    /**
+     * Delete a single payroll record by ID.
+     */
+    public static function deleteRecord(int $id): bool
+    {
+        $stmt = self::db()->prepare('DELETE FROM payroll_records WHERE id = ?');
+        return (bool) $stmt->execute([$id]);
+    }
+
+    /**
+     * Check if an employee has any payroll records in a given year BEFORE December.
+     * Used to determine if Year-End Tax Reconciliation should apply.
+     * A new hire who only has December records (< 2 prior cutoffs) is excluded.
+     */
+    public static function hasPayrollBeforeDecember(int $employeeId, int $year): bool
+    {
+        $stmt = self::db()->prepare(
+            "SELECT COUNT(*) FROM payroll_records
+             WHERE employee_id = ? AND period LIKE ? AND period NOT LIKE ?"
+        );
+        $stmt->execute([$employeeId, $year . '-%', $year . '-12-%']);
+        return ((int) $stmt->fetchColumn()) > 0;
+    }
+
+    /**
+     * Check employees in a specific cutoff date range that have NO attendance records.
+     * Respects hire date — an employee hired after the cutoff end is excluded entirely.
+     * An employee hired mid-cutoff only needs records from their hire date onward.
+     */
     public static function getEmployeesWithMissingAttendance(array $employeeIds, string $period): array
     {
+        $cutoffNum = static::periodCutoff($period);
         $yearMonth = static::periodBase($period);
+        [$year, $month] = explode('-', $yearMonth);
+        $lastDay = date('t', mktime(0, 0, 0, (int)$month, 1, (int)$year));
+
+        if ($cutoffNum === 1) {
+            $cutoffFrom = "{$yearMonth}-01";
+            $cutoffTo   = "{$yearMonth}-15";
+        } else {
+            $cutoffFrom = "{$yearMonth}-16";
+            $cutoffTo   = "{$yearMonth}-{$lastDay}";
+        }
+
         $missing = [];
         foreach ($employeeIds as $empId) {
             $empId = (int)$empId;
-            $stmt  = self::db()->prepare('SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND DATE_FORMAT(date, "%Y-%m") = ?');
-            $stmt->execute([$empId, $yearMonth]);
-            $count = (int)$stmt->fetchColumn();
+
+            // Fetch employee hire date
+            $empStmt = self::db()->prepare('SELECT name, date_hired FROM employees WHERE id = ?');
+            $empStmt->execute([$empId]);
+            $empRow  = $empStmt->fetch();
+            if (!$empRow) continue;
+
+            $dateHired = $empRow['date_hired'] ?? '';
+
+            // If employee was hired after the cutoff ends, skip — no records expected
+            if ($dateHired && $dateHired > $cutoffTo) continue;
+
+            // Effective start: clamp to hire date if hired mid-cutoff
+            $effectiveFrom = ($dateHired && $dateHired > $cutoffFrom) ? $dateHired : $cutoffFrom;
+
+            // Count attendance records within the effective cutoff range
+            $attStmt = self::db()->prepare(
+                'SELECT COUNT(*) FROM attendance WHERE employee_id = ? AND date >= ? AND date <= ?'
+            );
+            $attStmt->execute([$empId, $effectiveFrom, $cutoffTo]);
+            $count = (int) $attStmt->fetchColumn();
+
             if ($count === 0) {
-                $emp = self::db()->prepare('SELECT name FROM employees WHERE id = ?');
-                $emp->execute([$empId]);
-                $row = $emp->fetch();
-                if ($row) $missing[] = htmlspecialchars($row['name']);
+                $missing[] = htmlspecialchars($empRow['name']);
             }
         }
         return $missing;
     }
+
 
     public static function create(array $d): bool
     {

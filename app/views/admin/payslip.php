@@ -126,7 +126,10 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
         </div>
         <div class="adm-ps-header-right">
           <div class="adm-ps-period"><?= htmlspecialchars(Model::periodLabel($payrollRecord['period'])) ?></div>
-          <span class="status-badge badge-released adm-ps-status-pill">Released</span>
+          <?php
+          $statusBadgeClass = $payrollRecord['status'] === 'released' ? 'badge-released' : 'badge-pending';
+          ?>
+          <span class="status-badge <?= $statusBadgeClass ?> adm-ps-status-pill"><?= ucfirst($payrollRecord['status'] ?? 'Pending') ?></span>
         </div>
       </div>
       <div class="card-body adm-ps-body">

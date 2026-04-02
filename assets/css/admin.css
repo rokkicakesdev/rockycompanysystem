@@ -539,3 +539,10 @@ select.status-select option[value="terminated"] { color: #991b1b; }
   .adm-ps-att-grid  { grid-template-columns: repeat(4, 1fr); }
   .adm-ps-ytd-grid  { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ════════════════════════════════════════════════════════════
+   PAYROLL — Action dropdown & delete modal
+   ════════════════════════════════════════════════════════════ */
+.payroll-actions-cell .dropdown-menu  { min-width: 160px; font-size: .82rem; }
+.payroll-actions-cell .dropdown-item  { padding: .4rem .9rem; }
+.payroll-delete-emp-label             { font-size: .85rem; }
