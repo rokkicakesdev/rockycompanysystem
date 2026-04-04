@@ -68,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'basic_salary'               => (float)($_POST['basic_salary'] ?? 0),
             'allowance'                  => (float)($_POST['allowance']    ?? 0),
             'date_hired'                 => $_POST['date_hired']           ?? null,
+            'date_start'                 => !empty($_POST['date_start']) ? $_POST['date_start'] : ($_POST['date_hired'] ?? null),
             'employment_type'            => $_POST['employment_type']      ?? 'regular',
             'status'                     => $_POST['status']               ?? 'active',
             'sick_leave_balance'         => (float)($_POST['sick_leave_balance']        ?? 10),
@@ -709,6 +710,15 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                     <input type="date" name="date_hired" id="fDateHired" class="form-control" required>
                   </div>
                 </div>
+                <div class="col-md-4">
+                  <div class="form-group">
+                    <label>Date Start
+                      <i class="fas fa-info-circle text-muted ml-1" title="Actual first working day. Leave blank to use Date Hired. Used for payslip proration when hired mid-cutoff."></i>
+                    </label>
+                    <input type="date" name="date_start" id="fDateStart" class="form-control">
+                    <small class="text-muted">Leave blank to use Date Hired</small>
+                  </div>
+                </div>
                 <div class="col-md-6">
                   <div class="form-group">
                     <label>Employment Type</label>
@@ -872,6 +882,7 @@ $(document).ready(function () {
     document.getElementById('fBasicSalary').value       = emp.basic_salary     ?? 0;
     document.getElementById('fAllowance').value         = emp.allowance        ?? 0;
     document.getElementById('fDateHired').value         = emp.date_hired       ?? '';
+    document.getElementById('fDateStart').value         = emp.date_start       ?? '';
     document.getElementById('fEmploymentType').value    = emp.employment_type  ?? 'regular';
     document.getElementById('fStatus').value            = emp.status           ?? 'active';
     document.getElementById('fDeptId').value            = emp.department_id    ?? '';

@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     $govMode     = $settings['gov_deduction_mode'];
                     $cutoffNum   = Model::periodCutoff($genPeriod);
                     $yearMonth   = Model::periodBase($genPeriod);  // e.g. "2026-01"
-                    $dateHired   = $emp['date_hired'] ?? '';
+                    $dateStart   = $emp['date_start'] ?? $emp['date_hired'] ?? '';
 
                     // ── Determine cutoff date range ─────────────────────────────
                     // 1st cutoff: 1st–15th of the month
@@ -93,23 +93,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         $cutoffTo   = "{$yearMonth}-{$lastDay}";
                     }
 
-                    // ── Get cutoff-specific attendance ──────────────────────────
-                    $attData       = Model::getCutoffAttendanceSummary($empId, $cutoffFrom, $cutoffTo, $dateHired);
-                    $scheduledDays = (int)($attData['scheduled_days'] ?? 0);  // working days employee should attend
-                    $totalAbsent   = (int)($attData['total_absent']   ?? 0);  // absent + unlogged weekdays
-                    $daysHalf      = (int)($attData['days_half']      ?? 0);
+                    // ── Get cutoff-specific attendance (uses date_start for proration) ──
+                    $attData               = Model::getCutoffAttendanceSummary($empId, $cutoffFrom, $cutoffTo, $dateStart);
+                    $scheduledDays         = (int)($attData['scheduled_days']          ?? 0);  // full cutoff weekdays (payslip display)
+                    $effectiveSchedDays    = (int)($attData['effective_scheduled_days'] ?? $scheduledDays); // from dateStart (deduction denominator)
+                    $totalAbsent           = (int)($attData['total_absent']             ?? 0);
+                    $daysHalf              = (int)($attData['days_half']                ?? 0);
+                    $daysPaidLeave         = (int)($attData['days_on_leave']            ?? 0);
+                    $daysUnpaidLeave       = (int)($attData['days_unpaid_leave']        ?? 0);
+                    $daysPresent           = (int)($attData['days_present']             ?? 0);
+                    $daysAbsentOnly        = (int)($attData['days_absent']              ?? 0); // excl. unpaid leave
 
-                    // ── Compute daily rate and absent deduction ─────────────────
-                    // Daily rate = semi-monthly basic ÷ scheduled working days in cutoff
-                    // If scheduledDays = 0 (all holidays/weekends), no deduction
+                    // ── Compute daily rate and deductions ──────────────────────
+                    // Daily rate denominator = scheduledDays (ALL weekdays in the full cutoff,
+                    // including public holidays). This is the correct denominator because
+                    // holidays are PAID days in Philippine labor law — they are part of the
+                    // salary structure, not excluded from it.
+                    //
+                    // Proration for new hires:
+                    //   proratedDays = scheduledDays − effectiveSchedDays
+                    //   = weekdays BEFORE the employee's start date (e.g. Jan 1 holiday + Jan 2
+                    //     for an employee who started Jan 5 in a Jan 1–15 cutoff = 2 days).
+                    //   proratedDeduction = proratedDays × dailyRate
+                    //   This is added to absentDeduction so it flows into total_deductions
+                    //   and net_pay automatically without any schema change.
                     if ($scheduledDays > 0) {
-                        // Semi-monthly basic for this cutoff
-                        $cutoffBasicAmount = $fixedAmount !== null ? $fixedAmount : round((float)$emp['basic_salary'] / 2, 2);
-                        $dailyRate         = round($cutoffBasicAmount / $scheduledDays, 4);
-                        $absentDeduction   = round(($totalAbsent * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
+                        $cutoffBasicAmount    = $fixedAmount !== null ? $fixedAmount : round((float)$emp['basic_salary'] / 2, 2);
+                        $dailyRate            = round($cutoffBasicAmount / $scheduledDays, 4);
+                        // Proration deduction = days before employee's start date × daily rate
+                        $proratedDays        = max(0, $scheduledDays - $effectiveSchedDays);
+                        $proratedDeduction   = round($proratedDays * $dailyRate, 2);
+                        // Absent deduction = explicit absent days (NOT unpaid leave — tracked separately)
+                        $absentDeduction      = round($proratedDeduction + ($daysAbsentOnly * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
+                        // Unpaid leave deduction = LWOP days × daily rate
+                        $unpaidLeaveDeduction = round($daysUnpaidLeave * $dailyRate, 2);
                     } else {
-                        $dailyRate       = 0.0;
-                        $absentDeduction = 0.0;
+                        $dailyRate            = 0.0;
+                        $proratedDeduction    = 0.0;
+                        $absentDeduction      = 0.0;
+                        $unpaidLeaveDeduction = 0.0;
                     }
 
                     // ── 13th month (December 1st cutoff only) ──────────────────
@@ -142,43 +164,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     if ($cutoffNum === 1) {
                         $deductions = PhilippineDeductions::computeFirstCutoff(
                             (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
-                            $fixedAmount, $taxMethod, $thirteenthAmount, $absentDeduction
+                            $fixedAmount, $taxMethod, $thirteenthAmount,
+                            $absentDeduction + $unpaidLeaveDeduction
                         );
                     } else {
                         $deductions = PhilippineDeductions::computeSecondCutoff(
                             (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
-                            $fixedAmount, $taxMethod, $govMode, $absentDeduction, $reconciliation
+                            $fixedAmount, $taxMethod, $govMode,
+                            $absentDeduction + $unpaidLeaveDeduction, $reconciliation
                         );
                     }
 
+                    // Days worked = full present days + half-days counted as 0.5 each.
+                    // NOTE: $daysPresent counts only 'present'/'late' rows — half_day rows
+                    // are tracked separately in $daysHalf and must be ADDED, not subtracted.
+                    $daysWorked = max(0, $daysPresent + ($daysHalf * 0.5));
+
                     $record = [
-                        'employee_id'           => $empId,
-                        'period'                => $genPeriod,
-                        'basic_salary'          => $deductions['basic_salary'],
-                        'allowance'             => $deductions['allowance'],
-                        'gross_pay'             => $deductions['gross_pay'],
-                        'sss_msc'               => $deductions['sss_msc'],
-                        'sss_ee'                => $deductions['sss_ee'],
-                        'sss_er'                => $deductions['sss_er'],
-                        'philhealth_mbs'        => $deductions['philhealth_mbs'],
-                        'philhealth_ee'         => $deductions['philhealth_ee'],
-                        'philhealth_er'         => $deductions['philhealth_er'],
-                        'pagibig_mfs'           => $deductions['pagibig_mfs'],
-                        'pagibig_ee'            => $deductions['pagibig_ee'],
-                        'pagibig_er'            => $deductions['pagibig_er'],
-                        'taxable_income'        => $deductions['taxable_income'],
-                        'withholding_tax'       => $deductions['withholding_tax'],
-                        'other_deductions'      => round($deductions['absent_deduction'] + ($deductions['reconciliation'] ?? 0), 2),
-                        'total_deductions'      => $deductions['total_deductions'],
-                        'net_pay'               => $deductions['net_pay'],
-                        'days_worked'           => max(0, $scheduledDays - $totalAbsent - $daysHalf),
-                        'days_absent'           => $totalAbsent,
-                        'absent_deduction'      => $absentDeduction,
-                        'working_days_in_month' => $scheduledDays,
-                        'remarks'               => ($thirteenthAmount > 0 ? '13th month included. ' : '')
-                                                 . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
-                        'status'                => 'pending',
-                        'processed_by'          => $_SESSION['user_id'],
+                        'employee_id'             => $empId,
+                        'period'                  => $genPeriod,
+                        'basic_salary'            => $deductions['basic_salary'],
+                        'allowance'               => $deductions['allowance'],
+                        'gross_pay'               => $deductions['gross_pay'],
+                        'sss_msc'                 => $deductions['sss_msc'],
+                        'sss_ee'                  => $deductions['sss_ee'],
+                        'sss_er'                  => $deductions['sss_er'],
+                        'philhealth_mbs'          => $deductions['philhealth_mbs'],
+                        'philhealth_ee'           => $deductions['philhealth_ee'],
+                        'philhealth_er'           => $deductions['philhealth_er'],
+                        'pagibig_mfs'             => $deductions['pagibig_mfs'],
+                        'pagibig_ee'              => $deductions['pagibig_ee'],
+                        'pagibig_er'              => $deductions['pagibig_er'],
+                        'taxable_income'          => $deductions['taxable_income'],
+                        'withholding_tax'         => $deductions['withholding_tax'],
+                        // other_deductions = year-end reconciliation ONLY (not absent/unpaid)
+                        'other_deductions'        => round($deductions['reconciliation'] ?? 0, 2),
+                        'absent_deduction'        => $absentDeduction,
+                        'unpaid_leave_deduction'  => $unpaidLeaveDeduction,
+                        'salary_deduction'        => 0,
+                        'total_deductions'        => $deductions['total_deductions'],
+                        'net_pay'                 => $deductions['net_pay'],
+                        'days_worked'             => $daysWorked,
+                        'days_absent'             => $daysAbsentOnly + $daysUnpaidLeave,
+                        'days_paid_leave'         => $daysPaidLeave,
+                        'working_days_in_month'   => $scheduledDays,
+                        'remarks'                 => ($thirteenthAmount > 0 ? '13th month included. ' : '')
+                                                   . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
+                        'status'                  => 'pending',
+                        'processed_by'            => $_SESSION['user_id'],
                     ];
 
                     if (Model::createPayrollRecord($record)) { $generated++; }
@@ -305,6 +338,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payroll'])) {
     }
 }
 
+// ===========================================================================
+//  POST: ADD SALARY DEDUCTION
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_salary_deduction'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token.</div>";
+    } else {
+        $dedPayrollId = (int)($_POST['payroll_id']   ?? 0);
+        $dedPeriod    = trim($_POST['ded_period']    ?? '');
+        $dedReason    = trim($_POST['ded_reason']    ?? '');
+        $dedDesc      = trim($_POST['ded_desc']      ?? '');
+        $dedAmount    = (float)($_POST['ded_amount'] ?? 0);
+        $dedNotes     = trim($_POST['ded_notes']     ?? '');
+
+        // Check payroll status — only Pending is allowed
+        $payRecord = Model::findPayrollById($dedPayrollId);
+        if (!$payRecord || $payRecord['status'] !== 'pending') {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Salary deduction can only be added to Pending payroll records.</div>";
+        } elseif (empty($dedReason)) {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Please select a reason for the deduction.</div>";
+        } elseif ($dedAmount <= 0) {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Deduction amount must be greater than zero.</div>";
+        } elseif (empty($dedNotes)) {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Notes are required for salary deductions.</div>";
+        } else {
+            $added = Model::addSalaryDeduction($dedPayrollId, [
+                'reason'      => $dedReason,
+                'description' => $dedDesc,
+                'amount'      => $dedAmount,
+                'notes'       => $dedNotes,
+            ], $_SESSION['user_id']);
+
+            if ($added) {
+                $empName = $payRecord['employee_name'] ?? "ID:{$dedPayrollId}";
+                Model::log($_SESSION['user_id'], 'ADD_SALARY_DEDUCTION',
+                    "Added salary deduction ₱" . number_format($dedAmount, 2) .
+                    " ({$dedReason}) to payroll ID:{$dedPayrollId} ({$empName}) period {$dedPeriod}. Notes: {$dedNotes}");
+                header("Location: payroll.php?period={$dedPeriod}&msg=deduction_added&name=" . urlencode($empName));
+                exit;
+            }
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to add salary deduction.</div>";
+        }
+    }
+}
+
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 // Preserve any $msg set by POST handlers above — only init if not already set
@@ -379,6 +457,9 @@ if (!$msg) {
     } elseif ($msgParam === 'deleted') {
         $name = htmlspecialchars($_GET['name'] ?? 'Employee');
         $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Payroll record deleted for <strong>{$name}</strong>.</div>";
+    } elseif ($msgParam === 'deduction_added') {
+        $name = htmlspecialchars($_GET['name'] ?? 'Employee');
+        $msg  = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Salary deduction added for <strong>{$name}</strong>.</div>";
     }
 }
 
@@ -389,8 +470,34 @@ $totalDed         = array_sum(array_column($periodPayroll, 'total_deductions'));
 $totalNet         = array_sum(array_column($periodPayroll, 'net_pay'));
 $pendingList      = array_filter($periodPayroll, fn($p) => $p['status'] === 'pending');
 $releasedList     = array_filter($periodPayroll, fn($p) => $p['status'] === 'released');
-// Modification status removed per requirements
 $alreadyGenerated = Model::periodExists($selectedPeriod);
+
+// IDs of employees already generated for this period (pending or released)
+$generatedEmpIds = array_column($periodPayroll, 'employee_id');
+
+// Compute the cutoff date range for the selected period (used to filter employees)
+$selCutoffNum = Model::periodCutoff($selectedPeriod);
+$selYearMonth = Model::periodBase($selectedPeriod);
+[$selYear, $selMonth] = explode('-', $selYearMonth);
+$selLastDay   = date('t', mktime(0, 0, 0, (int)$selMonth, 1, (int)$selYear));
+$selCutoffFrom = $selCutoffNum === 1 ? "{$selYearMonth}-01" : "{$selYearMonth}-16";
+$selCutoffTo   = $selCutoffNum === 1 ? "{$selYearMonth}-15" : "{$selYearMonth}-{$selLastDay}";
+
+// Employees NOT yet generated AND whose date_start is on or before the cutoff end date.
+// Employees whose date_start is AFTER the cutoff end are excluded — they don't work in this period.
+$ungeneratedEmployees = array_filter($employees, function($e) use ($generatedEmpIds, $selCutoffTo) {
+    // Skip already-generated
+    if (in_array($e['id'], $generatedEmpIds)) return false;
+    // Use date_start if set, otherwise date_hired
+    $startDate = !empty($e['date_start']) ? $e['date_start'] : ($e['date_hired'] ?? '');
+    // If employee hasn't started yet by the end of the cutoff, exclude them
+    if ($startDate && $startDate > $selCutoffTo) return false;
+    return true;
+});
+$ungeneratedEmployees = array_values($ungeneratedEmployees);
+
+// Show Generate button only if there are employees eligible for this cutoff not yet generated
+$showGenerateBtn = count($ungeneratedEmployees) > 0;
 
 // Pre-fetch notes for all payroll records in this period
 $payrollNotes = [];
@@ -420,11 +527,12 @@ foreach ($periodPayroll as $p) {
         <?php endforeach; ?>
       </select>
 
-      <?php if (!$alreadyGenerated): ?>
+      <?php if ($showGenerateBtn): ?>
         <button class="btn btn-success mr-2" data-toggle="modal" data-target="#generateModal">
           <i class="fas fa-cogs mr-1"></i><span class="d-none d-sm-inline">Generate Payroll</span><span class="d-inline d-sm-none">Generate</span>
         </button>
-      <?php else: ?>
+      <?php endif; ?>
+      <?php if ($alreadyGenerated): ?>
         <span class="badge badge-primary px-3 py-2 mr-2 payroll-summary-badge">
           <i class="fas fa-check mr-1"></i> Payroll Generated
         </span>
@@ -553,7 +661,7 @@ foreach ($periodPayroll as $p) {
             <td class="text-danger payroll-col-philhealth">&#8369;<?= number_format($p['philhealth_ee'], 2) ?></td>
             <td class="text-danger payroll-col-pagibig">&#8369;<?= number_format($p['pagibig_ee'], 2) ?></td>
             <td class="text-danger payroll-col-wtax">&#8369;<?= number_format($p['withholding_tax'], 2) ?></td>
-            <td class="text-danger payroll-col-absentded">&#8369;<?= number_format($p['other_deductions'] ?? 0, 2) ?></td>
+            <td class="text-danger payroll-col-absentded">&#8369;<?= number_format(($p['absent_deduction'] ?? 0) + ($p['unpaid_leave_deduction'] ?? 0) + ($p['salary_deduction'] ?? 0), 2) ?></td>
             <td class="text-danger font-weight-bold">&#8369;<?= number_format($p['total_deductions'], 2) ?></td>
             <td class="text-success font-weight-bold">&#8369;<?= number_format($p['net_pay'], 2) ?></td>
             <td>
@@ -592,10 +700,16 @@ foreach ($periodPayroll as $p) {
                      data-payroll-id="<?= $p['id'] ?>"
                      data-current-status="<?= $p['status'] ?>"
                      data-employee="<?= htmlspecialchars($p['employee_name']) ?>">
-                    <i class="fas fa-edit mr-2 text-warning"></i>Edit Status
+                    <i class="fas fa-edit mr-2 text-warning"></i>Edit
                   </a>
                   <?php endif; ?>
                   <?php if ($p['status'] === 'pending'): ?>
+                  <a class="dropdown-item payroll-add-deduction-btn" href="#"
+                     data-payroll-id="<?= $p['id'] ?>"
+                     data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
+                     data-period="<?= htmlspecialchars($selectedPeriod) ?>">
+                    <i class="fas fa-minus-circle mr-2 text-danger"></i>Add Salary Deduction
+                  </a>
                   <a class="dropdown-item payroll-release-btn" href="#"
                      data-payroll-id="<?= $p['id'] ?>"
                      data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
@@ -798,6 +912,95 @@ foreach ($periodPayroll as $p) {
   </div>
 </div>
 
+<!-- ── SALARY DEDUCTION MODAL ────────────────────────────── -->
+<div class="modal fade no-print" id="salaryDeductionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fas fa-minus-circle mr-2"></i>Add Salary Deduction</h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form method="POST" id="salaryDeductionForm">
+        <input type="hidden" name="add_salary_deduction" value="1">
+        <input type="hidden" name="payroll_id"  id="dedPayrollId">
+        <input type="hidden" name="ded_period"  value="<?= htmlspecialchars($selectedPeriod) ?>">
+        <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrf_token) ?>">
+        <div class="modal-body">
+          <p class="text-muted mb-3">
+            <i class="fas fa-user mr-1"></i>Employee: <strong id="dedEmpName"></strong>
+          </p>
+          <div class="alert alert-warning mb-3 py-2">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            Deductions can only be added to <strong>Pending</strong> payroll records.
+          </div>
+          <div class="form-row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="font-weight-bold">Reason <span class="text-danger">*</span></label>
+                <select name="ded_reason" id="dedReason" class="form-control" required onchange="updateDedDescription(this.value)">
+                  <option value="">— Select Reason —</option>
+                  <option value="destroyed_asset">Destroyed Company Asset</option>
+                  <option value="lost_asset">Lost Company Asset</option>
+                  <option value="cash_advance">Cash Advance</option>
+                  <option value="loan">Company Loan</option>
+                  <option value="overpayment">Salary Overpayment</option>
+                  <option value="damage">Property Damage</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6" id="dedDescGroup" style="display:none;">
+              <div class="form-group">
+                <label class="font-weight-bold">Asset / Item</label>
+                <select name="ded_desc" id="dedDescSelect" class="form-control">
+                  <option value="">— Select Asset —</option>
+                  <option value="Laptop">Laptop</option>
+                  <option value="Mobile Phone">Mobile Phone</option>
+                  <option value="Monitor">Monitor</option>
+                  <option value="Keyboard / Mouse">Keyboard / Mouse</option>
+                  <option value="Office Chair">Office Chair</option>
+                  <option value="ID / Access Card">ID / Access Card</option>
+                  <option value="Uniform">Uniform</option>
+                  <option value="Tools / Equipment">Tools / Equipment</option>
+                  <option value="Vehicle">Vehicle</option>
+                  <option value="Other Asset">Other Asset</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label class="font-weight-bold">Amount (₱) <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <div class="input-group-prepend"><span class="input-group-text">₱</span></div>
+                  <input type="number" name="ded_amount" id="dedAmount" class="form-control"
+                         step="0.01" min="0.01" placeholder="0.00" required>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="font-weight-bold">Notes <span class="text-danger">*</span></label>
+            <textarea name="ded_notes" id="dedNotes" class="form-control" rows="3" required
+                      maxlength="500"
+                      placeholder="Required: describe the incident, authorization, or reference number..."></textarea>
+            <small class="text-muted">Notes are mandatory and recorded in the audit trail.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-minus-circle mr-1"></i>Apply Deduction
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- ── GENERATE PAYROLL MODAL ──────────────────────────────── -->
 <div class="modal fade no-print" id="generateModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
@@ -850,7 +1053,7 @@ foreach ($periodPayroll as $p) {
                 </tr>
               </thead>
               <tbody>
-              <?php foreach ($employees as $e):
+              <?php foreach ($ungeneratedEmployees as $e):
                 $c = Model::computePayroll($e);
               ?>
                 <tr>
@@ -869,8 +1072,11 @@ foreach ($periodPayroll as $p) {
                   <td class="text-success font-weight-bold">&#8369;<?= number_format($c['net_pay'], 2) ?></td>
                 </tr>
               <?php endforeach; ?>
-              <?php if (empty($employees)): ?>
-                <tr><td colspan="7" class="text-center text-muted py-3">No active employees found.</td></tr>
+              <?php if (empty($ungeneratedEmployees)): ?>
+                <tr><td colspan="7" class="text-center text-muted py-3">
+                  <i class="fas fa-check-circle text-success mr-1"></i>
+                  All active employees already have payroll for this period.
+                </td></tr>
               <?php endif; ?>
               </tbody>
             </table>
@@ -942,15 +1148,11 @@ function buildPeriod() {
 function syncPeriod() {
     var period = buildPeriod();
     document.getElementById('genPeriodFinal').value = period;
-    var existingPeriods = $existingPeriodsJson;
     var btn = document.getElementById('generateBtn');
-    if (period && existingPeriods.indexOf(period) !== -1) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-ban mr-1"></i> Already Generated';
-    } else {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-play mr-1"></i> Confirm & Generate';
-    }
+    // Never disable based on period existing — partial generation is supported.
+    // The server filters out already-generated employees per cutoff.
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play mr-1"></i> Confirm & Generate';
 }
 document.getElementById('genPeriodMonth').addEventListener('change', syncPeriod);
 document.getElementById('genPeriodCutoff').addEventListener('change', syncPeriod);
@@ -1003,6 +1205,31 @@ document.addEventListener('click', function(e) {
     document.getElementById('releasePayrollEmpName').textContent = btn.dataset.employee;
     $('#releasePayrollModal').modal('show');
 });
+
+// ── Salary Deduction Modal ──────────────────────────────────────
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.payroll-add-deduction-btn');
+    if (!btn) return;
+    e.preventDefault();
+    document.getElementById('dedPayrollId').value    = btn.dataset.payrollId;
+    document.getElementById('dedEmpName').textContent = btn.dataset.employee;
+    document.getElementById('dedReason').value       = '';
+    document.getElementById('dedAmount').value       = '';
+    document.getElementById('dedNotes').value        = '';
+    document.getElementById('dedDescGroup').style.display = 'none';
+    $('#salaryDeductionModal').modal('show');
+});
+
+function updateDedDescription(reason) {
+    var grp  = document.getElementById('dedDescGroup');
+    var assetReasons = ['destroyed_asset', 'lost_asset', 'damage'];
+    if (assetReasons.indexOf(reason) !== -1) {
+        grp.style.display = 'block';
+    } else {
+        grp.style.display = 'none';
+        document.getElementById('dedDescSelect').value = '';
+    }
+}
 
 // ── Edit Status (now on <a> not button) ────────────────────────
 document.addEventListener('click', function(e) {

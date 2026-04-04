@@ -207,18 +207,19 @@ class PayrollModel extends BaseModel
             $empId = (int)$empId;
 
             // Fetch employee hire date
-            $empStmt = self::db()->prepare('SELECT name, date_hired FROM employees WHERE id = ?');
+            $empStmt = self::db()->prepare('SELECT name, date_hired, date_start FROM employees WHERE id = ?');
             $empStmt->execute([$empId]);
             $empRow  = $empStmt->fetch();
             if (!$empRow) continue;
 
-            $dateHired = $empRow['date_hired'] ?? '';
+            // Use date_start if set, otherwise fall back to date_hired
+            $dateStart = !empty($empRow['date_start']) ? $empRow['date_start'] : ($empRow['date_hired'] ?? '');
 
-            // If employee was hired after the cutoff ends, skip — no records expected
-            if ($dateHired && $dateHired > $cutoffTo) continue;
+            // If employee started after the cutoff ends, skip — no records expected
+            if ($dateStart && $dateStart > $cutoffTo) continue;
 
-            // Effective start: clamp to hire date if hired mid-cutoff
-            $effectiveFrom = ($dateHired && $dateHired > $cutoffFrom) ? $dateHired : $cutoffFrom;
+            // Effective start: clamp to date_start if started mid-cutoff
+            $effectiveFrom = ($dateStart && $dateStart > $cutoffFrom) ? $dateStart : $cutoffFrom;
 
             // Count attendance records within the effective cutoff range
             $attStmt = self::db()->prepare(
@@ -245,7 +246,9 @@ class PayrollModel extends BaseModel
                pagibig_mfs, pagibig_ee, pagibig_er,
                taxable_income, withholding_tax,
                other_deductions, total_deductions, net_pay,
-               status, processed_by)
+               absent_deduction, salary_deduction, unpaid_leave_deduction,
+               days_worked, days_absent, days_paid_leave, working_days_in_month,
+               remarks, status, processed_by)
             VALUES
               (:employee_id, :period, :basic_salary, :allowance, :gross_pay,
                :sss_msc, :sss_ee, :sss_er,
@@ -253,31 +256,159 @@ class PayrollModel extends BaseModel
                :pagibig_mfs, :pagibig_ee, :pagibig_er,
                :taxable_income, :withholding_tax,
                :other_deductions, :total_deductions, :net_pay,
-               :status, :processed_by)
+               :absent_deduction, :salary_deduction, :unpaid_leave_deduction,
+               :days_worked, :days_absent, :days_paid_leave, :working_days_in_month,
+               :remarks, :status, :processed_by)
         ');
         return (bool) $stmt->execute([
-            ':employee_id'      => $d['employee_id'],
-            ':period'           => $d['period'],
-            ':basic_salary'     => $d['basic_salary'],
-            ':allowance'        => $d['allowance'],
-            ':gross_pay'        => $d['gross_pay'],
-            ':sss_msc'          => $d['sss_msc'],
-            ':sss_ee'           => $d['sss_ee'],
-            ':sss_er'           => $d['sss_er'],
-            ':philhealth_mbs'   => $d['philhealth_mbs'],
-            ':philhealth_ee'    => $d['philhealth_ee'],
-            ':philhealth_er'    => $d['philhealth_er'],
-            ':pagibig_mfs'      => $d['pagibig_mfs'],
-            ':pagibig_ee'       => $d['pagibig_ee'],
-            ':pagibig_er'       => $d['pagibig_er'],
-            ':taxable_income'   => $d['taxable_income'],
-            ':withholding_tax'  => $d['withholding_tax'],
-            ':other_deductions' => $d['other_deductions'] ?? 0,
-            ':total_deductions' => $d['total_deductions'],
-            ':net_pay'          => $d['net_pay'],
-            ':status'           => $d['status']        ?? 'pending',
-            ':processed_by'     => $d['processed_by']  ?? null,
+            ':employee_id'             => $d['employee_id'],
+            ':period'                  => $d['period'],
+            ':basic_salary'            => $d['basic_salary'],
+            ':allowance'               => $d['allowance'],
+            ':gross_pay'               => $d['gross_pay'],
+            ':sss_msc'                 => $d['sss_msc'],
+            ':sss_ee'                  => $d['sss_ee'],
+            ':sss_er'                  => $d['sss_er'],
+            ':philhealth_mbs'          => $d['philhealth_mbs'],
+            ':philhealth_ee'           => $d['philhealth_ee'],
+            ':philhealth_er'           => $d['philhealth_er'],
+            ':pagibig_mfs'             => $d['pagibig_mfs'],
+            ':pagibig_ee'              => $d['pagibig_ee'],
+            ':pagibig_er'              => $d['pagibig_er'],
+            ':taxable_income'          => $d['taxable_income'],
+            ':withholding_tax'         => $d['withholding_tax'],
+            ':other_deductions'        => $d['other_deductions']        ?? 0,
+            ':total_deductions'        => $d['total_deductions'],
+            ':net_pay'                 => $d['net_pay'],
+            ':absent_deduction'        => $d['absent_deduction']        ?? 0,
+            ':salary_deduction'        => $d['salary_deduction']        ?? 0,
+            ':unpaid_leave_deduction'  => $d['unpaid_leave_deduction']  ?? 0,
+            ':days_worked'             => $d['days_worked']             ?? null,
+            ':days_absent'             => $d['days_absent']             ?? null,
+            ':days_paid_leave'         => $d['days_paid_leave']         ?? 0,
+            ':working_days_in_month'   => $d['working_days_in_month']   ?? 22,
+            ':remarks'                 => $d['remarks']                 ?? null,
+            ':status'                  => $d['status']                  ?? 'pending',
+            ':processed_by'            => $d['processed_by']            ?? null,
         ]);
+    }
+
+    /**
+     * Get all salary deductions for a payroll record.
+     */
+    public static function getSalaryDeductions(int $payrollId): array
+    {
+        try {
+            $stmt = self::db()->prepare('
+                SELECT sd.*, u.name AS created_by_name
+                FROM salary_deductions sd
+                LEFT JOIN users u ON u.id = sd.created_by
+                WHERE sd.payroll_id = ?
+                ORDER BY sd.created_at ASC
+            ');
+            $stmt->execute([$payrollId]);
+            return $stmt->fetchAll();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Add a salary deduction to a payroll record.
+     * Also re-computes and updates the payroll total_deductions and net_pay.
+     */
+    public static function addSalaryDeduction(int $payrollId, array $d, int $userId): bool
+    {
+        $db = self::db();
+
+        // Auto-create table if missing (graceful bootstrap)
+        $db->exec('
+            CREATE TABLE IF NOT EXISTS `salary_deductions` (
+                `id`          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `payroll_id`  INT UNSIGNED NOT NULL,
+                `reason`      VARCHAR(100) NOT NULL,
+                `description` VARCHAR(255) DEFAULT NULL,
+                `amount`      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                `notes`       TEXT NOT NULL,
+                `created_by`  INT UNSIGNED DEFAULT NULL,
+                `created_at`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                KEY `idx_payroll_id` (`payroll_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ');
+
+        $stmt = $db->prepare('
+            INSERT INTO salary_deductions (payroll_id, reason, description, amount, notes, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ');
+        $inserted = (bool) $stmt->execute([
+            $payrollId,
+            $d['reason'],
+            $d['description'] ?? null,
+            (float)$d['amount'],
+            $d['notes'],
+            $userId,
+        ]);
+
+        if (!$inserted) return false;
+
+        // Recalculate total salary_deduction for this payroll record
+        $sumStmt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM salary_deductions WHERE payroll_id = ?');
+        $sumStmt->execute([$payrollId]);
+        $totalSalaryDed = (float)$sumStmt->fetchColumn();
+
+        // Update payroll_records: salary_deduction, total_deductions, net_pay
+        $updateStmt = $db->prepare('
+            UPDATE payroll_records
+            SET salary_deduction  = :sd,
+                total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd2
+                                    + other_deductions,
+                net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd3
+                                    + other_deductions)
+            WHERE id = :id
+        ');
+        return (bool) $updateStmt->execute([
+            ':sd'  => $totalSalaryDed,
+            ':sd2' => $totalSalaryDed,
+            ':sd3' => $totalSalaryDed,
+            ':id'  => $payrollId,
+        ]);
+    }
+
+    /**
+     * Total salary_deduction sum for YTD — include in Deductions YTD block.
+     */
+    public static function getYTDByEmployee(int $employeeId, string $upToPeriod): array
+    {
+        $year = (int) substr($upToPeriod, 0, 4);
+        $stmt = self::db()->prepare('
+            SELECT
+                COALESCE(SUM(basic_salary),      0) AS ytd_basic,
+                COALESCE(SUM(allowance),          0) AS ytd_allowance,
+                COALESCE(SUM(gross_pay),          0) AS ytd_gross,
+                COALESCE(SUM(sss_ee),             0) AS ytd_sss_ee,
+                COALESCE(SUM(sss_er),             0) AS ytd_sss_er,
+                COALESCE(SUM(philhealth_ee),      0) AS ytd_philhealth_ee,
+                COALESCE(SUM(philhealth_er),      0) AS ytd_philhealth_er,
+                COALESCE(SUM(pagibig_ee),         0) AS ytd_pagibig_ee,
+                COALESCE(SUM(pagibig_er),         0) AS ytd_pagibig_er,
+                COALESCE(SUM(withholding_tax),    0) AS ytd_tax,
+                COALESCE(SUM(other_deductions),   0) AS ytd_reconciliation,
+                COALESCE(SUM(absent_deduction),   0) AS ytd_absent_deduction,
+                COALESCE(SUM(unpaid_leave_deduction), 0) AS ytd_unpaid_leave,
+                COALESCE(SUM(salary_deduction),   0) AS ytd_salary_deduction,
+                COALESCE(SUM(total_deductions),   0) AS ytd_deductions,
+                COALESCE(SUM(net_pay),            0) AS ytd_net,
+                COUNT(*)                              AS ytd_periods
+            FROM payroll_records
+            WHERE employee_id = ?
+              AND period LIKE ?
+              AND period <= ?
+        ');
+        $stmt->execute([$employeeId, $year . '-%', $upToPeriod]);
+        return $stmt->fetch() ?: [];
     }
 
     public static function release(int $payrollId): bool
@@ -419,36 +550,6 @@ class PayrollModel extends BaseModel
 
     /**
      * Get full YTD aggregate for an employee up to (and including) a given period.
-     * Used for the YTD section on payslips.
-     */
-    public static function getYTDByEmployee(int $employeeId, string $upToPeriod): array
-    {
-        $year = (int) substr($upToPeriod, 0, 4);
-        $stmt = self::db()->prepare('
-            SELECT
-                COALESCE(SUM(basic_salary),      0) AS ytd_basic,
-                COALESCE(SUM(allowance),          0) AS ytd_allowance,
-                COALESCE(SUM(gross_pay),          0) AS ytd_gross,
-                COALESCE(SUM(sss_ee),             0) AS ytd_sss_ee,
-                COALESCE(SUM(sss_er),             0) AS ytd_sss_er,
-                COALESCE(SUM(philhealth_ee),      0) AS ytd_philhealth_ee,
-                COALESCE(SUM(philhealth_er),      0) AS ytd_philhealth_er,
-                COALESCE(SUM(pagibig_ee),         0) AS ytd_pagibig_ee,
-                COALESCE(SUM(pagibig_er),         0) AS ytd_pagibig_er,
-                COALESCE(SUM(withholding_tax),    0) AS ytd_tax,
-                COALESCE(SUM(total_deductions),   0) AS ytd_deductions,
-                COALESCE(SUM(net_pay),            0) AS ytd_net,
-                COALESCE(SUM(other_deductions),   0) AS ytd_other_deductions,
-                COUNT(*)                              AS ytd_periods
-            FROM payroll_records
-            WHERE employee_id = ?
-              AND period LIKE ?
-              AND period <= ?
-        ');
-        $stmt->execute([$employeeId, $year . '-%', $upToPeriod]);
-        return $stmt->fetch() ?: [];
-    }
-
     // ════════════════════════════════════════════════════════
     //  13TH MONTH PAY
     // ════════════════════════════════════════════════════════

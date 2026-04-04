@@ -11,6 +11,11 @@ if (!class_exists('Model') || !class_exists('Database')) {
     require_once $root . '/core/Model.php';
     require_once $root . '/core/Controller.php';
 }
+// Load ReimbursementModel for pending badge count
+if (!class_exists('ReimbursementModel')) {
+    $reimbModelPath = $root . '/core/models/ReimbursementModel.php';
+    if (file_exists($reimbModelPath)) require_once $reimbModelPath;
+}
 
 require_once $root . '/config/config.php';
 
@@ -32,6 +37,14 @@ if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {
 
 // Placeholder — add real method when ready
 $newApplicants = Model::countNewApplicants() ?? 0;
+
+// Pending reimbursements count
+$pendingReimburse = 0;
+try {
+    if (class_exists('ReimbursementModel')) {
+        $pendingReimburse = ReimbursementModel::countPending();
+    }
+} catch (Exception $e) { $pendingReimburse = 0; }
 
 $userName = $_SESSION['name'] ?? 'Admin';
 $userRole = $_SESSION['role'] ?? 'Unknown';
@@ -193,6 +206,16 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             <a href="<?= BASE_URL ?>/app/views/admin/payroll_settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'payroll_settings.php' ? 'active' : '' ?>">
               <i class="nav-icon fas fa-sliders-h"></i>
               <p>Payroll Settings</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/reimbursements.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'reimbursements.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-receipt"></i>
+              <p>Reimbursements
+                <?php if ($pendingReimburse > 0): ?>
+                  <span class="right badge badge-warning"><?= $pendingReimburse ?></span>
+                <?php endif; ?>
+              </p>
             </a>
           </li>
 

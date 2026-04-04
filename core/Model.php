@@ -37,6 +37,7 @@ require_once __DIR__ . '/models/AnnouncementModel.php';
 require_once __DIR__ . '/models/HolidayModel.php';
 require_once __DIR__ . '/models/ActivityLogModel.php';
 require_once __DIR__ . '/models/DashboardModel.php';
+require_once __DIR__ . '/models/ReimbursementModel.php';
 
 class Model
 {
@@ -98,7 +99,7 @@ class Model
     public static function getAttendanceByMonth(string $ym): array                     { return AttendanceModel::getByMonth($ym); }
     public static function getAttendanceByEmployee(int $id, string $ym = ''): array    { return AttendanceModel::getByEmployee($id, $ym); }
     public static function getAttendanceSummary(int $id, string $ym): array            { return AttendanceModel::getSummary($id, $ym); }
-    public static function getCutoffAttendanceSummary(int $id, string $from, string $to, string $hired = ''): array { return AttendanceModel::getCutoffSummary($id, $from, $to, $hired); }
+    public static function getCutoffAttendanceSummary(int $id, string $from, string $to, string $dateStart = ''): array { return AttendanceModel::getCutoffSummary($id, $from, $to, $dateStart); }
     public static function getPayrollYTD(int $id, string $period): array               { return PayrollModel::getYTDByEmployee($id, $period); }
     public static function saveAttendance(array $data): bool                           { return AttendanceModel::save($data); }
 
@@ -170,10 +171,24 @@ class Model
     public static function getEmployeePayrollSettings(int $id): array             { return PayrollModel::getSettings($id); }
     public static function updateEmployeePayrollSettings(int $id, array $s): bool { return PayrollModel::updateSettings($id, $s); }
 
-    // Year-to-date aggregates
-    public static function getTotalWithholdingTaxByYear(int $id, int $y): float    { return PayrollModel::getTotalWithholdingTaxByYear($id, $y); }
-    public static function getTotalGovDedsByYear(int $id, int $y): float           { return PayrollModel::getTotalGovDedsByYear($id, $y); }
+    public static function addSalaryDeduction(int $payrollId, array $d, int $uid): bool { return PayrollModel::addSalaryDeduction($payrollId, $d, $uid); }
+    public static function getSalaryDeductions(int $payrollId): array                    { return PayrollModel::getSalaryDeductions($payrollId); }
+
+    // Year-to-date aggregates (used in year-end reconciliation & payslip YTD block)
     public static function getTotalBasicByYear(int $id, int $y): float             { return PayrollModel::getTotalBasicByYear($id, $y); }
+    public static function getTotalGovDedsByYear(int $id, int $y): float           { return PayrollModel::getTotalGovDedsByYear($id, $y); }
+    public static function getTotalWithholdingTaxByYear(int $id, int $y): float    { return PayrollModel::getTotalWithholdingTaxByYear($id, $y); }
+
+    // ════════════════════════════════════════════════════════
+    //  REIMBURSEMENTS  →  ReimbursementModel
+    // ════════════════════════════════════════════════════════
+
+    public static function getAllReimbursements(string $status = ''): array             { return ReimbursementModel::getAll($status); }
+    public static function getReimbursementsByEmployee(int $empId): array              { return ReimbursementModel::getByEmployee($empId); }
+    public static function findReimbursementById(int $id): ?array                      { return ReimbursementModel::findById($id); }
+    public static function createReimbursement(array $d): bool                         { return ReimbursementModel::create($d); }
+    public static function reviewReimbursement(int $id, string $status, int $by, string $notes = ''): bool { return ReimbursementModel::review($id, $status, $by, $notes); }
+    public static function countPendingReimbursements(): int                            { return ReimbursementModel::countPending(); }
 
     // 13th month pay
     public static function compute13thMonth(int $year): array                              { return PayrollModel::compute13thMonth($year); }

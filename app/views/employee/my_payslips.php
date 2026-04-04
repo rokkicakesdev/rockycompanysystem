@@ -220,7 +220,7 @@ require_once __DIR__ . '/../layouts/employee_header.php';
                 data-thirteenth="<?= $thirteenthRecords[substr($row['period'],0,4)]['amount'] ?? '' ?>"
                 data-thirteenthstatus="<?= $thirteenthRecords[substr($row['period'],0,4)]['status'] ?? '' ?>"
                 data-cutoff="<?= Model::periodCutoff($row['period']) ?>"
-                data-reconciliation="<?= round(($full['other_deductions'] ?? 0) - ($full['absent_deduction'] ?? 0), 2) ?>">
+                data-reconciliation="<?= (float)($full['other_deductions'] ?? 0) ?>">
                 <i class="fas fa-eye mr-1"></i> View
               </button>
               <?php else: ?>
@@ -280,8 +280,8 @@ require_once __DIR__ . '/../layouts/employee_header.php';
               <span class="ps-emp-value ps-emp-name"><?= htmlspecialchars($employee['name'] ?? '—') ?></span>
             </div>
             <div class="ps-emp-field">
-              <span class="ps-emp-label">Date Hired</span>
-              <span class="ps-emp-value"><?= htmlspecialchars($employee['date_hired'] ?? '—') ?></span>
+              <span class="ps-emp-label">Date Start</span>
+              <span class="ps-emp-value"><?= htmlspecialchars($employee['date_start'] ?? $employee['date_hired'] ?? '—') ?></span>
             </div>
             <div class="ps-emp-field">
               <span class="ps-emp-label">Department</span>
@@ -427,7 +427,7 @@ function printPayslip() {
   var empNo       = '<?= addslashes(htmlspecialchars($employee['employee_no'] ?? '')) ?>';
   var dept        = '<?= addslashes(htmlspecialchars($employee['department'] ?? '')) ?>';
   var pos         = '<?= addslashes(htmlspecialchars($employee['position'] ?? '')) ?>';
-  var hired       = '<?= addslashes(htmlspecialchars($employee['date_hired'] ?? '')) ?>';
+  var hired       = '<?= addslashes(htmlspecialchars($employee['date_start'] ?? $employee['date_hired'] ?? '')) ?>';
   var company     = '<?= addslashes(htmlspecialchars(COMPANY_NAME)) ?>';
   var statusTxt   = $('#ps-status-badge').text().trim();
   var statusCls   = $('#ps-status-badge').hasClass('badge-released') ? 'pill-released' : 'pill-pending';
@@ -493,7 +493,7 @@ function printPayslip() {
     + '</table></td>'
     + '<td class="right"><table>'
     + '<tr><td class="lbl">Position</td><td class="val">' + pos + '</td></tr>'
-    + '<tr><td class="lbl">Date Hired</td><td class="val">' + hired + '</td></tr>'
+    + '<tr><td class="lbl">Date Start</td><td class="val">' + hired + '</td></tr>'
     + '</table></td>'
     + '</tr></table></div>'
     + '<table class="split"><tr>'
