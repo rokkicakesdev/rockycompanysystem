@@ -36,9 +36,11 @@ $isFirstCut = ($cutoffNum === 1);
 $year13     = Model::periodYear($period);
 $record13th = Model::isDecember1stCutoff($period) ? Model::get13thMonthByEmployee($employeeId, $year13) : null;
 
-$absentDed  = (float)($payrollRecord['absent_deduction'] ?? 0);
-$otherDed   = (float)($payrollRecord['other_deductions'] ?? 0);
-$reconcile  = round($otherDed - $absentDed, 2);
+$absentDed        = (float)($payrollRecord['absent_deduction']       ?? 0);
+$unpaidLeaveDed   = (float)($payrollRecord['unpaid_leave_deduction'] ?? 0);
+$salaryDedTotal   = (float)($payrollRecord['salary_deduction']       ?? 0);
+// other_deductions now stores ONLY year-end reconciliation
+$reconcile        = (float)($payrollRecord['other_deductions']       ?? 0);
 
 $companyName = defined('COMPANY_NAME') ? COMPANY_NAME : 'Rocky Company';
 $companyAddress = defined('COMPANY_ADDRESS') ? COMPANY_ADDRESS : '';
@@ -68,23 +70,34 @@ $status13th    = $record13th ? ucfirst($record13th['status']) : '';
 $statusClass   = $payrollRecord['status'] === 'released' ? 'pill-released' : 'pill-pending';
 $statusLabel   = ucfirst($payrollRecord['status'] ?? 'pending');
 
-$empName = htmlspecialchars($employee['name'] ?? '');
-$dept    = htmlspecialchars($employee['department'] ?? '');
-$pos     = htmlspecialchars($employee['position'] ?? '');
-$hired   = htmlspecialchars($employee['date_hired'] ?? '');
-$empType = ucfirst(htmlspecialchars($employee['employment_type'] ?? 'Regular'));
+$empName   = htmlspecialchars($employee['name'] ?? '');
+$dept      = htmlspecialchars($employee['department'] ?? '');
+$pos       = htmlspecialchars($employee['position'] ?? '');
+$dateStart = htmlspecialchars($employee['date_start'] ?? $employee['date_hired'] ?? '');
+$empType   = ucfirst(htmlspecialchars($employee['employment_type'] ?? 'Regular'));
 
+// Absent deduction row
 $absRow = $absentDed > 0
     ? "<tr><td class='lbl'>Absent Deduction</td><td class='red'>&minus; &#8369; {$absDedFmt}</td></tr>"
     : '';
 
-$otherDedRaw = (float)($payrollRecord['other_deductions'] ?? 0);
-$otherDedRow = '';
-if ($otherDedRaw > 0 && $reconcile == 0) {
-    $otherDedFmt = $p($otherDedRaw);
-    $otherDedRow = "<tr><td>Other Deductions</td><td class='amt red'>&minus; &#8369; {$otherDedFmt}</td></tr>";
+// Unpaid leave deduction row
+$unpaidRow = $unpaidLeaveDed > 0
+    ? "<tr><td class='lbl'>Unpaid Leave</td><td class='red'>&minus; &#8369; {$p($unpaidLeaveDed)}</td></tr>"
+    : '';
+
+// Per-item salary deduction rows
+$salaryDedRows = '';
+if ($salaryDedTotal > 0) {
+    $salaryItems = Model::getSalaryDeductions((int)$payrollRecord['id']);
+    foreach ($salaryItems as $si) {
+        $reason = ucwords(str_replace('_', ' ', $si['reason']));
+        $desc   = !empty($si['description']) ? " ({$si['description']})" : '';
+        $salaryDedRows .= "<tr><td class='lbl'>{$reason}{$desc}</td><td class='red'>&minus; &#8369; {$p($si['amount'])}</td></tr>";
+    }
 }
 
+// Year-end reconciliation row
 $reconcileFmt = $p(abs($reconcile));
 $reconcileRow = '';
 if ($reconcile != 0) {
@@ -93,6 +106,7 @@ if ($reconcile != 0) {
     $reconcileColor = $reconcile > 0 ? 'red' : '#16a34a';
     $reconcileRow   = "<tr><td>{$reconcileLabel}</td><td class='amt' style='color:{$reconcileColor}'>{$reconcileSign} &#8369; {$reconcileFmt}</td></tr>";
 }
+$otherDedRow = ''; // removed — no longer used
 
 $html = <<<HTML
 <!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -147,7 +161,7 @@ body{font-family:DejaVu Sans,sans-serif;font-size:9pt;color:#111}
   </table></td>
   <td class="half"><table>
     <tr><td class="lbl">Position</td><td class="val">{$pos}</td></tr>
-    <tr><td class="lbl">Date Hired</td><td class="val">{$hired}</td></tr>
+    <tr><td class="lbl">Date Start</td><td class="val">{$dateStart}</td></tr>
     <tr><td class="lbl">Type</td><td class="val">{$empType}</td></tr>
   </table></td>
 </tr></table></div>
@@ -173,7 +187,7 @@ if ($isFirstCut) {
 }
 $html .= <<<HTML
     <tr><td>Withholding Tax</td><td class="amt red">&minus; &#8369; {$withholdingTax}</td></tr>
-    {$reconcileRow}{$otherDedRow}{$absRow}
+    {$absRow}{$unpaidRow}{$salaryDedRows}{$reconcileRow}
     <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$totalDed}</td></tr>
   </table></td>
 </tr></table>

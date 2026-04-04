@@ -49,10 +49,12 @@ $isFirstCut = ($cutoffNum === 1);
 $year13     = Model::periodYear($period);
 $record13th = Model::isDecember1stCutoff($period) ? Model::get13thMonthByEmployee($employeeId, $year13) : null;
 
-// ── Year-end reconciliation ────────────────────────────────────────
-$absentDed    = (float)($payrollRecord['absent_deduction'] ?? 0);
-$otherDed     = (float)($payrollRecord['other_deductions'] ?? 0);
-$reconcile    = round($otherDed - $absentDed, 2);
+// ── Deduction breakdown — each column stored separately ────────────
+$absentDed        = (float)($payrollRecord['absent_deduction']       ?? 0);
+$unpaidLeaveDed   = (float)($payrollRecord['unpaid_leave_deduction'] ?? 0);
+$salaryDedTotal   = (float)($payrollRecord['salary_deduction']       ?? 0);
+// other_deductions now stores ONLY year-end reconciliation
+$reconcile        = (float)($payrollRecord['other_deductions']       ?? 0);
 
 // ── Check Dompdf ──────────────────────────────────────────────────
 $autoload = __DIR__ . '/../../../vendor/autoload.php';
@@ -85,9 +87,8 @@ $sssEE          = $p($payrollRecord['sss_ee']               ?? 0);
 $philhealthEE   = $p($payrollRecord['philhealth_ee']        ?? 0);
 $pagibigEE      = $p($payrollRecord['pagibig_ee']           ?? 0);
 $withholdingTax = $p($payrollRecord['withholding_tax']      ?? 0);
-$otherDed       = $p($payrollRecord['other_deductions']     ?? 0);
-$absDeduction   = (float)($payrollRecord['absent_deduction'] ?? 0);
-$absDedFmt      = $p($absDeduction);
+$absDedFmt      = $p($absentDed);
+$unpaidDedFmt   = $p($unpaidLeaveDed);
 
 // Employer contributions
 $sssER        = (float)($payrollRecord['sss_er']        ?? 0);
@@ -109,15 +110,32 @@ $netPay         = $p($payrollRecord['net_pay']              ?? 0);
 $statusClass = $payrollRecord['status'] === 'released' ? 'pill-released' : 'pill-pending';
 $statusLabel = ucfirst($payrollRecord['status'] ?? 'pending');
 
-$empName = htmlspecialchars($employee['name']            ?? '');
-$dept    = htmlspecialchars($employee['department']      ?? '');
-$pos     = htmlspecialchars($employee['position']        ?? '');
-$hired   = htmlspecialchars($employee['date_hired']      ?? '');
-$empType = ucfirst(htmlspecialchars($employee['employment_type'] ?? 'Regular'));
+$empName   = htmlspecialchars($employee['name']            ?? '');
+$dept      = htmlspecialchars($employee['department']      ?? '');
+$pos       = htmlspecialchars($employee['position']        ?? '');
+$dateStart = htmlspecialchars($employee['date_start'] ?? $employee['date_hired'] ?? '');
+$empType   = ucfirst(htmlspecialchars($employee['employment_type'] ?? 'Regular'));
 
-$absRow = $absDeduction > 0
+// Absent deduction row
+$absRow = $absentDed > 0
     ? "<tr><td class='lbl'>Absent Deduction</td><td class='red'>&minus; &#8369; {$absDedFmt}</td></tr>"
     : '';
+
+// Unpaid leave deduction row
+$unpaidRow = $unpaidLeaveDed > 0
+    ? "<tr><td class='lbl'>Unpaid Leave</td><td class='red'>&minus; &#8369; {$unpaidDedFmt}</td></tr>"
+    : '';
+
+// Per-item salary deduction rows
+$salaryDedRows = '';
+if ($salaryDedTotal > 0) {
+    $salaryItems = Model::getSalaryDeductions((int)$payrollRecord['id']);
+    foreach ($salaryItems as $si) {
+        $reason = ucwords(str_replace('_', ' ', $si['reason']));
+        $desc   = !empty($si['description']) ? " ({$si['description']})" : '';
+        $salaryDedRows .= "<tr><td class='lbl'>{$reason}{$desc}</td><td class='red'>&minus; &#8369; {$p($si['amount'])}</td></tr>";
+    }
+}
 
 // Attendance block
 $daysWorked  = $payrollRecord['days_worked']           ?? null;
@@ -163,16 +181,26 @@ ERHTML;
 $ytd = Model::getPayrollYTD($employeeId, $period);
 $ytdBlock = '';
 if (!empty($ytd) && (float)($ytd['ytd_gross'] ?? 0) > 0) {
-    $yBasic   = $p($ytd['ytd_basic']         ?? 0);
-    $yAllow   = $p($ytd['ytd_allowance']     ?? 0);
-    $yGross   = $p($ytd['ytd_gross']         ?? 0);
-    $ySssEe   = $p($ytd['ytd_sss_ee']        ?? 0);
-    $yPhEe    = $p($ytd['ytd_philhealth_ee'] ?? 0);
-    $yPiEe    = $p($ytd['ytd_pagibig_ee']    ?? 0);
-    $yTax     = $p($ytd['ytd_tax']           ?? 0);
-    $yDed     = $p($ytd['ytd_deductions']    ?? 0);
-    $yNet     = $p($ytd['ytd_net']           ?? 0);
-    $yPeriods = (int)($ytd['ytd_periods']    ?? 0);
+    $yBasic        = $p($ytd['ytd_basic']              ?? 0);
+    $yAllow        = $p($ytd['ytd_allowance']           ?? 0);
+    $yGross        = $p($ytd['ytd_gross']               ?? 0);
+    $ySssEe        = $p($ytd['ytd_sss_ee']              ?? 0);
+    $yPhEe         = $p($ytd['ytd_philhealth_ee']       ?? 0);
+    $yPiEe         = $p($ytd['ytd_pagibig_ee']          ?? 0);
+    $yTax          = $p($ytd['ytd_tax']                 ?? 0);
+    $yDed          = $p($ytd['ytd_deductions']           ?? 0);
+    $yNet          = $p($ytd['ytd_net']                 ?? 0);
+    $yPeriods      = (int)($ytd['ytd_periods']           ?? 0);
+    $yAbsent       = (float)($ytd['ytd_absent_deduction'] ?? 0);
+    $yUnpaid       = (float)($ytd['ytd_unpaid_leave']    ?? 0);
+    $ySalaryDed    = (float)($ytd['ytd_salary_deduction'] ?? 0);
+    $yReconcile    = (float)($ytd['ytd_reconciliation']  ?? 0);
+
+    $yAbsentRow    = $yAbsent    > 0 ? "<tr><td>Absent Deductions</td><td class='amt red'>&#8369; {$p($yAbsent)}</td></tr>" : '';
+    $yUnpaidRow    = $yUnpaid    > 0 ? "<tr><td>Unpaid Leave</td><td class='amt red'>&#8369; {$p($yUnpaid)}</td></tr>" : '';
+    $ySalaryRow    = $ySalaryDed > 0 ? "<tr><td>Salary Deductions</td><td class='amt red'>&#8369; {$p($ySalaryDed)}</td></tr>" : '';
+    $yReconcileRow = $yReconcile != 0 ? "<tr><td>Year-End Reconciliation</td><td class='amt red'>&#8369; {$p(abs($yReconcile))}</td></tr>" : '';
+
     $ytdBlock = <<<YTDHTML
 <h4 class="section-title">Year-to-Date Summary ({$yPeriods} pay period(s))</h4>
 <table class="split-table"><tr>
@@ -189,6 +217,7 @@ if (!empty($ytd) && (float)($ytd['ytd_gross'] ?? 0) > 0) {
     <tr><td>PhilHealth (EE)</td><td class="amt red">&#8369; {$yPhEe}</td></tr>
     <tr><td>Pag-IBIG (EE)</td><td class="amt red">&#8369; {$yPiEe}</td></tr>
     <tr><td>Withholding Tax</td><td class="amt red">&#8369; {$yTax}</td></tr>
+    {$yAbsentRow}{$yUnpaidRow}{$ySalaryRow}{$yReconcileRow}
     <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$yDed}</td></tr>
   </table></td>
 </tr></table>
@@ -301,7 +330,7 @@ $html = <<<HTML
   </td>
   <td class="half">
     <table><tr><td class="lbl">Position</td><td class="val">{$pos}</td></tr>
-    <tr><td class="lbl">Date Hired</td><td class="val">{$hired}</td></tr>
+    <tr><td class="lbl">Date Start</td><td class="val">{$dateStart}</td></tr>
     <tr><td class="lbl">Type</td><td class="val">{$empType}</td></tr></table>
   </td>
 </tr></table>
@@ -345,27 +374,14 @@ if ($reconcile != 0) {
     $reconcileLabel = $reconcile > 0 ? 'Year-End Tax (owe)' : 'Year-End Tax (refund)';
     $reconcileSign  = $reconcile > 0 ? '&minus;' : '+';
     $reconcileColor = $reconcile > 0 ? 'red' : '#16a34a';
-    // BUG FIX: Original used unescaped double-quotes inside a double-quoted string
-    // (class="amt" style="color:...") which caused PHP to silently truncate the string,
-    // producing a malformed <td> with no class or style in the rendered PDF.
-    // Use single-quoted HTML attributes inside the double-quoted PHP string.
-    $reconcileRow = "<tr><td>{$reconcileLabel}</td><td class='amt' style='color:{$reconcileColor}'>{$reconcileSign} &#8369; {$reconcileFmt}</td></tr>";
-}
-// BUG FIX: "Other Deductions" was always rendered even when zero, and also after
-// the reconciliation row which already represents the non-absence portion of other_deductions.
-// Showing both caused the same amount to appear twice. Only show this row if other_deductions
-// is non-zero AND there is no reconciliation row covering it.
-$otherDedRaw  = (float)($payrollRecord['other_deductions'] ?? 0);
-$otherDedRow  = '';
-if ($otherDedRaw > 0 && $reconcile == 0) {
-    $otherDedFmt = $p($otherDedRaw);
-    $otherDedRow = "<tr><td>Other Deductions</td><td class='amt red'>&minus; &#8369; {$otherDedFmt}</td></tr>";
+    $reconcileRow   = "<tr><td>{$reconcileLabel}</td><td class='amt' style='color:{$reconcileColor}'>{$reconcileSign} &#8369; {$reconcileFmt}</td></tr>";
 }
 $html .= <<<HTML
       <tr><td>Withholding Tax</td><td class="amt red">&minus; &#8369; {$withholdingTax}</td></tr>
-      {$reconcileRow}
-      {$otherDedRow}
       {$absRow}
+      {$unpaidRow}
+      {$salaryDedRows}
+      {$reconcileRow}
       <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$totalDed}</td></tr>
     </table>
   </td>

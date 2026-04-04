@@ -1,11 +1,11 @@
 <?php
 // core/PhilippineDeductions.php
 // 2026 Philippine Statutory Deduction Computations
-// Updated: Semi-monthly payroll support
-// Sources: SSS Circular 2024-006 (EE 5% / ER 10%, effective Jan 2025 → current in 2026),
-//          PhilHealth PA2025-0002 (5% premium rate, ceiling ₱100,000),
-//          Pag-IBIG Circular 460 (2% EE, capped ₱200/month),
-//          BIR TRAIN Law (RR 13-2023, annual bracket method)
+// Updated: Semi-monthly payroll support + 2026 compliance corrections
+// Sources: SSS Circular 2024-006 (EE 5% / ER 10%, effective Jan 2025 → unchanged 2026),
+//          PhilHealth PA2025-0002 (5% premium rate, ceiling ₱100,000, unchanged 2026),
+//          Pag-IBIG HDMF Circular 460 (MFS ₱10,000, EE/ER max ₱200 each, eff. Feb 2024),
+//          BIR TRAIN Law (RR 13-2023, annual bracket method, unchanged 2026)
 
 declare(strict_types=1);
 
@@ -29,19 +29,22 @@ final class PhilippineDeductions
     private const PHILHEALTH_CEILING = 100000.0;
 
     // ── Pag-IBIG ──────────────────────────────────────────────────
-    // 2025 per Pag-IBIG Circular 460: MFS cap = 5,000, max EE = ₱100
-    // EE rate: 2% for salary > 1,500 (capped at 100), 1% for ≤ 1,500
+    // Per HDMF Circular No. 460 (effective February 2024, unchanged 2026):
+    //   MFS ceiling raised from ₱5,000 → ₱10,000.
+    //   EE rate: 2% for salary > ₱1,500 (max ₱200/mo), 1% for ≤ ₱1,500
+    //   ER rate: 2% (max ₱200/mo)
+    //   Total max contribution: ₱200 EE + ₱200 ER = ₱400/month.
     private const PAGIBIG_RATE_NORMAL  = 0.02;
     private const PAGIBIG_RATE_LOW     = 0.01;
-    private const PAGIBIG_MFS_CAP      = 5000.0;
-    private const PAGIBIG_MAX_PER_SIDE = 100.00;
+    private const PAGIBIG_MFS_CAP      = 10000.0;  // raised from ₱5,000 per Circular 460
+    private const PAGIBIG_MAX_PER_SIDE = 200.00;   // raised from ₱100 per Circular 460
 
     // SSS 2026 contribution table — [salary_min, salary_max, msc, ee(5.0%), er(10.0%)]
     // Source: SSS Circular 2024-006, effective January 2025, unchanged for 2026.
     // EE = 5% of MSC, ER = 10% of MSC. Max MSC = ₱35,000 → EE ₱1,750 / ER ₱3,500.
     private static array $sssTable = [
         [        0.00,      4999.99,   5000,   250.00,   500.00],
-        [     5000.00,      5249.99,   5000,   250.00,   500.00],
+        [     5000.00,      5250.00,   5000,   250.00,   500.00],  // upper bound raised: closes gap at exactly ₱5,250.00
         [     5250.01,      5749.99,   5500,   275.00,   550.00],
         [     5750.01,      6249.99,   6000,   300.00,   600.00],
         [     6250.01,      6749.99,   6500,   325.00,   650.00],

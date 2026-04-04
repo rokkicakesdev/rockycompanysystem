@@ -100,7 +100,13 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
       $thirteenth13  = $isCutoff1 ? max(0.0, round($payrollRecord['gross_pay'] - $expectedGross, 2)) : 0.0;
       $absentDed     = (float)($payrollRecord['absent_deduction'] ?? 0);
       $otherDed      = (float)($payrollRecord['other_deductions'] ?? 0);
-      $reconcile     = round($otherDed - $absentDed, 2);
+      // other_deductions stores ONLY year-end tax reconciliation — a completely separate
+      // DB column from absent_deduction. Do NOT subtract absent_deduction here.
+      // The previous formula ($otherDed - $absentDed) caused the proration deduction
+      // stored in absent_deduction to bleed through as a negative $reconcile, making
+      // the payslip show a spurious 'Year-End Tax Reconciliation' refund for new hires
+      // whose absent_deduction > 0 and other_deductions = 0 (non-December payroll).
+      $reconcile     = round($otherDed, 2);
       $cutoffLabel   = $isCutoff1 ? '1st cutoff' : '2nd cutoff';
 
       // Employer contributions (stored in payroll_records)
@@ -137,7 +143,7 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
           <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Employee No.</span><span class="adm-ps-emp-value"><code><?= htmlspecialchars($selectedEmp['employee_no']) ?></code></span></div>
           <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Position</span><span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['position']) ?></span></div>
           <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Name</span><span class="adm-ps-emp-value adm-ps-emp-name"><?= htmlspecialchars($selectedEmp['name']) ?></span></div>
-          <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Date Hired</span><span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['date_hired']) ?></span></div>
+          <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Date Start</span><span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['date_start'] ?? $selectedEmp['date_hired'] ?? '—') ?></span></div>
           <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Department</span><span class="adm-ps-emp-value"><?= htmlspecialchars($selectedEmp['department']) ?></span></div>
           <div class="adm-ps-emp-field"><span class="adm-ps-emp-label">Status</span><span class="adm-ps-emp-value"><span class="badge badge-success">Active</span></span></div>
         </div>
@@ -158,7 +164,16 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
             <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Pag-IBIG</span><span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['pagibig_ee'],2) ?></span></div>
             <?php else: ?><div class="adm-ps-comp-row text-muted adm-ps-gov-note"><span class="adm-ps-comp-label"><i class="fas fa-info-circle mr-1"></i>Gov. deductions</span><span class="adm-ps-comp-amount">1st cutoff — none</span></div><?php endif; ?>
             <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Withholding Tax</span><span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($payrollRecord['withholding_tax'],2) ?></span></div>
-            <?php if($absentDed>0): ?><div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Absent Deduction</span><span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($absentDed,2) ?></span></div><?php endif; ?>
+            <?php if($absentDed>0): ?>
+            <?php
+              // Label is "Late Start / Absent Deduction" on 1st cutoff when employee
+              // may have started mid-period; otherwise plain "Absent Deduction".
+              $absentLabel = ($isCutoff1 && !empty($selectedEmp['date_start']) && $selectedEmp['date_start'] > ($payrollRecord['period'] ? substr($payrollRecord['period'],0,7).'-01' : ''))
+                           ? 'Late Start / Absent Deduction'
+                           : 'Absent Deduction';
+            ?>
+            <div class="adm-ps-comp-row"><span class="adm-ps-comp-label"><?= $absentLabel ?></span><span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($absentDed,2) ?></span></div>
+            <?php endif; ?>
             <?php if($reconcile!=0): ?><div class="adm-ps-comp-row <?= $reconcile>0?'comp-row-negative':'comp-row-positive' ?>"><span class="adm-ps-comp-label">Year-End Tax Reconciliation</span><span class="adm-ps-comp-amount"><?= $reconcile>0?'−':'+' ?>&nbsp;&#8369;&nbsp;<?= number_format(abs($reconcile),2) ?></span></div><?php endif; ?>
             <div class="adm-ps-comp-row adm-ps-comp-total text-danger"><span class="adm-ps-comp-label">Total Deductions</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['total_deductions'],2) ?></span></div>
           </div>

@@ -3,12 +3,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  Handles authentication flow: login page, login POST, logout, role redirect.
 //
-//  SECURITY IMPROVEMENTS (vs original):
-//   - Brute-force protection is now DB-backed (login_attempts table), keyed by
-//     BOTH IP address AND username. Session-based lockouts are bypassable by
-//     clearing cookies — DB-backed ones are not.
-//   - All failed login attempts are logged to login_attempts for audit trail.
-//   - Successful logins are also logged (was_successful = 1).
+//  SECURITY NOTES:
+//   - Brute-force protection is DB-backed (login_attempts table), not session-based.
+//     Session-based lockouts are bypassable by clearing cookies; DB-backed are not.
+//   - Two independent lockout thresholds (not OR logic on a shared count):
+//       * Per-username : 5 failed attempts in 15 min  → locks that account
+//       * Per-IP       : 20 failed attempts in 15 min → locks that IP
+//     OR logic was removed: it caused office-wide DoS when one user hit the limit,
+//     locking everyone behind the same NAT/gateway IP address.
+//   - getClientIp() uses REMOTE_ADDR only — no spoofable proxy headers.
+//   - CSRF tokens validated on all POST handlers.
+//   - session_regenerate_id(true) on successful login prevents session fixation.
+//   - All login attempts (success and failure) logged to login_attempts table.
 // ─────────────────────────────────────────────────────────────────────────────
 
 require_once __DIR__ . '/../../core/Controller.php';
@@ -18,10 +24,12 @@ require_once __DIR__ . '/../../config/config.php';
 class AuthController extends Controller
 {
     // ── Constants ─────────────────────────────────────────────────────────────
-    private const TIMEOUT_SECONDS = SESSION_TIMEOUT_MINUTES * 60;
-    private const MAX_ATTEMPTS    = 5;
-    private const LOCKOUT_MINUTES = 15;
-    private const LOCKOUT_SECONDS = self::LOCKOUT_MINUTES * 60;
+    private const TIMEOUT_SECONDS   = SESSION_TIMEOUT_MINUTES * 60;
+    private const MAX_ATTEMPTS_USER = 5;   // per-username lockout threshold
+    private const MAX_ATTEMPTS_IP   = 20;  // per-IP lockout threshold (wider — avoids office-wide DoS)
+    private const MAX_ATTEMPTS      = self::MAX_ATTEMPTS_USER; // backward-compat alias
+    private const LOCKOUT_MINUTES   = 15;
+    private const LOCKOUT_SECONDS   = self::LOCKOUT_MINUTES * 60;
 
     // ─────────────────────────────────────────────────────────────────────────
     //  loginPage() — show the login form (GET)
@@ -195,22 +203,44 @@ class AuthController extends Controller
     // =========================================================================
 
     /**
-     * Returns true if the username or IP has exceeded MAX_ATTEMPTS
-     * within the LOCKOUT_SECONDS window.
+     * Returns true if the username OR the IP has individually exceeded its threshold.
+     *
+     * Two independent checks (AND logic between them, OR within each result):
+     *   - Per-username : MAX_ATTEMPTS_USER (5) failed attempts within LOCKOUT window
+     *   - Per-IP       : MAX_ATTEMPTS_IP  (20) failed attempts within LOCKOUT window
+     *
+     * Using separate thresholds (not OR on a shared count) prevents an attacker from
+     * triggering the IP lockout for an entire office network by mistyping one username
+     * 5 times, while still protecting against distributed credential-stuffing attacks.
      */
     private function isLockedOut(string $username, string $ip): bool
     {
         try {
             $db    = Database::getInstance();
             $since = date('Y-m-d H:i:s', time() - self::LOCKOUT_SECONDS);
-            $stmt  = $db->prepare('
+
+            // Check per-username threshold
+            $stmtUser = $db->prepare('
                 SELECT COUNT(*) FROM login_attempts
                 WHERE was_successful = 0
                   AND attempted_at >= ?
-                  AND (username = ? OR ip_address = ?)
+                  AND username = ?
             ');
-            $stmt->execute([$since, $username, $ip]);
-            return (int)$stmt->fetchColumn() >= self::MAX_ATTEMPTS;
+            $stmtUser->execute([$since, $username]);
+            if ((int)$stmtUser->fetchColumn() >= self::MAX_ATTEMPTS_USER) {
+                return true;
+            }
+
+            // Check per-IP threshold (higher limit — reduces office-network DoS risk)
+            $stmtIp = $db->prepare('
+                SELECT COUNT(*) FROM login_attempts
+                WHERE was_successful = 0
+                  AND attempted_at >= ?
+                  AND ip_address = ?
+            ');
+            $stmtIp->execute([$since, $ip]);
+            return (int)$stmtIp->fetchColumn() >= self::MAX_ATTEMPTS_IP;
+
         } catch (Exception $e) {
             // Table may not exist yet — fail open so auth still works
             error_log('AuthController::isLockedOut - ' . $e->getMessage());
@@ -219,7 +249,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Returns minutes remaining in the current lockout window.
+     * Returns minutes remaining in the current lockout window for the given username.
      */
     private function getLockoutWaitMinutes(string $username, string $ip): int
     {
@@ -230,9 +260,9 @@ class AuthController extends Controller
                 SELECT MIN(attempted_at) FROM login_attempts
                 WHERE was_successful = 0
                   AND attempted_at >= ?
-                  AND (username = ? OR ip_address = ?)
+                  AND username = ?
             ');
-            $stmt->execute([$since, $username, $ip]);
+            $stmt->execute([$since, $username]);
             $oldest = $stmt->fetchColumn();
             if (!$oldest) {
                 return self::LOCKOUT_MINUTES;
@@ -245,7 +275,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Returns how many attempts remain before lockout triggers.
+     * Returns how many per-username attempts remain before account lockout.
      */
     private function getRemainingAttempts(string $username, string $ip): int
     {
@@ -256,13 +286,13 @@ class AuthController extends Controller
                 SELECT COUNT(*) FROM login_attempts
                 WHERE was_successful = 0
                   AND attempted_at >= ?
-                  AND (username = ? OR ip_address = ?)
+                  AND username = ?
             ');
-            $stmt->execute([$since, $username, $ip]);
+            $stmt->execute([$since, $username]);
             $count = (int)$stmt->fetchColumn();
-            return max(0, self::MAX_ATTEMPTS - $count);
+            return max(0, self::MAX_ATTEMPTS_USER - $count);
         } catch (Exception $e) {
-            return self::MAX_ATTEMPTS;
+            return self::MAX_ATTEMPTS_USER;
         }
     }
 
@@ -285,28 +315,29 @@ class AuthController extends Controller
     }
 
     /**
-     * Get the real client IP, accounting for common proxy headers.
+     * Get the client IP address.
+     *
+     * SECURITY: Uses REMOTE_ADDR only — NOT proxy headers like X-Forwarded-For.
+     * Proxy headers are fully client-controlled and can be trivially spoofed,
+     * allowing an attacker to rotate fake IPs and bypass the per-IP lockout.
+     *
+     * If this app is deployed behind a TRUSTED reverse proxy (Nginx, Cloudflare, etc.),
+     * you may safely read the proxy header ONLY after whitelisting the proxy's IP:
+     *
+     *   $remoteAddr = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+     *   $trustedProxies = ['127.0.0.1', '10.0.0.1']; // your proxy IPs
+     *   if (in_array($remoteAddr, $trustedProxies, true)) {
+     *       $forwarded = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+     *       $ip = trim(explode(',', $forwarded)[0]);
+     *       if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE)) {
+     *           return $ip;
+     *       }
+     *   }
+     *   return $remoteAddr;
      */
     private function getClientIp(): string
     {
-        $headers = [
-            'HTTP_CLIENT_IP',
-            'HTTP_X_FORWARDED_FOR',
-            'HTTP_X_FORWARDED',
-            'HTTP_FORWARDED_FOR',
-            'HTTP_FORWARDED',
-            'REMOTE_ADDR',
-        ];
-
-        foreach ($headers as $header) {
-            if (!empty($_SERVER[$header])) {
-                $ip = trim(explode(',', $_SERVER[$header])[0]);
-                if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                    return $ip;
-                }
-            }
-        }
-
-        return '0.0.0.0';
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
     }
 }
