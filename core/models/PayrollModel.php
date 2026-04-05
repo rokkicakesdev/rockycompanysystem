@@ -247,6 +247,7 @@ class PayrollModel extends BaseModel
                taxable_income, withholding_tax,
                other_deductions, total_deductions, net_pay,
                absent_deduction, salary_deduction, unpaid_leave_deduction,
+               overtime_pay, holiday_pay,
                days_worked, days_absent, days_paid_leave, working_days_in_month,
                remarks, status, processed_by)
             VALUES
@@ -257,6 +258,7 @@ class PayrollModel extends BaseModel
                :taxable_income, :withholding_tax,
                :other_deductions, :total_deductions, :net_pay,
                :absent_deduction, :salary_deduction, :unpaid_leave_deduction,
+               :overtime_pay, :holiday_pay,
                :days_worked, :days_absent, :days_paid_leave, :working_days_in_month,
                :remarks, :status, :processed_by)
         ');
@@ -283,6 +285,8 @@ class PayrollModel extends BaseModel
             ':absent_deduction'        => $d['absent_deduction']        ?? 0,
             ':salary_deduction'        => $d['salary_deduction']        ?? 0,
             ':unpaid_leave_deduction'  => $d['unpaid_leave_deduction']  ?? 0,
+            ':overtime_pay'            => $d['overtime_pay']            ?? 0,
+            ':holiday_pay'             => $d['holiday_pay']             ?? 0,
             ':days_worked'             => $d['days_worked']             ?? null,
             ':days_absent'             => $d['days_absent']             ?? null,
             ':days_paid_leave'         => $d['days_paid_leave']         ?? 0,
@@ -385,7 +389,7 @@ class PayrollModel extends BaseModel
         $year = (int) substr($upToPeriod, 0, 4);
         $stmt = self::db()->prepare('
             SELECT
-                COALESCE(SUM(basic_salary),      0) AS ytd_basic,
+                COALESCE(SUM(gross_pay - allowance), 0) AS ytd_basic, -- actual basic earned (excludes proration gaps)
                 COALESCE(SUM(allowance),          0) AS ytd_allowance,
                 COALESCE(SUM(gross_pay),          0) AS ytd_gross,
                 COALESCE(SUM(sss_ee),             0) AS ytd_sss_ee,
@@ -541,22 +545,23 @@ class PayrollModel extends BaseModel
 
     public static function getTotalBasicByYear(int $employeeId, int $year): float
     {
+        // actual basic earned = gross_pay minus allowance (excludes proration gaps for new hires)
         $stmt = self::db()->prepare(
-            'SELECT COALESCE(SUM(basic_salary), 0) FROM payroll_records WHERE employee_id = ? AND period LIKE ?'
+            'SELECT COALESCE(SUM(gross_pay - allowance), 0) FROM payroll_records WHERE employee_id = ? AND period LIKE ?'
         );
         $stmt->execute([$employeeId, $year . '-%']);
         return (float) $stmt->fetchColumn();
     }
 
-    /**
-     * Get full YTD aggregate for an employee up to (and including) a given period.
     // ════════════════════════════════════════════════════════
     //  13TH MONTH PAY
     // ════════════════════════════════════════════════════════
 
     /**
      * Compute 13th month pay for all active employees for a given year.
-     * Formula (PD 851): Total basic salary earned in the year ÷ 12
+     * Formula (PD 851): Total basic salary EARNED in the year ÷ 12.
+     * Uses (gross_pay − allowance) instead of basic_salary column to correctly
+     * exclude proration gaps for employees hired mid-cutoff.
      */
     public static function compute13thMonth(int $year): array
     {
@@ -584,7 +589,7 @@ class PayrollModel extends BaseModel
             LEFT JOIN (
                 SELECT
                     employee_id,
-                    SUM(basic_salary)   AS total_basic,
+                    SUM(gross_pay - allowance) AS total_basic, -- actual basic earned per PD 851 (excl. proration gaps)
                     COUNT(*) / 2.0      AS months_worked
                 FROM payroll_records
                 WHERE period LIKE ?

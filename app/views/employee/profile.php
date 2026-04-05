@@ -121,6 +121,10 @@ $leaveBalances = [
             <strong><?= ucfirst(str_replace('_', ' ', $employee['employment_type'] ?? '—')) ?></strong>
           </div>
           <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">Date Start</span>
+            <strong><?= ($employee['date_start'] ?? $employee['date_hired'] ?? null) ? date('M d, Y', strtotime($employee['date_start'] ?? $employee['date_hired'])) : '—' ?></strong>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
             <span class="text-muted">Date Hired</span>
             <strong><?= $employee['date_hired'] ? date('M d, Y', strtotime($employee['date_hired'])) : '—' ?></strong>
           </div>

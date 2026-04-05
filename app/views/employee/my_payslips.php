@@ -62,7 +62,9 @@ $('.view-payslip-btn').on('click', function () {
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var periodLbl  = monthNames[periodDate.getMonth()] + ' ' + periodDate.getFullYear()
                  + ' (' + (cutoffNum === 1 ? '1st–15th' : '16th–End') + ')';
-  var absences  = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
+  var absences    = parseFloat(d.absences || 0) + parseFloat(d.late || 0);
+  var overtimePay = parseFloat(d.overtimepay || 0);
+  var holidayPay  = parseFloat(d.holidaypay  || 0);
 
   // Period labels
   $('#ps-period-label').text(periodLbl);
@@ -78,6 +80,20 @@ $('.view-payslip-btn').on('click', function () {
 
   // Earnings — allowance is halved (semi-monthly)
   $('#ps-allowance').text(fmt(parseFloat(d.allowance || 0) / 2));
+  // Overtime Pay row
+  if (overtimePay > 0) {
+    $('#ps-overtime-row').show();
+    $('#ps-overtime').text(fmt(overtimePay));
+  } else {
+    $('#ps-overtime-row').hide();
+  }
+  // Holiday Premium Pay row
+  if (holidayPay > 0) {
+    $('#ps-holiday-row').show();
+    $('#ps-holiday').text(fmt(holidayPay));
+  } else {
+    $('#ps-holiday-row').hide();
+  }
   $('#ps-gross').text(fmt(d.gross));
 
   // Gov deductions — show/hide based on cutoff
@@ -220,7 +236,9 @@ require_once __DIR__ . '/../layouts/employee_header.php';
                 data-thirteenth="<?= $thirteenthRecords[substr($row['period'],0,4)]['amount'] ?? '' ?>"
                 data-thirteenthstatus="<?= $thirteenthRecords[substr($row['period'],0,4)]['status'] ?? '' ?>"
                 data-cutoff="<?= Model::periodCutoff($row['period']) ?>"
-                data-reconciliation="<?= (float)($full['other_deductions'] ?? 0) ?>">
+                data-reconciliation="<?= (float)($full['other_deductions'] ?? 0) ?>"
+                data-overtimepay="<?= (float)($full['overtime_pay'] ?? 0) ?>"
+                data-holidaypay="<?= (float)($full['holiday_pay']  ?? 0) ?>">
                 <i class="fas fa-eye mr-1"></i> View
               </button>
               <?php else: ?>
@@ -308,6 +326,14 @@ require_once __DIR__ . '/../layouts/employee_header.php';
               <div class="ps-comp-row">
                 <span class="ps-comp-label">Allowance</span>
                 <span class="ps-comp-amount" id="ps-allowance">&#8369;&nbsp;0.00</span>
+              </div>
+              <div class="ps-comp-row" id="ps-overtime-row" style="display:none;">
+                <span class="ps-comp-label"><i class="fas fa-clock mr-1 text-warning"></i>Overtime Pay</span>
+                <span class="ps-comp-amount" style="color:#b45309;font-weight:bold;" id="ps-overtime">&#8369;&nbsp;0.00</span>
+              </div>
+              <div class="ps-comp-row" id="ps-holiday-row" style="display:none;">
+                <span class="ps-comp-label"><i class="fas fa-calendar-star mr-1 text-warning"></i>Holiday Premium Pay</span>
+                <span class="ps-comp-amount" style="color:#b45309;font-weight:bold;" id="ps-holiday">&#8369;&nbsp;0.00</span>
               </div>
               <div class="ps-comp-row ps-modal-13th-row" id="ps-thirteenth-row">
                 <span class="ps-comp-label">13th Month Pay <span id="ps-thirteenth-badge" class="badge badge-info ml-1 ps-modal-13th-badge"></span></span>
@@ -500,6 +526,8 @@ function printPayslip() {
     + '<td class="left"><div class="sec-title">Earnings</div><table class="comp">'
     + '<tr><td>Basic Salary <small>' + cutoffNote + '</small></td><td class="amt">&#8369; ' + basic + '</td></tr>'
     + '<tr><td>Allowance</td><td class="amt">&#8369; ' + allowance + '</td></tr>'
+    + (overtimePay > 0 ? '<tr><td>Overtime Pay</td><td class="amt" style="color:#b45309;font-weight:bold;">&#8369; ' + fmt(overtimePay) + '</td></tr>' : '')
+    + (holidayPay > 0 ? '<tr><td>Holiday Premium Pay</td><td class="amt" style="color:#b45309;font-weight:bold;">&#8369; ' + fmt(holidayPay) + '</td></tr>' : '')
     + '<tr class="total"><td class="green">Gross Pay</td><td class="amt green">&#8369; ' + gross + '</td></tr>'
     + '</table></td>'
     + '<td class="right"><div class="sec-title">Deductions</div><table class="comp">';

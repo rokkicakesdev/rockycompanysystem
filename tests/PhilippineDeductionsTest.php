@@ -4,15 +4,21 @@
 //  PHPUnit test suite for PhilippineDeductions.php
 //
 //  Coverage:
-//   ✓ SSS — bracket table, floor, ceiling, edge cases
-//   ✓ PhilHealth — floor, ceiling, normal, split
-//   ✓ Pag-IBIG — low salary rate, normal rate, cap
-//   ✓ Withholding Tax — TRAIN Law annual bracket, all tiers
-//   ✓ 1st Cutoff — basic split, fixed amount, tax methods, 13th month, absences
-//   ✓ 2nd Cutoff — gov deduction modes, reconciliation, absences
+//   ✓ SSS — bracket table, floor, ceiling, edge cases (2026: EE 5%, ER 10%)
+//   ✓ PhilHealth — floor, ceiling, normal, split (2026: 5%, ceiling ₱100k)
+//   ✓ Pag-IBIG — low salary rate, normal rate, cap (2026: MFS ₱10k, max ₱200)
+//   ✓ Withholding Tax — TRAIN Law annual bracket (RR 13-2023), all tiers
+//   ✓ 1st Cutoff — basic split, fixed amount, 13th month, absences, tax on actual earned
+//   ✓ 2nd Cutoff — gov deduction modes, reconciliation, absences, tax on actual earned
 //   ✓ Year-End Reconciliation — underpaid, overpaid, exact
 //   ✓ computeAll() — legacy full-month method
 //   ✓ Edge cases — zero salary, negative input, boundary salaries
+//
+//  Compliance basis (2026):
+//   SSS   — Circular 2024-006 (15% total: EE 5%, ER 10%, MSC ₱5k–₱35k)
+//   PH    — PA2025-0002 (5% premium, floor ₱10k, ceiling ₱100k, unchanged 2026)
+//   HDMF  — Circular 460 (MFS ₱10k, EE/ER max ₱200 each, eff. Feb 2024)
+//   BIR   — TRAIN Law RR 13-2023 (annual bracket, unchanged 2026)
 //
 //  Run with:  composer test
 //  or:        ./vendor/bin/phpunit --testdox
@@ -28,26 +34,29 @@ use PHPUnit\Framework\Attributes\Group;
 final class PhilippineDeductionsTest extends TestCase
 {
     // =========================================================================
-    //  SSS
+    //  SSS — 2026 rates: EE 5%, ER 10%, MSC ₱5,000–₱35,000
+    //  Source: SSS Circular 2024-006, effective January 2025, unchanged 2026.
     // =========================================================================
 
     #[Test]
     #[Group('sss')]
     public function sss_minimum_salary_gets_minimum_bracket(): void
     {
+        // Salary 3,000 → below floor → MSC 5,000 → EE 5% = 250.00, ER 10% = 500.00
         $result = PhilippineDeductions::computeSSS(3000.00);
         $this->assertSame(5000,   $result['msc']);
-        $this->assertSame(225.00, $result['employee']);
-        $this->assertSame(475.00, $result['employer']);
-        $this->assertSame(700.00, $result['total']);
+        $this->assertSame(250.00, $result['employee']);
+        $this->assertSame(500.00, $result['employer']);
+        $this->assertSame(750.00, $result['total']);
     }
 
     #[Test]
     #[Group('sss')]
     public function sss_zero_salary_gets_minimum_bracket(): void
     {
+        // Zero salary → MSC 5,000 → EE = 250.00
         $result = PhilippineDeductions::computeSSS(0.0);
-        $this->assertSame(225.00, $result['employee']);
+        $this->assertSame(250.00, $result['employee']);
         $this->assertSame(5000,   $result['msc']);
     }
 
@@ -55,42 +64,55 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('sss')]
     public function sss_exact_bracket_boundary_5000(): void
     {
+        // Salary exactly 5,000 → MSC 5,000 → EE = 5,000 × 5% = 250.00
         $result = PhilippineDeductions::computeSSS(5000.00);
         $this->assertSame(5000,   $result['msc']);
-        $this->assertSame(225.00, $result['employee']);
+        $this->assertSame(250.00, $result['employee']);
+    }
+
+    #[Test]
+    #[Group('sss')]
+    public function sss_gap_boundary_5250_exactly(): void
+    {
+        // Salary exactly 5,250 — previously a bracket gap that caused fallthrough
+        // to max MSC. Fixed: row 2 upper bound raised to 5,250.00.
+        $result = PhilippineDeductions::computeSSS(5250.00);
+        $this->assertSame(5000,   $result['msc']);   // still in MSC 5,000 bracket
+        $this->assertSame(250.00, $result['employee']);
     }
 
     #[Test]
     #[Group('sss')]
     public function sss_mid_range_salary_20000(): void
     {
-        // 20,000 falls in [19,750.01 – 20,249.99] → MSC 20,000, EE 900.00
+        // 20,000 → bracket [19,750.01–20,249.99] → MSC 20,000 → EE = 20,000 × 5% = 1,000.00
         $result = PhilippineDeductions::computeSSS(20000.00);
-        $this->assertSame(20000,  $result['msc']);
-        $this->assertSame(900.00, $result['employee']);
-        $this->assertSame(1900.00, $result['employer']);
+        $this->assertSame(20000,   $result['msc']);
+        $this->assertSame(1000.00, $result['employee']);
+        $this->assertSame(2000.00, $result['employer']);
     }
 
     #[Test]
     #[Group('sss')]
     public function sss_salary_at_ceiling_35000(): void
     {
+        // 35,000 → max MSC bracket → EE = 35,000 × 5% = 1,750.00, ER = 35,000 × 10% = 3,500.00
         $result = PhilippineDeductions::computeSSS(35000.00);
         $this->assertSame(35000,   $result['msc']);
-        $this->assertSame(1575.00, $result['employee']);
-        $this->assertSame(3325.00, $result['employer']);
+        $this->assertSame(1750.00, $result['employee']);
+        $this->assertSame(3500.00, $result['employer']);
     }
 
     #[Test]
     #[Group('sss')]
     public function sss_salary_above_ceiling_is_capped(): void
     {
-        // Any salary above 34,750.01 gets the maximum bracket
+        // Any salary above ceiling uses max MSC bracket — EE always 1,750.00
         $result100k = PhilippineDeductions::computeSSS(100000.00);
         $result50k  = PhilippineDeductions::computeSSS(50000.00);
 
-        $this->assertSame(1575.00, $result100k['employee']);
-        $this->assertSame(1575.00, $result50k['employee']);
+        $this->assertSame(1750.00, $result100k['employee']);
+        $this->assertSame(1750.00, $result50k['employee']);
         $this->assertSame($result100k['employee'], $result50k['employee']);
     }
 
@@ -98,21 +120,22 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('sss')]
     public function sss_bracket_15000_salary(): void
     {
-        // 15,000 → [14,750.01 – 15,249.99] → MSC 15,000, EE 675.00
+        // 15,000 → bracket [14,750.01–15,249.99] → MSC 15,000 → EE = 15,000 × 5% = 750.00
         $result = PhilippineDeductions::computeSSS(15000.00);
         $this->assertSame(15000,  $result['msc']);
-        $this->assertSame(675.00, $result['employee']);
+        $this->assertSame(750.00, $result['employee']);
     }
 
     // =========================================================================
-    //  PhilHealth
+    //  PhilHealth — 2026: 5% premium, floor ₱10,000, ceiling ₱100,000
+    //  Source: PA2025-0002, unchanged for 2026.
     // =========================================================================
 
     #[Test]
     #[Group('philhealth')]
     public function philhealth_floor_applied_for_low_salary(): void
     {
-        // Salary below 10,000 → uses floor of 10,000 → total = 500, EE = 250
+        // Salary below 10,000 → floor 10,000 → total = 500.00, EE = 250.00
         $result = PhilippineDeductions::computePhilHealth(5000.00);
         $this->assertSame(10000.0, $result['mbs']);
         $this->assertSame(500.00,  $result['total']);
@@ -124,7 +147,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('philhealth')]
     public function philhealth_normal_salary_25000(): void
     {
-        // 25,000 × 5% = 1,250 → EE = 625
+        // 25,000 × 5% = 1,250 → EE = 625.00
         $result = PhilippineDeductions::computePhilHealth(25000.00);
         $this->assertSame(25000.0, $result['mbs']);
         $this->assertSame(1250.00, $result['total']);
@@ -135,7 +158,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('philhealth')]
     public function philhealth_ceiling_applied_for_high_salary(): void
     {
-        // Salary above 100,000 → capped at 100,000 → total = 5,000, EE = 2,500
+        // Salary above 100,000 → ceiling 100,000 → total = 5,000.00, EE = 2,500.00
         $result = PhilippineDeductions::computePhilHealth(150000.00);
         $this->assertSame(100000.0, $result['mbs']);
         $this->assertSame(5000.00,  $result['total']);
@@ -171,45 +194,59 @@ final class PhilippineDeductionsTest extends TestCase
     }
 
     // =========================================================================
-    //  Pag-IBIG
+    //  Pag-IBIG / HDMF — 2026: MFS ₱10,000, EE/ER max ₱200 each
+    //  Source: HDMF Circular 460, effective February 2024, unchanged 2026.
     // =========================================================================
 
     #[Test]
     #[Group('pagibig')]
     public function pagibig_low_salary_uses_1_percent_rate(): void
     {
-        // Salary ≤ 1,500 → 1% rate → EE = 15.00
+        // Salary ≤ 1,500 → 1% EE rate → 1,500 × 1% = 15.00
         $result = PhilippineDeductions::computePagIbig(1500.00);
-        $this->assertSame('1%',   $result['employee_rate']);
-        $this->assertSame(15.00,  $result['employee']);
+        $this->assertSame('1%',  $result['employee_rate']);
+        $this->assertSame(15.00, $result['employee']);
     }
 
     #[Test]
     #[Group('pagibig')]
-    public function pagibig_normal_salary_uses_2_percent_rate(): void
+    public function pagibig_normal_salary_below_mfs_cap(): void
     {
-        // Salary > 1,500 → 2% rate, capped at 100
+        // Salary 5,000 > 1,500 → 2% rate → 5,000 × 2% = 100.00 (below ₱200 cap)
         $result = PhilippineDeductions::computePagIbig(5000.00);
         $this->assertSame('2%',   $result['employee_rate']);
-        $this->assertSame(100.00, $result['employee']); // 5000 × 2% = 100
-    }
-
-    #[Test]
-    #[Group('pagibig')]
-    public function pagibig_employee_contribution_capped_at_100(): void
-    {
-        // Any salary above 5,000 → still capped at 100
-        $result = PhilippineDeductions::computePagIbig(50000.00);
         $this->assertSame(100.00, $result['employee']);
-        $this->assertSame(100.00, $result['employer']);
     }
 
     #[Test]
     #[Group('pagibig')]
-    public function pagibig_mfs_capped_at_5000(): void
+    public function pagibig_employee_contribution_capped_at_200(): void
     {
+        // Salary above MFS ceiling (10,000) → capped at ₱200 EE and ₱200 ER
+        // Per HDMF Circular 460: MFS raised to ₱10,000, max per side = ₱200
+        $result = PhilippineDeductions::computePagIbig(50000.00);
+        $this->assertSame(200.00, $result['employee']);
+        $this->assertSame(200.00, $result['employer']);
+    }
+
+    #[Test]
+    #[Group('pagibig')]
+    public function pagibig_mfs_capped_at_10000(): void
+    {
+        // Per HDMF Circular 460: MFS ceiling raised from ₱5,000 to ₱10,000
         $result = PhilippineDeductions::computePagIbig(20000.00);
-        $this->assertSame(5000.0, $result['mfs']);
+        $this->assertSame(10000.0, $result['mfs']);
+    }
+
+    #[Test]
+    #[Group('pagibig')]
+    public function pagibig_salary_exactly_at_mfs_cap(): void
+    {
+        // Salary exactly 10,000 → MFS = 10,000 → EE = 10,000 × 2% = 200.00 (at cap)
+        $result = PhilippineDeductions::computePagIbig(10000.00);
+        $this->assertSame(10000.0, $result['mfs']);
+        $this->assertSame(200.00,  $result['employee']);
+        $this->assertSame(200.00,  $result['employer']);
     }
 
     #[Test]
@@ -221,14 +258,13 @@ final class PhilippineDeductionsTest extends TestCase
     }
 
     // =========================================================================
-    //  Withholding Tax — TRAIN Law Annual Bracket
+    //  Withholding Tax — TRAIN Law Annual Bracket (RR 13-2023)
     // =========================================================================
 
     #[Test]
     #[Group('tax')]
     public function tax_zero_for_income_at_exemption_limit(): void
     {
-        // Annual 250,000 → tax = 0. Monthly taxable = 20,833.33
         $tax = PhilippineDeductions::computeAnnualTax(250000.00);
         $this->assertSame(0.00, $tax);
     }
@@ -245,7 +281,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_first_bracket_15_percent(): void
     {
-        // Annual 300,000 → 15% of (300,000 − 250,000) = 15% × 50,000 = 7,500
+        // Annual 300,000 → 15% of (300,000 − 250,000) = 7,500.00
         $tax = PhilippineDeductions::computeAnnualTax(300000.00);
         $this->assertSame(7500.00, $tax);
     }
@@ -254,7 +290,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_second_bracket_20_percent(): void
     {
-        // Annual 600,000 → 22,500 + 20% × (600,000 − 400,000) = 22,500 + 40,000 = 62,500
+        // Annual 600,000 → 22,500 + 20% × 200,000 = 62,500.00
         $tax = PhilippineDeductions::computeAnnualTax(600000.00);
         $this->assertSame(62500.00, $tax);
     }
@@ -263,7 +299,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_third_bracket_25_percent(): void
     {
-        // Annual 1,000,000 → 102,500 + 25% × (1,000,000 − 800,000) = 102,500 + 50,000 = 152,500
+        // Annual 1,000,000 → 102,500 + 25% × 200,000 = 152,500.00
         $tax = PhilippineDeductions::computeAnnualTax(1000000.00);
         $this->assertSame(152500.00, $tax);
     }
@@ -272,7 +308,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_fourth_bracket_30_percent(): void
     {
-        // Annual 3,000,000 → 402,500 + 30% × (3,000,000 − 2,000,000) = 402,500 + 300,000 = 702,500
+        // Annual 3,000,000 → 402,500 + 30% × 1,000,000 = 702,500.00
         $tax = PhilippineDeductions::computeAnnualTax(3000000.00);
         $this->assertSame(702500.00, $tax);
     }
@@ -281,7 +317,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_fifth_bracket_35_percent(): void
     {
-        // Annual 10,000,000 → 2,402,500 + 35% × (10,000,000 − 8,000,000) = 2,402,500 + 700,000 = 3,102,500
+        // Annual 10,000,000 → 2,402,500 + 35% × 2,000,000 = 3,102,500.00
         $tax = PhilippineDeductions::computeAnnualTax(10000000.00);
         $this->assertSame(3102500.00, $tax);
     }
@@ -290,7 +326,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_bracket_boundary_400000_exactly(): void
     {
-        // At exactly 400,000 → still in 15% bracket → 15% × 150,000 = 22,500
+        // At exactly 400,000 → 15% × 150,000 = 22,500.00
         $tax = PhilippineDeductions::computeAnnualTax(400000.00);
         $this->assertSame(22500.00, $tax);
     }
@@ -299,7 +335,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('tax')]
     public function tax_bracket_boundary_800000_exactly(): void
     {
-        // At exactly 800,000 → 22,500 + 20% × 400,000 = 22,500 + 80,000 = 102,500
+        // At exactly 800,000 → 22,500 + 20% × 400,000 = 102,500.00
         $tax = PhilippineDeductions::computeAnnualTax(800000.00);
         $this->assertSame(102500.00, $tax);
     }
@@ -313,10 +349,9 @@ final class PhilippineDeductionsTest extends TestCase
     public function first_cutoff_basic_split_in_half(): void
     {
         $result = PhilippineDeductions::computeFirstCutoff(30000.00, 5000.00);
-
-        $this->assertSame(15000.00, $result['basic_salary']);  // 30,000 / 2
-        $this->assertSame(2500.00,  $result['allowance']);      // 5,000 / 2
-        $this->assertSame(17500.00, $result['gross_pay']);      // 15,000 + 2,500
+        $this->assertSame(15000.00, $result['basic_salary']);
+        $this->assertSame(2500.00,  $result['allowance']);
+        $this->assertSame(17500.00, $result['gross_pay']);
     }
 
     #[Test]
@@ -324,7 +359,6 @@ final class PhilippineDeductionsTest extends TestCase
     public function first_cutoff_has_no_gov_deductions(): void
     {
         $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0);
-
         $this->assertSame(0.0, $result['sss_ee']);
         $this->assertSame(0.0, $result['philhealth_ee']);
         $this->assertSame(0.0, $result['pagibig_ee']);
@@ -337,19 +371,17 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('cutoff1')]
     public function first_cutoff_fixed_amount_overrides_half_split(): void
     {
-        // fixedAmount = 12,000 instead of 30,000/2 = 15,000
         $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, 12000.00);
         $this->assertSame(12000.00, $result['basic_salary']);
     }
 
     #[Test]
     #[Group('cutoff1')]
-    public function first_cutoff_half_monthly_tax_method(): void
+    public function first_cutoff_half_monthly_tax_equals_second_cutoff_tax(): void
     {
+        // With no absences and same salary, both cutoffs should yield the same tax
         $resultFirst  = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, null, 'half_monthly');
         $resultSecond = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly');
-
-        // Both cutoffs should have equal withholding tax under half_monthly
         $this->assertSame($resultFirst['withholding_tax'], $resultSecond['withholding_tax']);
     }
 
@@ -359,8 +391,6 @@ final class PhilippineDeductionsTest extends TestCase
     {
         $thirteenth = 25000.00;
         $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, null, 'half_monthly', $thirteenth);
-
-        // Gross should include 13th month
         $this->assertSame(40000.00, $result['gross_pay']); // 15,000 + 25,000
         $this->assertSame($thirteenth, $result['thirteenth_month']);
     }
@@ -369,11 +399,34 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('cutoff1')]
     public function first_cutoff_absent_deduction_reduces_gross(): void
     {
+        // cutoffBasic = 15,000 − 1,363.64 = 13,636.36
         $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, null, 'half_monthly', 0.0, 1363.64);
-
-        // gross = 15,000 − 1,363.64 = 13,636.36
         $this->assertSame(13636.36, $result['gross_pay']);
         $this->assertSame(1363.64,  $result['absent_deduction']);
+    }
+
+    #[Test]
+    #[Group('cutoff1')]
+    public function first_cutoff_tax_based_on_actual_earned_not_full_basic(): void
+    {
+        // Employee with 2-day proration: cutoffBasic=15,000, absentDeduction=1,363.64
+        // Taxable MUST be 15,000 − 1,363.64 = 13,636.36 (actual earned), not 15,000.
+        // Annual taxable = 13,636.36 × 24 = 327,272.64
+        // Tax = 15% × (327,272.64 − 250,000) = 15% × 77,272.64 = 11,590.90
+        // Semi-monthly = 11,590.90 / 24 = 482.95
+        $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, null, 'half_monthly', 0.0, 1363.64);
+
+        $this->assertSame(13636.36, $result['taxable_income']);
+        $this->assertSame(482.95,   $result['withholding_tax']);
+    }
+
+    #[Test]
+    #[Group('cutoff1')]
+    public function first_cutoff_no_absent_deduction_taxable_equals_basic(): void
+    {
+        // When no absent deduction, taxable should equal full cutoffBasic
+        $result = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0);
+        $this->assertSame(15000.00, $result['taxable_income']);
     }
 
     #[Test]
@@ -401,7 +454,6 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('cutoff2')]
     public function second_cutoff_basic_is_remainder_after_first(): void
     {
-        // No fixed amount: 2nd basic = 30,000 − 15,000 = 15,000
         $result = PhilippineDeductions::computeSecondCutoff(30000.00);
         $this->assertSame(15000.00, $result['basic_salary']);
     }
@@ -410,14 +462,13 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('cutoff2')]
     public function second_cutoff_basic_accounts_for_fixed_first_cutoff(): void
     {
-        // Fixed 1st = 12,000 → 2nd = 30,000 − 12,000 = 18,000
         $result = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, 12000.00);
         $this->assertSame(18000.00, $result['basic_salary']);
     }
 
     #[Test]
     #[Group('cutoff2')]
-    public function second_cutoff_second_cutoff_mode_has_full_gov_deductions(): void
+    public function second_cutoff_mode_has_full_gov_deductions(): void
     {
         $result = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff');
 
@@ -425,9 +476,9 @@ final class PhilippineDeductionsTest extends TestCase
         $philhealth = PhilippineDeductions::computePhilHealth(30000.00);
         $pagibig    = PhilippineDeductions::computePagIbig(30000.00);
 
-        $this->assertSame($sss['employee'],        $result['sss_ee']);
-        $this->assertSame($philhealth['employee'],  $result['philhealth_ee']);
-        $this->assertSame($pagibig['employee'],     $result['pagibig_ee']);
+        $this->assertSame($sss['employee'],       $result['sss_ee']);
+        $this->assertSame($philhealth['employee'], $result['philhealth_ee']);
+        $this->assertSame($pagibig['employee'],    $result['pagibig_ee']);
     }
 
     #[Test]
@@ -447,12 +498,24 @@ final class PhilippineDeductionsTest extends TestCase
 
     #[Test]
     #[Group('cutoff2')]
+    public function second_cutoff_absent_deduction_excluded_from_taxable_base(): void
+    {
+        // Absent deduction must reduce taxable income — employee is not taxed
+        // on income they did not receive.
+        $withAbsence    = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 1500.00);
+        $withoutAbsence = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 0.0);
+
+        $this->assertLessThan($withoutAbsence['taxable_income'], $withAbsence['taxable_income']);
+        $this->assertLessThan($withoutAbsence['withholding_tax'], $withAbsence['withholding_tax']);
+    }
+
+    #[Test]
+    #[Group('cutoff2')]
     public function second_cutoff_positive_reconciliation_reduces_net(): void
     {
         $without = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 0.0, 0.0);
         $with    = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 0.0, 5000.00);
 
-        // Net should be lower when there is a positive reconciliation (employee owes tax)
         $this->assertLessThan($without['net_pay'], $with['net_pay']);
         $this->assertSame(5000.00, $with['reconciliation']);
     }
@@ -464,7 +527,6 @@ final class PhilippineDeductionsTest extends TestCase
         $without = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 0.0, 0.0);
         $with    = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly', 'second_cutoff', 0.0, -3000.00);
 
-        // Net should be higher when there is a negative reconciliation (refund)
         $this->assertGreaterThan($without['net_pay'], $with['net_pay']);
     }
 
@@ -496,17 +558,14 @@ final class PhilippineDeductionsTest extends TestCase
     }
 
     // =========================================================================
-    //  Both cutoffs combined — sanity check that 1st + 2nd = full month
+    //  Both cutoffs combined — integration sanity checks
     // =========================================================================
 
     #[Test]
     #[Group('integration')]
     public function both_cutoffs_combined_gov_ded_equals_full_month(): void
     {
-        // Under second_cutoff mode, all gov deductions fall on the 2nd cutoff.
-        // SSS/PH/PI on 2nd cutoff should equal full monthly contributions.
         $salary = 30000.00;
-
         $second = PhilippineDeductions::computeSecondCutoff($salary, 0.0, null, 'half_monthly', 'second_cutoff');
         $sss    = PhilippineDeductions::computeSSS($salary);
         $ph     = PhilippineDeductions::computePhilHealth($salary);
@@ -522,7 +581,6 @@ final class PhilippineDeductionsTest extends TestCase
     public function split_mode_both_cutoffs_combined_gov_ded_equals_full_month(): void
     {
         $salary = 30000.00;
-
         $first  = PhilippineDeductions::computeFirstCutoff($salary);
         $second = PhilippineDeductions::computeSecondCutoff($salary, 0.0, null, 'half_monthly', 'split');
 
@@ -530,10 +588,7 @@ final class PhilippineDeductionsTest extends TestCase
         $ph  = PhilippineDeductions::computePhilHealth($salary);
         $pi  = PhilippineDeductions::computePagIbig($salary);
 
-        // 1st cutoff has no gov deductions
         $this->assertSame(0.0, $first['sss_ee']);
-
-        // 2nd cutoff split = half
         $this->assertSame(round($sss['employee'] / 2, 2), $second['sss_ee']);
         $this->assertSame(round($ph['employee']  / 2, 2), $second['philhealth_ee']);
         $this->assertSame(round($pi['employee']  / 2, 2), $second['pagibig_ee']);
@@ -544,7 +599,6 @@ final class PhilippineDeductionsTest extends TestCase
     public function half_monthly_tax_both_cutoffs_sum_to_full_monthly_tax(): void
     {
         $salary = 40000.00;
-
         $first  = PhilippineDeductions::computeFirstCutoff($salary,  0.0, null, 'half_monthly');
         $second = PhilippineDeductions::computeSecondCutoff($salary, 0.0, null, 'half_monthly');
 
@@ -552,11 +606,7 @@ final class PhilippineDeductionsTest extends TestCase
         $fullMonthAll = PhilippineDeductions::computeAll($salary);
         $fullMonthTax = $fullMonthAll['withholding_tax'];
 
-        // Combined semi-monthly tax should equal full monthly tax.
-        // Tolerance of ₱0.01 is allowed: the half_monthly method divides the
-        // full monthly tax by 2 and rounds each half independently, which can
-        // produce a 1-cent accumulation vs. the single-pass computeAll() result.
-        // This is expected floating-point behaviour, not a calculation error.
+        // ₱0.02 tolerance: semi-monthly method rounds each half independently.
         $this->assertEqualsWithDelta($fullMonthTax, $totalTax, 0.02);
     }
 
@@ -568,16 +618,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('reconciliation')]
     public function reconciliation_positive_when_underpaid(): void
     {
-        // If annual taxable is high enough, correct tax > what was paid
-        $annualBasic   = 600000.00;  // annual basic
-        $annualGovDeds = 30000.00;   // gov deductions paid
-        $annualTaxPaid = 10000.00;   // tax already withheld (intentionally low)
-
-        $result = PhilippineDeductions::computeYearEndReconciliation(
-            $annualBasic, $annualGovDeds, $annualTaxPaid
-        );
-
-        // Should be positive — employee owes more tax
+        $result = PhilippineDeductions::computeYearEndReconciliation(600000.00, 30000.00, 10000.00);
         $this->assertGreaterThan(0.0, $result);
     }
 
@@ -585,16 +626,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('reconciliation')]
     public function reconciliation_negative_when_overpaid(): void
     {
-        // If annual taxable is low, correct tax < what was paid
-        $annualBasic   = 300000.00;  // annual basic (low income)
-        $annualGovDeds = 20000.00;
-        $annualTaxPaid = 50000.00;   // overpaid (too much withheld)
-
-        $result = PhilippineDeductions::computeYearEndReconciliation(
-            $annualBasic, $annualGovDeds, $annualTaxPaid
-        );
-
-        // Should be negative — employee is owed a refund
+        $result = PhilippineDeductions::computeYearEndReconciliation(300000.00, 20000.00, 50000.00);
         $this->assertLessThan(0.0, $result);
     }
 
@@ -602,14 +634,9 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('reconciliation')]
     public function reconciliation_zero_when_exact(): void
     {
-        // Annual taxable = 570,000 → tax = 22,500 + 20% × 170,000 = 56,500
         $annualTaxable = 570000.00;
         $correctTax    = PhilippineDeductions::computeAnnualTax($annualTaxable);
-
-        $result = PhilippineDeductions::computeYearEndReconciliation(
-            $annualTaxable, 0.0, $correctTax
-        );
-
+        $result = PhilippineDeductions::computeYearEndReconciliation($annualTaxable, 0.0, $correctTax);
         $this->assertSame(0.00, $result);
     }
 
@@ -617,10 +644,7 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('reconciliation')]
     public function reconciliation_zero_tax_for_income_below_exemption(): void
     {
-        // Annual taxable below 250,000 → no tax owed
-        $result = PhilippineDeductions::computeYearEndReconciliation(
-            200000.00, 0.0, 0.0
-        );
+        $result = PhilippineDeductions::computeYearEndReconciliation(200000.00, 0.0, 0.0);
         $this->assertSame(0.00, $result);
     }
 
@@ -684,13 +708,11 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('edge_cases')]
     public function zero_salary_has_zero_gross_and_minimum_deductions(): void
     {
-        // A zero salary still attracts minimum SSS (₱225) and PhilHealth (₱250)
-        // contributions — this is correct PH labor law behavior. Net pay will be
-        // negative in this edge case. The guard ensures basic_salary is not negative.
+        // Zero salary still attracts minimum SSS (₱250) and PhilHealth (₱250)
         $result = PhilippineDeductions::computeAll(0.0, 0.0);
         $this->assertSame(0.00,   $result['basic_salary']);
         $this->assertSame(0.00,   $result['gross_pay']);
-        $this->assertSame(225.00, $result['sss_ee']);    // minimum SSS bracket
+        $this->assertSame(250.00, $result['sss_ee']);       // min SSS bracket: MSC 5,000 × 5%
         $this->assertSame(250.00, $result['philhealth_ee']); // floor 10,000 × 5% / 2
     }
 
@@ -698,19 +720,16 @@ final class PhilippineDeductionsTest extends TestCase
     #[Group('edge_cases')]
     public function negative_salary_is_treated_as_zero(): void
     {
-        // Negative salary is clamped to zero — basic_salary must be 0.
-        // Deductions (minimum SSS/PhilHealth) still apply per labor law.
         $result = PhilippineDeductions::computeAll(-5000.0);
-        $this->assertSame(0.00, $result['basic_salary']);
-        $this->assertSame(0.00, $result['gross_pay']);
-        $this->assertSame(225.00, $result['sss_ee']); // minimum SSS still applies
+        $this->assertSame(0.00,   $result['basic_salary']);
+        $this->assertSame(0.00,   $result['gross_pay']);
+        $this->assertSame(250.00, $result['sss_ee']); // minimum SSS still applies
     }
 
     #[Test]
     #[Group('edge_cases')]
     public function first_cutoff_absent_deduction_cannot_make_gross_negative(): void
     {
-        // Absent deduction larger than gross should floor at 0
         $result = PhilippineDeductions::computeFirstCutoff(10000.00, 0.0, null, 'half_monthly', 0.0, 999999.00);
         $this->assertGreaterThanOrEqual(0.0, $result['gross_pay']);
     }
@@ -729,14 +748,14 @@ final class PhilippineDeductionsTest extends TestCase
     {
         $result = PhilippineDeductions::computeSSS(1000000.00);
         $this->assertSame(35000,   $result['msc']);
-        $this->assertSame(1575.00, $result['employee']);
+        $this->assertSame(1750.00, $result['employee']);
     }
 
     #[Test]
     #[Group('edge_cases')]
     public function minimum_wage_earner_pays_zero_income_tax(): void
     {
-        // Monthly minimum wage ~18,000 → annual ~216,000 → below 250,000 exemption
+        // Monthly ~18,000 → annual ~216,000 → below ₱250,000 exemption
         $result = PhilippineDeductions::computeAll(18000.00);
         $this->assertSame(0.00, $result['withholding_tax']);
     }
@@ -759,28 +778,27 @@ final class PhilippineDeductionsTest extends TestCase
     }
 
     // =========================================================================
-    //  Real-world salary scenarios (cross-check against BIR/SSS tables)
+    //  Real-world salary scenarios — cross-checked against 2026 BIR/SSS/HDMF tables
     // =========================================================================
 
     #[Test]
     #[Group('scenarios')]
     public function scenario_minimum_wage_metro_manila(): void
     {
-        // Metro Manila daily minimum wage ~645/day × 22 days = ~14,190/month
+        // Metro Manila daily minimum wage ~645/day × 22 days ≈ ₱14,190/month
         $salary = 14190.00;
         $result = PhilippineDeductions::computeAll($salary);
 
-        // SSS: salary ~14,190 → bracket [13,750.01–14,249.99] → EE = 630.00
-        $this->assertSame(630.00, $result['sss_ee']);
+        // SSS: [13,750.01–14,249.99] → MSC 14,000 → EE = 14,000 × 5% = 700.00
+        $this->assertSame(700.00, $result['sss_ee']);
 
         // PhilHealth: 14,190 × 5% = 709.50 → EE = 354.75
         $this->assertSame(354.75, $result['philhealth_ee']);
 
-        // Pag-IBIG: capped at 100
-        $this->assertSame(100.00, $result['pagibig_ee']);
+        // Pag-IBIG: MFS = min(14,190, 10,000) = 10,000 → 10,000 × 2% = 200.00 (Circular 460)
+        $this->assertSame(200.00, $result['pagibig_ee']);
 
-        // Annual taxable = 14,190 × 12 − (630 + 354.75 + 100) × 12
-        // = 170,280 − 12,897 = 157,383 → below 250,000 → tax = 0
+        // Income tax: annual taxable below ₱250,000 → 0
         $this->assertSame(0.00, $result['withholding_tax']);
     }
 
@@ -791,16 +809,15 @@ final class PhilippineDeductionsTest extends TestCase
         $salary = 30000.00;
         $result = PhilippineDeductions::computeAll($salary);
 
-        // SSS: [29,750.01–30,249.99] → MSC 30,000 → EE = 1,350.00
-        $this->assertSame(1350.00, $result['sss_ee']);
+        // SSS: [29,750.01–30,249.99] → MSC 30,000 → EE = 30,000 × 5% = 1,500.00
+        $this->assertSame(1500.00, $result['sss_ee']);
 
         // PhilHealth: 30,000 × 5% = 1,500 → EE = 750.00
         $this->assertSame(750.00, $result['philhealth_ee']);
 
-        // Pag-IBIG: capped at 100
-        $this->assertSame(100.00, $result['pagibig_ee']);
+        // Pag-IBIG: MFS = min(30,000, 10,000) = 10,000 → 10,000 × 2% = 200.00 (Circular 460)
+        $this->assertSame(200.00, $result['pagibig_ee']);
 
-        // Net should be positive and less than gross
         $this->assertGreaterThan(0.0, $result['net_pay']);
         $this->assertLessThan($result['gross_pay'], $result['net_pay']);
     }
@@ -812,16 +829,15 @@ final class PhilippineDeductionsTest extends TestCase
         $salary = 80000.00;
         $result = PhilippineDeductions::computeAll($salary);
 
-        // SSS: above ceiling → MSC 35,000 → EE = 1,575.00
-        $this->assertSame(1575.00, $result['sss_ee']);
+        // SSS: above ceiling → MSC 35,000 → EE = 35,000 × 5% = 1,750.00
+        $this->assertSame(1750.00, $result['sss_ee']);
 
         // PhilHealth: 80,000 × 5% = 4,000 → EE = 2,000.00
         $this->assertSame(2000.00, $result['philhealth_ee']);
 
-        // Pag-IBIG: capped at 100
-        $this->assertSame(100.00, $result['pagibig_ee']);
+        // Pag-IBIG: MFS capped at 10,000 → 10,000 × 2% = 200.00 (Circular 460)
+        $this->assertSame(200.00, $result['pagibig_ee']);
 
-        // Should be paying significant income tax
         $this->assertGreaterThan(0.0, $result['withholding_tax']);
     }
 }

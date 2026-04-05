@@ -89,6 +89,10 @@ $pagibigEE      = $p($payrollRecord['pagibig_ee']           ?? 0);
 $withholdingTax = $p($payrollRecord['withholding_tax']      ?? 0);
 $absDedFmt      = $p($absentDed);
 $unpaidDedFmt   = $p($unpaidLeaveDed);
+$overtimePay    = (float)($payrollRecord['overtime_pay'] ?? 0);
+$holidayPay     = (float)($payrollRecord['holiday_pay']  ?? 0);
+$otPayFmt       = $p($overtimePay);
+$holidayPayFmt  = $p($holidayPay);
 
 // Employer contributions
 $sssER        = (float)($payrollRecord['sss_er']        ?? 0);
@@ -344,6 +348,14 @@ $html = <<<HTML
       <tr><td>Basic Salary</td><td class="amt">&#8369; {$basicSalary}</td></tr>
       <tr><td>Allowance</td><td class="amt">&#8369; {$allowance}</td></tr>
 HTML;
+// Only render overtime pay row if earned
+if ($overtimePay > 0) {
+    $html .= "<tr><td>Overtime Pay</td><td class='amt' style='color:#b45309;font-weight:bold;'>&#8369; {$otPayFmt}</td></tr>";
+}
+// Only render holiday premium row if earned
+if ($holidayPay > 0) {
+    $html .= "<tr><td>Holiday Premium Pay</td><td class='amt' style='color:#b45309;font-weight:bold;'>&#8369; {$holidayPayFmt}</td></tr>";
+}
 // Only render 13th month row if a record exists
 if ($amount13th > 0) {
     $statusPill13 = $status13th === 'Released'
