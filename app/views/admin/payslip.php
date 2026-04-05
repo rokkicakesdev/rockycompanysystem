@@ -115,6 +115,10 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
       $piEr      = (float)($payrollRecord['pagibig_er']    ?? 0);
       $totalEr   = round($sssEr + $phEr + $piEr, 2);
 
+      // Overtime and holiday pay earned
+      $overtimePay  = (float)($payrollRecord['overtime_pay'] ?? 0);
+      $holidayPay   = (float)($payrollRecord['holiday_pay']  ?? 0);
+
       // Attendance info
       $daysWorked  = $payrollRecord['days_worked']           ?? null;
       $daysAbsent  = $payrollRecord['days_absent']           ?? 0;
@@ -154,6 +158,8 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
             <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Basic Salary <small class="text-muted">(<?= $cutoffLabel ?>)</small></span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['basic_salary'],2) ?></span></div>
             <div class="adm-ps-comp-row"><span class="adm-ps-comp-label">Allowance</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['allowance'],2) ?></span></div>
             <?php if($thirteenth13>0): ?><div class="adm-ps-comp-row"><span class="adm-ps-comp-label"><i class="fas fa-gift mr-1 text-info"></i>13th Month Pay</span><span class="adm-ps-comp-amount text-info">&#8369;&nbsp;<?= number_format($thirteenth13,2) ?></span></div><?php endif; ?>
+            <?php if($overtimePay > 0): ?><div class="adm-ps-comp-row"><span class="adm-ps-comp-label"><i class="fas fa-clock mr-1 text-warning"></i>Overtime Pay</span><span class="adm-ps-comp-amount text-warning">&#8369;&nbsp;<?= number_format($overtimePay,2) ?></span></div><?php endif; ?>
+            <?php if($holidayPay > 0): ?><div class="adm-ps-comp-row"><span class="adm-ps-comp-label"><i class="fas fa-calendar-star mr-1 text-warning"></i>Holiday Premium Pay</span><span class="adm-ps-comp-amount text-warning">&#8369;&nbsp;<?= number_format($holidayPay,2) ?></span></div><?php endif; ?>
             <div class="adm-ps-comp-row adm-ps-comp-total text-success"><span class="adm-ps-comp-label">Gross Pay</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['gross_pay'],2) ?></span></div>
           </div>
           <div class="adm-ps-comp-col">

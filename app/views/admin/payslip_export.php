@@ -62,6 +62,10 @@ $withholdingTax= $p($payrollRecord['withholding_tax']?? 0);
 $totalDed      = $p($payrollRecord['total_deductions']??0);
 $netPay        = $p($payrollRecord['net_pay']        ?? 0);
 $absDedFmt     = $p($absentDed);
+$overtimePay   = (float)($payrollRecord['overtime_pay'] ?? 0);
+$holidayPay    = (float)($payrollRecord['holiday_pay']  ?? 0);
+$otPayFmt      = $p($overtimePay);
+$holidayPayFmt = $p($holidayPay);
 
 $amount13th    = $record13th ? (float)$record13th['amount'] : 0;
 $amount13thFmt = $p($amount13th);
@@ -172,6 +176,14 @@ body{font-family:DejaVu Sans,sans-serif;font-size:9pt;color:#111}
 HTML;
 if ($amount13th > 0) {
     $html .= "<tr><td>13th Month Pay</td><td class='amt' style='color:#0369a1;font-weight:bold;'>&#8369; {$amount13thFmt}</td></tr>";
+}
+$html .= <<<HTML
+HTML;
+if ($overtimePay > 0) {
+    $html .= "<tr><td>Overtime Pay</td><td class='amt' style='color:#b45309;font-weight:bold;'>&#8369; {$otPayFmt}</td></tr>";
+}
+if ($holidayPay > 0) {
+    $html .= "<tr><td>Holiday Premium Pay</td><td class='amt' style='color:#b45309;font-weight:bold;'>&#8369; {$holidayPayFmt}</td></tr>";
 }
 $html .= <<<HTML
     <tr class="total"><td class="green">Gross Pay</td><td class="amt green">&#8369; {$grossPay}</td></tr>

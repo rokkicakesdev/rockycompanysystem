@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 04, 2026 at 08:09 AM
+-- Generation Time: Apr 05, 2026 at 05:00 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -107,7 +107,36 @@ INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `description`, `ip_addre
 (64, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:14 for Chichi The Dog period 2026-01-1', '::1', '2026-04-04 04:29:12'),
 (65, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-04 04:29:19'),
 (66, 1, 'UPDATE_EMPLOYEE', 'Updated employee ID:2', '::1', '2026-04-04 04:44:17'),
-(67, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-14 | Errors: 0', '::1', '2026-04-04 04:44:57');
+(67, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-14 | Errors: 0', '::1', '2026-04-04 04:44:57'),
+(68, 2, 'LOGIN', 'User \'admin2\' logged in from ::1', '::1', '2026-04-04 08:09:20'),
+(69, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-04 08:09:35'),
+(70, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:15 for Chichi The Dog period 2026-01-1', '::1', '2026-04-04 08:11:01'),
+(71, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-04 08:11:38'),
+(72, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:16 for Chichi The Dog period 2026-01-1', '::1', '2026-04-04 08:26:31'),
+(73, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-04 08:26:35'),
+(74, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-04 11:25:24'),
+(75, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:17 for Chichi The Dog period 2026-01-1', '::1', '2026-04-04 11:25:30'),
+(76, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-04 11:25:34'),
+(77, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:18 for Chichi The Dog period 2026-01-1', '::1', '2026-04-04 11:33:25'),
+(78, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-04 11:33:29'),
+(79, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-05 13:38:51'),
+(80, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:19 for Chichi The Dog period 2026-01-1', '::1', '2026-04-05 13:38:57'),
+(81, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-05 13:39:01'),
+(82, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱1,000.00 (lost_asset) to payroll ID:20 (Chichi The Dog) period 2026-01-1. Notes: Keyboard and Mouse replacement', '::1', '2026-04-05 13:40:34'),
+(83, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:20 for Chichi The Dog period 2026-01-1', '::1', '2026-04-05 13:41:30'),
+(84, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-05 13:41:34'),
+(85, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-16 | Errors: 0', '::1', '2026-04-05 14:29:25'),
+(86, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-19 | Errors: 0', '::1', '2026-04-05 14:29:31'),
+(87, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-20 | Errors: 0', '::1', '2026-04-05 14:29:36'),
+(88, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-21 | Errors: 0', '::1', '2026-04-05 14:29:40'),
+(89, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-22 | Errors: 0', '::1', '2026-04-05 14:29:46'),
+(90, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-23 | Errors: 0', '::1', '2026-04-05 14:29:51'),
+(91, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-26 | Errors: 0', '::1', '2026-04-05 14:29:57'),
+(92, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-27 | Errors: 0', '::1', '2026-04-05 14:30:01'),
+(93, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-28 | Errors: 0', '::1', '2026-04-05 14:30:06'),
+(94, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-29 | Errors: 0', '::1', '2026-04-05 14:30:17'),
+(95, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-30 | Errors: 0', '::1', '2026-04-05 14:30:22'),
+(96, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-2: 2 records created, 0 skipped.', '::1', '2026-04-05 14:30:45');
 
 -- --------------------------------------------------------
 
@@ -187,7 +216,26 @@ INSERT INTO `attendance` (`id`, `employee_id`, `date`, `time_in`, `time_out`, `s
 (8, 1, '2026-01-13', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-03-28 15:06:37', '2026-03-28 15:06:37'),
 (9, 1, '2026-01-14', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-03-28 15:06:41', '2026-03-28 15:06:41'),
 (10, 1, '2026-01-15', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-03-28 15:06:47', '2026-03-28 15:06:47'),
-(13, 2, '2026-01-14', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-04 04:44:57', '2026-04-04 04:44:57');
+(14, 1, '2026-01-16', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:25', '2026-04-05 14:29:25'),
+(16, 1, '2026-01-19', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:31', '2026-04-05 14:29:31'),
+(18, 1, '2026-01-20', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:36', '2026-04-05 14:29:36'),
+(19, 2, '2026-01-20', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:36', '2026-04-05 14:29:36'),
+(20, 1, '2026-01-21', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:40', '2026-04-05 14:29:40'),
+(21, 2, '2026-01-21', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:40', '2026-04-05 14:29:40'),
+(22, 1, '2026-01-22', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:46', '2026-04-05 14:29:46'),
+(23, 2, '2026-01-22', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:46', '2026-04-05 14:29:46'),
+(24, 1, '2026-01-23', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:51', '2026-04-05 14:29:51'),
+(25, 2, '2026-01-23', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:51', '2026-04-05 14:29:51'),
+(26, 1, '2026-01-26', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:57', '2026-04-05 14:29:57'),
+(27, 2, '2026-01-26', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:29:57', '2026-04-05 14:29:57'),
+(28, 1, '2026-01-27', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:01', '2026-04-05 14:30:01'),
+(29, 2, '2026-01-27', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:01', '2026-04-05 14:30:01'),
+(30, 1, '2026-01-28', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:06', '2026-04-05 14:30:06'),
+(31, 2, '2026-01-28', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:06', '2026-04-05 14:30:06'),
+(32, 1, '2026-01-29', '08:00:00', '17:00:00', 'holiday', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:17', '2026-04-05 14:30:17'),
+(33, 2, '2026-01-29', '08:00:00', '17:00:00', 'holiday', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:17', '2026-04-05 14:30:17'),
+(34, 1, '2026-01-30', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:22', '2026-04-05 14:30:22'),
+(35, 2, '2026-01-30', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:22', '2026-04-05 14:30:22');
 
 -- --------------------------------------------------------
 
@@ -425,7 +473,12 @@ INSERT INTO `login_attempts` (`id`, `username`, `ip_address`, `attempted_at`, `w
 (25, 'admin1', '::1', '2026-04-02 21:46:23', 1),
 (26, 'admin1', '::1', '2026-04-03 09:53:17', 1),
 (27, 'admin1', '::1', '2026-04-03 15:13:21', 1),
-(28, 'admin1', '::1', '2026-04-04 12:26:25', 1);
+(28, 'admin1', '::1', '2026-04-04 12:26:25', 1),
+(29, 'admin2', '::1', '2026-04-04 16:09:20', 1),
+(30, 'admin1', '::1', '2026-04-04 16:09:30', 0),
+(31, 'admin1', '::1', '2026-04-04 16:09:35', 1),
+(32, 'admin1', '::1', '2026-04-04 19:25:24', 1),
+(33, 'admin1', '::1', '2026-04-05 21:38:51', 1);
 
 -- --------------------------------------------------------
 
@@ -478,6 +531,8 @@ CREATE TABLE `payroll_records` (
   `days_absent` decimal(5,2) DEFAULT NULL COMMENT 'Total absent days (A, UA, LWOP)',
   `days_paid_leave` decimal(5,2) DEFAULT NULL COMMENT 'Total paid leave days (SL, VL, ML, etc.)',
   `absent_deduction` decimal(10,2) DEFAULT 0.00 COMMENT 'Salary deduction for absent days',
+  `overtime_pay` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Overtime pay earned (Art. 87 Labor Code)',
+  `holiday_pay` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Holiday premium pay earned (PD 442 Labor Code)',
   `salary_deduction` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Sum of manual salary deductions from salary_deductions table',
   `unpaid_leave_deduction` decimal(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Deduction for unpaid/LWOP leave days in the cutoff',
   `working_days_in_month` tinyint(4) DEFAULT 22 COMMENT 'Standard working days used for daily rate'
@@ -487,8 +542,10 @@ CREATE TABLE `payroll_records` (
 -- Dumping data for table `payroll_records`
 --
 
-INSERT INTO `payroll_records` (`id`, `employee_id`, `period`, `basic_salary`, `allowance`, `gross_pay`, `sss_msc`, `sss_ee`, `sss_er`, `philhealth_mbs`, `philhealth_ee`, `philhealth_er`, `pagibig_mfs`, `pagibig_ee`, `pagibig_er`, `taxable_income`, `withholding_tax`, `other_deductions`, `total_deductions`, `net_pay`, `status`, `processed_by`, `released_at`, `remarks`, `created_at`, `updated_at`, `days_worked`, `days_absent`, `days_paid_leave`, `absent_deduction`, `salary_deduction`, `unpaid_leave_deduction`, `working_days_in_month`) VALUES
-(15, 1, '2026-01-1', 50000.00, 5000.00, 55000.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 50000.00, 8437.50, 0.00, 8437.50, 46562.50, 'pending', 1, NULL, '', '2026-04-04 04:29:19', '2026-04-04 04:29:19', 9.00, 0.00, 0.00, 0.00, 0.00, 0.00, 9);
+INSERT INTO `payroll_records` (`id`, `employee_id`, `period`, `basic_salary`, `allowance`, `gross_pay`, `sss_msc`, `sss_ee`, `sss_er`, `philhealth_mbs`, `philhealth_ee`, `philhealth_er`, `pagibig_mfs`, `pagibig_ee`, `pagibig_er`, `taxable_income`, `withholding_tax`, `other_deductions`, `total_deductions`, `net_pay`, `status`, `processed_by`, `released_at`, `remarks`, `created_at`, `updated_at`, `days_worked`, `days_absent`, `days_paid_leave`, `absent_deduction`, `overtime_pay`, `holiday_pay`, `salary_deduction`, `unpaid_leave_deduction`, `working_days_in_month`) VALUES
+(21, 1, '2026-01-1', 50000.00, 5000.00, 45909.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 40909.09, 6164.77, 0.00, 15255.68, 39744.32, 'pending', 1, NULL, '', '2026-04-05 13:41:34', '2026-04-05 13:41:34', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 0.00, 0.00, 11),
+(22, 1, '2026-01-2', 50000.00, 5000.00, 55000.00, 35000.00, 1750.00, 3500.00, 100000.00, 2500.00, 2500.00, 10000.00, 200.00, 200.00, 45550.00, 7325.00, 0.00, 11775.00, 43225.00, 'pending', 1, NULL, '', '2026-04-05 14:30:45', '2026-04-05 14:30:45', 10.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 11),
+(23, 2, '2026-01-2', 100000.00, 5000.00, 95909.09, 35000.00, 1750.00, 3500.00, 100000.00, 2500.00, 2500.00, 10000.00, 200.00, 200.00, 86459.09, 17708.56, 0.00, 31249.47, 73750.53, 'pending', 1, NULL, '', '2026-04-05 14:30:45', '2026-04-05 14:30:45', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 0.00, 0.00, 11);
 
 -- --------------------------------------------------------
 
@@ -562,6 +619,13 @@ CREATE TABLE `salary_deductions` (
   `created_by` int(10) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `salary_deductions`
+--
+
+INSERT INTO `salary_deductions` (`id`, `payroll_id`, `reason`, `description`, `amount`, `notes`, `created_by`, `created_at`) VALUES
+(1, 20, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Keyboard and Mouse replacement', 1, '2026-04-05 13:40:34');
 
 -- --------------------------------------------------------
 
@@ -899,7 +963,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=97;
 
 --
 -- AUTO_INCREMENT for table `announcements`
@@ -917,7 +981,7 @@ ALTER TABLE `applicants`
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -959,7 +1023,7 @@ ALTER TABLE `leave_requests`
 -- AUTO_INCREMENT for table `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=29;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `payroll_notes`
@@ -971,7 +1035,7 @@ ALTER TABLE `payroll_notes`
 -- AUTO_INCREMENT for table `payroll_records`
 --
 ALTER TABLE `payroll_records`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `positions`
@@ -989,7 +1053,7 @@ ALTER TABLE `reimbursements`
 -- AUTO_INCREMENT for table `salary_deductions`
 --
 ALTER TABLE `salary_deductions`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `salary_history`

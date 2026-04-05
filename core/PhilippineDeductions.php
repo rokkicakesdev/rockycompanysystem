@@ -202,6 +202,86 @@ final class PhilippineDeductions
         return round(2402500.00 + 0.35 * ($annualTaxableIncome - 8000000.00), 2);
     }
 
+
+    // ════════════════════════════════════════════════════════════
+    //  OVERTIME & HOLIDAY PREMIUM PAY  (PD 442 Labor Code)
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Compute overtime pay for a cutoff period.
+     *
+     * Per Art. 87, Labor Code of the Philippines:
+     *   Regular day OT   = hourly rate × 1.25 × OT hours
+     *   Holiday day OT   = hourly rate × 1.30 × OT hours (on top of holiday premium)
+     *
+     * @param float $cutoffBasicAmount  Basic salary for this cutoff (cutoffBasic)
+     * @param int   $scheduledDays      Total scheduled work days in this cutoff
+     * @param int   $workHoursPerDay    Standard daily work hours (default 8)
+     * @param float $otHoursRegularDay  Overtime hours on regular working days
+     * @param float $otHoursOnHoliday   Overtime hours on holiday days
+     */
+    public static function computeOvertimePay(
+        float $cutoffBasicAmount,
+        int   $scheduledDays,
+        int   $workHoursPerDay    = 8,
+        float $otHoursRegularDay  = 0.0,
+        float $otHoursOnHoliday   = 0.0
+    ): float {
+        if ($scheduledDays <= 0 || $workHoursPerDay <= 0) return 0.0;
+        if ($otHoursRegularDay <= 0.0 && $otHoursOnHoliday <= 0.0) return 0.0;
+
+        $dailyRate  = $cutoffBasicAmount / $scheduledDays;
+        $hourlyRate = $dailyRate / $workHoursPerDay;
+
+        // Regular day OT: hourly rate × 1.25
+        $otRegular = round($otHoursRegularDay * $hourlyRate * 1.25, 2);
+
+        // Holiday OT: hourly rate × 1.30 (the additional 30% above the regular hourly rate
+        // that applies when overtime is rendered on a holiday)
+        $otHoliday = round($otHoursOnHoliday * $hourlyRate * 1.30, 2);
+
+        return round($otRegular + $otHoliday, 2);
+    }
+
+    /**
+     * Compute holiday premium pay for days an employee WORKED on a holiday.
+     *
+     * Per PD 442 Labor Code and DOLE advisories:
+     *   Regular Holiday worked    = 200% of daily rate (employee gets DOUBLE pay)
+     *     The base 100% is already in gross_pay as a normal worked day.
+     *     Premium = additional 100% of daily rate.
+     *   Special Non-Working worked = 130% of daily rate.
+     *     The base 100% is in gross_pay.
+     *     Premium = additional 30% of daily rate.
+     *
+     * NOTE: Regular Holidays NOT worked are already paid at 100% (no deduction applied).
+     * This method only computes the ADDITIONAL premium for WORKED holidays.
+     *
+     * @param float $cutoffBasicAmount          Basic salary for this cutoff
+     * @param int   $scheduledDays              Scheduled work days in cutoff
+     * @param int   $workedRegularHolidayDays   Days worked on Regular Holidays
+     * @param int   $workedSpecialHolidayDays   Days worked on Special Non-Working Holidays
+     */
+    public static function computeHolidayPremiumPay(
+        float $cutoffBasicAmount,
+        int   $scheduledDays,
+        int   $workedRegularHolidayDays  = 0,
+        int   $workedSpecialHolidayDays  = 0
+    ): float {
+        if ($scheduledDays <= 0) return 0.0;
+        if ($workedRegularHolidayDays <= 0 && $workedSpecialHolidayDays <= 0) return 0.0;
+
+        $dailyRate = $cutoffBasicAmount / $scheduledDays;
+
+        // Regular Holiday premium = +100% of daily rate per worked day (total 200%)
+        $regularPremium = round($workedRegularHolidayDays * $dailyRate * 1.00, 2);
+
+        // Special Non-Working Holiday premium = +30% of daily rate per worked day (total 130%)
+        $specialPremium = round($workedSpecialHolidayDays * $dailyRate * 0.30, 2);
+
+        return round($regularPremium + $specialPremium, 2);
+    }
+
     // ════════════════════════════════════════════════════════════
     //  SEMI-MONTHLY CUTOFF METHODS
     // ════════════════════════════════════════════════════════════
@@ -227,11 +307,12 @@ final class PhilippineDeductions
      */
     public static function computeFirstCutoff(
         float  $basicSalary,
-        float  $allowance      = 0.0,
-        ?float $fixedAmount    = null,
-        string $taxMethod      = 'half_monthly',
-        float  $thirteenth     = 0.0,
-        float  $absentDeduction = 0.0
+        float  $allowance       = 0.0,
+        ?float $fixedAmount     = null,
+        string $taxMethod       = 'half_monthly',
+        float  $thirteenth      = 0.0,
+        float  $absentDeduction = 0.0,
+        float  $extraEarnings   = 0.0   // OT pay + holiday premium pay (taxable)
     ): array {
         $basicSalary = max(0.0, $basicSalary);
         $allowance   = max(0.0, $allowance);
@@ -240,8 +321,9 @@ final class PhilippineDeductions
         $cutoffBasic     = $fixedAmount !== null ? max(0.0, $fixedAmount) : round($basicSalary / 2, 2);
         $cutoffAllowance = round($allowance / 2, 2);
 
-        // Gross before absences
-        $grossPay = round($cutoffBasic + $cutoffAllowance + $thirteenth, 2);
+        // Gross before absences (includes OT pay and holiday premium as extra taxable earnings)
+        $extraEarnings   = max(0.0, $extraEarnings);
+        $grossPay = round($cutoffBasic + $cutoffAllowance + $thirteenth + $extraEarnings, 2);
 
         // Apply absent deduction
         $absentDeduction = max(0.0, $absentDeduction);
@@ -249,13 +331,17 @@ final class PhilippineDeductions
 
         // ── Withholding tax — BIR annualised method, NO gov deductions ──────────
         // On the 1st cutoff, SSS/PhilHealth/Pag-IBIG have not been collected yet,
-        // so the taxable base is the full semi-monthly earnings (basic + allowance).
+        // so the taxable base is the semi-monthly basic actually earned (after
+        // absent/proration deduction). Taxing the full cutoffBasic when the employee
+        // did not work all scheduled days over-withholds tax on income never received.
+        //
         // Correct steps per BIR RR 11-2018 / RR 13-2023:
-        //   1. Taxable = cutoffBasic (allowance is excluded from tax base)
+        //   1. Taxable = cutoffBasic − absentDeduction (allowance excluded from tax base)
         //   2. Annualise: taxable × 24
         //   3. Apply annual TRAIN bracket → annual tax
-        //   4. Monthly tax = annual tax ÷ 12; semi-monthly tax = annual tax ÷ 24
-        $taxableIncome  = max(0.0, $cutoffBasic);
+        //   4. Semi-monthly tax = annual tax ÷ 24
+        // OT pay and holiday premium are fully taxable under TRAIN Law (RR 13-2023).
+        $taxableIncome  = max(0.0, $cutoffBasic - $absentDeduction + $extraEarnings);
         $annualTaxable  = $taxableIncome * 24;
         $annualTax      = self::computeAnnualTax($annualTaxable);
         $withholdingTax = round($annualTax / 24, 2);
@@ -287,6 +373,7 @@ final class PhilippineDeductions
 
             // Totals
             'absent_deduction' => round($absentDeduction, 2),
+            'extra_earnings'   => round($extraEarnings, 2),
             'total_deductions' => $totalDeductions,
             'net_pay'          => $netPay,
 
@@ -322,7 +409,8 @@ final class PhilippineDeductions
         string $taxMethod        = 'half_monthly',
         string $govMode          = 'second_cutoff',
         float  $absentDeduction  = 0.0,
-        float  $reconciliation   = 0.0
+        float  $reconciliation   = 0.0,
+        float  $extraEarnings    = 0.0   // OT pay + holiday premium pay (taxable)
     ): array {
         $basicSalary = max(0.0, $basicSalary);
         $allowance   = max(0.0, $allowance);
@@ -362,11 +450,12 @@ final class PhilippineDeductions
         }
 
         // ── Withholding tax — BIR annualised method ──────────────────────────────
-        // Taxable base = semi-monthly basic minus the gov deductions collected here.
+        // Taxable base = semi-monthly basic actually earned, minus gov deductions.
+        // Absent/proration deduction is subtracted FIRST because the employee should
+        // not pay tax on income they did not receive (e.g. days before hire date).
         // Annualise × 24, apply annual TRAIN bracket, divide by 24.
-        // The 'bir_table' / 'half_monthly' distinction is removed — annualised ÷ 24
-        // is the only BIR-correct method for semi-monthly payroll.
-        $taxableIncome  = max(0.0, $cutoffBasic - $sssEe - $phEe - $piEe);
+        // OT pay and holiday premium are fully taxable under TRAIN Law (RR 13-2023).
+        $taxableIncome  = max(0.0, $cutoffBasic - $absentDeduction + $extraEarnings - $sssEe - $phEe - $piEe);
         $annualTaxable  = $taxableIncome * 24;
         $annualTax      = self::computeAnnualTax($annualTaxable);
         $withholdingTax = round($annualTax / 24, 2);
@@ -376,8 +465,9 @@ final class PhilippineDeductions
         // Negative reconciliation = overpayment refunded (added to net)
         $reconciliation = round($reconciliation, 2);
 
-        // Gross and totals
-        $grossPay  = round(max(0.0, $cutoffBasic + $cutoffAllowance - $absentDeduction), 2);
+        // Gross and totals (extraEarnings = OT pay + holiday premium, fully taxable)
+        $extraEarnings   = max(0.0, $extraEarnings);
+        $grossPay  = round(max(0.0, $cutoffBasic + $cutoffAllowance + $extraEarnings - $absentDeduction), 2);
         $govEeTotal = $sssEe + $phEe + $piEe;
         $totalDeductions = round($govEeTotal + $withholdingTax + $absentDeduction + $reconciliation, 2);
         $netPay          = round(max(0.0, $grossPay - $govEeTotal - $withholdingTax - $reconciliation), 2);
@@ -409,6 +499,7 @@ final class PhilippineDeductions
 
             // Totals
             'absent_deduction' => round($absentDeduction, 2),
+            'extra_earnings'   => round($extraEarnings, 2),
             'total_deductions' => $totalDeductions,
             'net_pay'          => $netPay,
 

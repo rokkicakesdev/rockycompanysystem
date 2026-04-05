@@ -103,6 +103,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     $daysUnpaidLeave       = (int)($attData['days_unpaid_leave']        ?? 0);
                     $daysPresent           = (int)($attData['days_present']             ?? 0);
                     $daysAbsentOnly        = (int)($attData['days_absent']              ?? 0); // excl. unpaid leave
+                    // Overtime and holiday premium data
+                    $otHoursRegularDay     = (float)($attData['ot_hours_regular_day']        ?? 0);
+                    $otHoursOnHoliday      = (float)($attData['ot_hours_on_holiday']         ?? 0);
+                    $workedRegHolidays     = (int)($attData['worked_regular_holiday_days']   ?? 0);
+                    $workedSpecialHolidays = (int)($attData['worked_special_holiday_days']   ?? 0);
 
                     // ── Compute daily rate and deductions ──────────────────────
                     // Daily rate denominator = scheduledDays (ALL weekdays in the full cutoff,
@@ -134,6 +139,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         $unpaidLeaveDeduction = 0.0;
                     }
 
+                    // ── Overtime pay (Art. 87 Labor Code) ─────────────────────
+                    $overtimePay = 0.0;
+                    if ($scheduledDays > 0 && ($otHoursRegularDay > 0 || $otHoursOnHoliday > 0)) {
+                        $overtimePay = PhilippineDeductions::computeOvertimePay(
+                            $cutoffBasicAmount,
+                            $scheduledDays,
+                            WORK_HOURS,
+                            $otHoursRegularDay,
+                            $otHoursOnHoliday
+                        );
+                    }
+
+                    // ── Holiday premium pay (PD 442 Labor Code) ────────────────
+                    // Additional pay for working on Regular (200%) or Special Non-Working (130%) holidays.
+                    // The base daily rate is already in gross_pay as a normal worked day.
+                    // This is the PREMIUM (additional) portion only.
+                    $holidayPay = 0.0;
+                    if ($scheduledDays > 0 && ($workedRegHolidays > 0 || $workedSpecialHolidays > 0)) {
+                        $holidayPay = PhilippineDeductions::computeHolidayPremiumPay(
+                            $cutoffBasicAmount,
+                            $scheduledDays,
+                            $workedRegHolidays,
+                            $workedSpecialHolidays
+                        );
+                    }
+
+                    $extraEarnings = round($overtimePay + $holidayPay, 2);
+
                     // ── 13th month (December 1st cutoff only) ──────────────────
                     $thirteenthAmount = 0.0;
                     if (Model::isDecember1stCutoff($genPeriod)) {
@@ -151,7 +184,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                     if (Model::isDecember2ndCutoff($genPeriod)) {
                         $year4 = Model::periodYear($genPeriod);
                         if (Model::hasPayrollBeforeDecember($empId, $year4)) {
-                            $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + ((float)$emp['basic_salary'] / 2);
+                            // annualBasic = YTD basic from all prior records + actual basic earned in this Dec 2nd cutoff.
+                            // Use (cutoffBasicAmount - proratedDeduction) instead of raw basic_salary/2
+                            // to correctly exclude proration gaps for employees hired mid-cutoff.
+                            $currentCutoffEarned = max(0.0, $cutoffBasicAmount - $proratedDeduction);
+                            $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + $currentCutoffEarned;
                             $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year4);
                             $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year4);
                             $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
@@ -165,13 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         $deductions = PhilippineDeductions::computeFirstCutoff(
                             (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
                             $fixedAmount, $taxMethod, $thirteenthAmount,
-                            $absentDeduction + $unpaidLeaveDeduction
+                            $absentDeduction + $unpaidLeaveDeduction,
+                            $extraEarnings
                         );
                     } else {
                         $deductions = PhilippineDeductions::computeSecondCutoff(
                             (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
                             $fixedAmount, $taxMethod, $govMode,
-                            $absentDeduction + $unpaidLeaveDeduction, $reconciliation
+                            $absentDeduction + $unpaidLeaveDeduction, $reconciliation,
+                            $extraEarnings
                         );
                     }
 
@@ -201,6 +240,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         'other_deductions'        => round($deductions['reconciliation'] ?? 0, 2),
                         'absent_deduction'        => $absentDeduction,
                         'unpaid_leave_deduction'  => $unpaidLeaveDeduction,
+                        'overtime_pay'            => $overtimePay,
+                        'holiday_pay'             => $holidayPay,
                         'salary_deduction'        => 0,
                         'total_deductions'        => $deductions['total_deductions'],
                         'net_pay'                 => $deductions['net_pay'],
@@ -209,6 +250,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) 
                         'days_paid_leave'         => $daysPaidLeave,
                         'working_days_in_month'   => $scheduledDays,
                         'remarks'                 => ($thirteenthAmount > 0 ? '13th month included. ' : '')
+                                                   . ($overtimePay > 0 ? 'OT pay: ₱' . number_format($overtimePay, 2) . '. ' : '')
+                                                   . ($holidayPay > 0 ? 'Holiday premium: ₱' . number_format($holidayPay, 2) . '. ' : '')
                                                    . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
                         'status'                  => 'pending',
                         'processed_by'            => $_SESSION['user_id'],

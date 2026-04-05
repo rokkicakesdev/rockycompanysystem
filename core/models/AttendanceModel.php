@@ -97,12 +97,17 @@ class AttendanceModel extends BaseModel
             $effectiveFrom = $dateStart;
         }
 
-        // ── Fetch public holidays in the full cutoff range ───────────────────
+        // ── Fetch public holidays in the full cutoff range (with type) ─────────
+        // holidayDates maps date → holiday type ('regular', 'special_non_working', 'special_working')
+        // The type is needed to compute the correct premium pay rate when an employee works on a holiday.
         $holStmt = self::db()->prepare(
-            'SELECT date FROM holidays WHERE date BETWEEN ? AND ?'
+            'SELECT date, type FROM holidays WHERE date BETWEEN ? AND ?'
         );
         $holStmt->execute([$dateFrom, $dateTo]);
-        $holidayDates = array_flip($holStmt->fetchAll(\PDO::FETCH_COLUMN));
+        $holidayDates = [];
+        foreach ($holStmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $holidayDates[$row['date']] = $row['type'];
+        }
 
         // ── Scheduled days = ALL weekdays in FULL cutoff range (holidays INCLUDED) ──
         // Holidays are PAID days off — they still count as part of the salary structure.
@@ -139,7 +144,7 @@ class AttendanceModel extends BaseModel
 
         // ── Pull individual attendance rows from effectiveFrom ────────────────
         $stmt = self::db()->prepare('
-            SELECT date, status, leave_type, overtime_hours, hours_worked
+            SELECT date, status, leave_type, overtime_hours, hours_worked, is_overtime
             FROM attendance
             WHERE employee_id = ? AND date >= ? AND date <= ?
             ORDER BY date
@@ -157,29 +162,60 @@ class AttendanceModel extends BaseModel
             'maternity','paternity','solo_parent','vawc','magna_carta'
         ];
 
-        $daysPresent     = 0;
-        $daysAbsent      = 0;
-        $daysPaidLeave   = 0;
-        $daysUnpaidLeave = 0;
-        $daysHalf        = 0;
-        $totalOvertime   = 0.0;
-        $totalHours      = 0.0;
+        $daysPresent               = 0;
+        $daysAbsent                = 0;
+        $daysPaidLeave             = 0;
+        $daysUnpaidLeave           = 0;
+        $daysHalf                  = 0;
+        $totalOvertime             = 0.0;  // total OT hours across all days
+        $totalHours                = 0.0;
+        $workedRegularHolidayDays  = 0;    // days worked on a Regular Holiday (200% pay)
+        $workedSpecialHolidayDays  = 0;    // days worked on a Special Non-Working Holiday (130% pay)
+        $otHoursOnHoliday          = 0.0;  // OT hours logged on any holiday day
+        $otHoursRegularDay         = 0.0;  // OT hours logged on regular weekdays
 
-        // Walk every scheduled weekday from effectiveFrom (employee's first day)
+        // Walk every day in the cutoff range from effectiveFrom
         $cur = new DateTime($effectiveFrom);
         while ($cur <= $end) {
             $ds  = $cur->format('Y-m-d');
             $dow = (int)$cur->format('N');
             $cur->modify('+1 day');
 
-            // Skip weekends & holidays — never absent
-            if ($dow > 5 || isset($holidayDates[$ds])) continue;
+            $isWeekend  = $dow > 5;
+            $isHoliday  = isset($holidayDates[$ds]);
+            $holidayType = $holidayDates[$ds] ?? null; // 'regular', 'special_non_working', 'special_working'
+
+            // ── Holiday premium tracking ──────────────────────────────────────
+            // If an employee worked on a holiday (attendance status = present/late/half_day),
+            // record it for premium pay computation. We do NOT skip holiday rows here.
+            if ($isHoliday && isset($attByDate[$ds])) {
+                $att    = $attByDate[$ds];
+                $status = $att['status'];
+                $otHrs  = (float)($att['overtime_hours'] ?? 0);
+                if (in_array($status, ['present', 'late', 'half_day'], true)) {
+                    $totalHours    += (float)($att['hours_worked'] ?? 0);
+                    $totalOvertime += $otHrs;
+                    $otHoursOnHoliday += $otHrs;
+                    if ($holidayType === 'regular') {
+                        $workedRegularHolidayDays++;
+                    } elseif ($holidayType === 'special_non_working') {
+                        $workedSpecialHolidayDays++;
+                    }
+                    // special_working → regular rates, no premium tracking needed
+                }
+                continue; // holiday days never count as absent
+            }
+
+            // ── Skip weekends and unworked holidays ───────────────────────────
+            if ($isWeekend || $isHoliday) continue;
 
             if (isset($attByDate[$ds])) {
                 $att    = $attByDate[$ds];
                 $status = $att['status'];
-                $totalOvertime += (float)($att['overtime_hours'] ?? 0);
-                $totalHours    += (float)($att['hours_worked']   ?? 0);
+                $otHrs  = (float)($att['overtime_hours'] ?? 0);
+                $totalOvertime += $otHrs;
+                $totalHours    += (float)($att['hours_worked'] ?? 0);
+                $otHoursRegularDay += $otHrs; // OT on a regular working day
 
                 switch ($status) {
                     case 'present':
@@ -212,18 +248,23 @@ class AttendanceModel extends BaseModel
         $totalAbsent = $daysAbsent + $daysUnpaidLeave;
 
         return [
-            'scheduled_days'          => $scheduledDays,          // FULL cutoff weekdays (for payslip display & daily rate)
-            'effective_scheduled_days'=> $effectiveScheduledDays,  // From dateStart onward (for internal reference)
-            'effective_from'          => $effectiveFrom,
-            'days_present'            => $daysPresent,
-            'days_absent'             => $daysAbsent,
-            'days_on_leave'           => $daysPaidLeave,
-            'days_unpaid_leave'       => $daysUnpaidLeave,
-            'days_late'               => 0,
-            'days_half'               => $daysHalf,
-            'total_absent'            => $totalAbsent,
-            'total_overtime'          => $totalOvertime,
-            'total_hours'             => $totalHours,
+            'scheduled_days'              => $scheduledDays,
+            'effective_scheduled_days'    => $effectiveScheduledDays,
+            'effective_from'              => $effectiveFrom,
+            'days_present'                => $daysPresent,
+            'days_absent'                 => $daysAbsent,
+            'days_on_leave'               => $daysPaidLeave,
+            'days_unpaid_leave'           => $daysUnpaidLeave,
+            'days_late'                   => 0,
+            'days_half'                   => $daysHalf,
+            'total_absent'                => $totalAbsent,
+            'total_overtime'              => $totalOvertime,
+            'total_hours'                 => $totalHours,
+            // Holiday premium and OT breakdown (used for payroll earnings computation)
+            'worked_regular_holiday_days' => $workedRegularHolidayDays,
+            'worked_special_holiday_days' => $workedSpecialHolidayDays,
+            'ot_hours_regular_day'        => $otHoursRegularDay,
+            'ot_hours_on_holiday'         => $otHoursOnHoliday,
         ];
     }
 
