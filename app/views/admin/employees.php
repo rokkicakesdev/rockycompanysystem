@@ -151,7 +151,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Fetch data ────────────────────────────────────────────────────────────────
 $search       = $_GET['q']      ?? '';
 $filterStatus = $_GET['status'] ?? '';
+$filterDept   = $_GET['dept']   ?? '';
 $allEmployees = $search ? Model::searchEmployees($search) : Model::getAllEmployees($filterStatus);
+// Apply department filter
+if ($filterDept !== '') {
+    $allEmployees = array_filter($allEmployees, fn($e) => (int)$e['department_id'] === (int)$filterDept);
+    $allEmployees = array_values($allEmployees);
+}
 $departments  = Model::getAllDepartments();
 $positions    = Model::getAllPositions();
 
@@ -236,6 +242,10 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <tr>
             <td class="text-muted emp-view-table-label">Date Hired</td>
             <td class="text-right font-weight-600 emp-view-table-label"><?= $viewEmp['date_hired'] ? date('M d, Y', strtotime($viewEmp['date_hired'])) : '—' ?></td>
+          </tr>
+          <tr>
+            <td class="text-muted emp-view-table-label">Date Start</td>
+            <td class="text-right font-weight-600 emp-view-table-label"><?= !empty($viewEmp['date_start']) ? date('M d, Y', strtotime($viewEmp['date_start'])) : '—' ?></td>
           </tr>
           <tr>
             <td class="text-muted emp-view-table-label">Basic Salary</td>
@@ -465,6 +475,12 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <option value="<?= $k ?>" <?= $filterStatus === $k ? 'selected' : '' ?>><?= $v ?></option>
         <?php endforeach; ?>
       </select>
+      <select name="dept" class="form-control form-control-sm">
+        <option value="">All Departments</option>
+        <?php foreach ($departments as $dept): ?>
+          <option value="<?= $dept['id'] ?>" <?= ($filterDept ?? '') == $dept['id'] ? 'selected' : '' ?>><?= htmlspecialchars($dept['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
       <button type="submit" class="btn btn-sm btn-primary">
         <i class="fas fa-search mr-1"></i>Filter
       </button>
@@ -490,6 +506,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
             <!-- Removed text-center as requested -->
             <th>Basic Salary</th>
             <th>Date Hired</th>
+            <th>Date Start</th>
             <th class="text-center">Status</th>
             <th class="text-center">Actions</th>
           </tr>
@@ -519,6 +536,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 ₱<?= number_format($emp['basic_salary'] ?? 0, 2) ?>
               </td>
               <td><?= $emp['date_hired'] ? date('M d, Y', strtotime($emp['date_hired'])) : '—' ?></td>
+              <td><?= !empty($emp['date_start']) ? date('M d, Y', strtotime($emp['date_start'])) : '—' ?></td>
               <td class="text-center">
                 <span class="badge badge-<?= $emp['status'] ?>">
                   <?= ucfirst($emp['status']) ?>

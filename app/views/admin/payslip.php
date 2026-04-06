@@ -8,7 +8,13 @@ $breadcrumb = 'Payslips';
 $activeMenu = 'payslip';
 require_once __DIR__ . '/../layouts/admin_header.php';
 
-$employees     = Model::getAllEmployees();
+$allDepartments = Model::getAllDepartments();
+$filterDept     = $_GET['dept'] ?? '';
+$allEmployees   = Model::getAllEmployees();
+// Filter employees by department if selected
+$employees = $filterDept !== ''
+    ? array_values(array_filter($allEmployees, fn($e) => (int)$e['department_id'] === (int)$filterDept))
+    : $allEmployees;
 $selectedEmpId = (int)($_GET['emp'] ?? 0);
 $selectedEmp   = $selectedEmpId ? Model::findEmployeeById($selectedEmpId) : null;
 
@@ -47,6 +53,17 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
     <div class="card">
       <div class="card-header"><h3 class="card-title"><i class="fas fa-search mr-2"></i>Select Payslip</h3></div>
       <div class="card-body">
+        <div class="form-group">
+          <label>Department</label>
+          <select class="form-control" id="deptFilter" onchange="filterEmpByDept()">
+            <option value="">All Departments</option>
+            <?php foreach($allDepartments as $dept): ?>
+              <option value="<?= $dept['id'] ?>" <?= (string)$filterDept === (string)$dept['id'] ? 'selected' : '' ?>>
+                <?= htmlspecialchars($dept['name']) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
         <div class="form-group">
           <label>Employee</label>
           <select class="form-control" id="empSelect">
@@ -180,6 +197,18 @@ $pdfUrl = ($selectedEmpId && $selectedPeriod)
             ?>
             <div class="adm-ps-comp-row"><span class="adm-ps-comp-label"><?= $absentLabel ?></span><span class="adm-ps-comp-amount text-danger">−&nbsp;&#8369;&nbsp;<?= number_format($absentDed,2) ?></span></div>
             <?php endif; ?>
+            <?php
+            // Salary deductions - show each item separately
+            $salaryDedTotal = (float)($payrollRecord['salary_deduction'] ?? 0);
+            if ($salaryDedTotal > 0) {
+                $salaryItems = Model::getSalaryDeductions((int)$payrollRecord['id']);
+                foreach ($salaryItems as $si) {
+                    $siReason = ucwords(str_replace('_', ' ', $si['reason']));
+                    $siDesc   = !empty($si['description']) ? " ({$si['description']})" : '';
+                    echo "<div class=\"adm-ps-comp-row\"><span class=\"adm-ps-comp-label\">Salary Deduction: {$siReason}{$siDesc}</span><span class=\"adm-ps-comp-amount text-danger\">−&nbsp;&#8369;&nbsp;" . number_format((float)$si['amount'], 2) . "</span></div>";
+                }
+            }
+            ?>
             <?php if($reconcile!=0): ?><div class="adm-ps-comp-row <?= $reconcile>0?'comp-row-negative':'comp-row-positive' ?>"><span class="adm-ps-comp-label">Year-End Tax Reconciliation</span><span class="adm-ps-comp-amount"><?= $reconcile>0?'−':'+' ?>&nbsp;&#8369;&nbsp;<?= number_format(abs($reconcile),2) ?></span></div><?php endif; ?>
             <div class="adm-ps-comp-row adm-ps-comp-total text-danger"><span class="adm-ps-comp-label">Total Deductions</span><span class="adm-ps-comp-amount">&#8369;&nbsp;<?= number_format($payrollRecord['total_deductions'],2) ?></span></div>
           </div>
@@ -312,9 +341,15 @@ document.getElementById('empSelect').addEventListener('change', function() {
     }
 });
 
+function filterEmpByDept() {
+    var dept = document.getElementById('deptFilter').value;
+    window.location = 'payslip.php?dept=' + dept;
+}
+
 function loadPayslip() {
     var emp    = document.getElementById('empSelect').value;
     var period = document.getElementById('periodSelect').value;
+    var dept   = document.getElementById('deptFilter') ? document.getElementById('deptFilter').value : '';
     if (!emp) {
         document.getElementById('payslipValidationMsg').textContent = 'Please select an employee first.';
         $('#payslipValidationModal').modal('show');
@@ -325,7 +360,7 @@ function loadPayslip() {
         $('#payslipValidationModal').modal('show');
         return;
     }
-    window.location = 'payslip.php?emp=' + emp + '&period=' + period;
+    window.location = 'payslip.php?emp=' + emp + '&period=' + period + (dept ? '&dept=' + dept : '');
 }
 
 function printAdminPayslip() {

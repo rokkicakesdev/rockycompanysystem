@@ -506,8 +506,24 @@ if (!$msg) {
     }
 }
 
-$employees        = Model::getAllEmployees('active');
+$filterDept       = $_GET['dept'] ?? '';
+$allActiveEmps    = Model::getAllEmployees('active');
+$employees        = $filterDept !== ''
+    ? array_values(array_filter($allActiveEmps, fn($e) => (int)$e['department_id'] === (int)$filterDept))
+    : $allActiveEmps;
+$allDepartments   = Model::getAllDepartments();
 $periodPayroll    = Model::getPayrollByPeriod($selectedPeriod);
+// Apply dept filter to periodPayroll if needed
+if ($filterDept !== '') {
+    $empDeptCache = [];
+    $periodPayroll = array_values(array_filter($periodPayroll, function($p) use ($filterDept, &$empDeptCache) {
+        if (!isset($empDeptCache[$p['employee_id']])) {
+            $e = Model::findEmployeeById((int)$p['employee_id']);
+            $empDeptCache[$p['employee_id']] = (int)($e['department_id'] ?? 0);
+        }
+        return $empDeptCache[$p['employee_id']] === (int)$filterDept;
+    }));
+}
 $totalGross       = array_sum(array_column($periodPayroll, 'gross_pay'));
 $totalDed         = array_sum(array_column($periodPayroll, 'total_deductions'));
 $totalNet         = array_sum(array_column($periodPayroll, 'net_pay'));
@@ -586,6 +602,18 @@ foreach ($periodPayroll as $p) {
         <?php endif; ?>
       <?php endif; ?>
 
+      <div class="ml-3 d-flex align-items-center">
+        <label class="mb-0 font-weight-bold mr-2 text-nowrap">Department:</label>
+        <select class="form-control payroll-period-select-md"
+                onchange="window.location='payroll.php?period=<?= urlencode($selectedPeriod) ?>&dept='+this.value">
+          <option value="">All Departments</option>
+          <?php foreach ($allDepartments as $dept): ?>
+            <option value="<?= $dept['id'] ?>" <?= (string)$filterDept === (string)$dept['id'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($dept['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <button class="btn btn-info ml-auto" onclick="window.print()">
         <i class="fas fa-print mr-1"></i><span class="d-none d-sm-inline">Print</span>
       </button>
