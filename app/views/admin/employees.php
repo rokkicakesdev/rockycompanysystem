@@ -91,6 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $empId = (int)$_POST['emp_id'];
             Model::updateEmployee($empId, $data);
             Model::log($_SESSION['user_id'], 'UPDATE_EMPLOYEE', "Updated employee ID:{$empId}");
+            // If we came from a 201 view, redirect back to it with a success flag
+            $returnView = (int)($_POST['return_view_id'] ?? 0);
+            if ($returnView > 0) {
+                header('Location: employees.php?view_id=' . $returnView . '&updated=1');
+                exit;
+            }
             $msg = '<div class="alert alert-success alert-dismissible fade show" role="alert">
                 Employee updated successfully.
                 <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
@@ -151,7 +157,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Fetch data ────────────────────────────────────────────────────────────────
 $search       = $_GET['q']      ?? '';
 $filterStatus = $_GET['status'] ?? '';
+$filterDept   = $_GET['dept']   ?? '';
 $allEmployees = $search ? Model::searchEmployees($search) : Model::getAllEmployees($filterStatus);
+// Apply department filter
+if ($filterDept !== '') {
+    $allEmployees = array_filter($allEmployees, fn($e) => (int)$e['department_id'] === (int)$filterDept);
+    $allEmployees = array_values($allEmployees);
+}
 $departments  = Model::getAllDepartments();
 $positions    = Model::getAllPositions();
 
@@ -195,6 +207,12 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
 </div>
 
 <?= $msg ?>
+<?php if (isset($_GET['updated']) && $_GET['updated'] == '1'): ?>
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <i class="fas fa-check-circle mr-1"></i>Employee profile updated successfully.
+  <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
+</div>
+<?php endif; ?>
 
 <?php if ($viewEmp): ?>
 <!-- 201 FILE VIEW (unchanged) -->
@@ -209,9 +227,10 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
     <span class="badge badge-<?= $viewEmp['status'] === 'active' ? 'success' : 'danger' ?> ml-2">
       <?= ucfirst($viewEmp['status']) ?>
     </span>
-    <a href="employees.php?edit=<?= $viewEmp['id'] ?>" class="btn btn-warning btn-sm ml-auto">
+    <button type="button" class="btn btn-warning btn-sm ml-auto"
+      onclick="openEditModal(<?= htmlspecialchars(json_encode($viewEmp), ENT_QUOTES) ?>, <?= (int)$viewEmp['id'] ?>)">
       <i class="fas fa-edit mr-1"></i> Edit Profile
-    </a>
+    </button>
   </div>
 </div>
 
@@ -236,6 +255,10 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <tr>
             <td class="text-muted emp-view-table-label">Date Hired</td>
             <td class="text-right font-weight-600 emp-view-table-label"><?= $viewEmp['date_hired'] ? date('M d, Y', strtotime($viewEmp['date_hired'])) : '—' ?></td>
+          </tr>
+          <tr>
+            <td class="text-muted emp-view-table-label">Date Start</td>
+            <td class="text-right font-weight-600 emp-view-table-label"><?= !empty($viewEmp['date_start']) ? date('M d, Y', strtotime($viewEmp['date_start'])) : '—' ?></td>
           </tr>
           <tr>
             <td class="text-muted emp-view-table-label">Basic Salary</td>
@@ -465,6 +488,12 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           <option value="<?= $k ?>" <?= $filterStatus === $k ? 'selected' : '' ?>><?= $v ?></option>
         <?php endforeach; ?>
       </select>
+      <select name="dept" class="form-control form-control-sm">
+        <option value="">All Departments</option>
+        <?php foreach ($departments as $dept): ?>
+          <option value="<?= $dept['id'] ?>" <?= ($filterDept ?? '') == $dept['id'] ? 'selected' : '' ?>><?= htmlspecialchars($dept['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
       <button type="submit" class="btn btn-sm btn-primary">
         <i class="fas fa-search mr-1"></i>Filter
       </button>
@@ -490,6 +519,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
             <!-- Removed text-center as requested -->
             <th>Basic Salary</th>
             <th>Date Hired</th>
+            <th>Date Start</th>
             <th class="text-center">Status</th>
             <th class="text-center">Actions</th>
           </tr>
@@ -519,6 +549,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                 ₱<?= number_format($emp['basic_salary'] ?? 0, 2) ?>
               </td>
               <td><?= $emp['date_hired'] ? date('M d, Y', strtotime($emp['date_hired'])) : '—' ?></td>
+              <td><?= !empty($emp['date_start']) ? date('M d, Y', strtotime($emp['date_start'])) : '—' ?></td>
               <td class="text-center">
                 <span class="badge badge-<?= $emp['status'] ?>">
                   <?= ucfirst($emp['status']) ?>
@@ -588,6 +619,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
       <form method="POST" id="employeeForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="hidden" name="emp_id" id="empId">
+        <input type="hidden" name="return_view_id" id="returnViewId" value="">
 
         <div class="modal-header">
           <h5 class="modal-title" id="empModalTitle">
@@ -867,8 +899,9 @@ $extraJs .= <<<'JS'
 $(document).ready(function () {
   $('[data-toggle="tooltip"]').tooltip();
 
-  window.openEditModal = function(emp) {
+  window.openEditModal = function(emp, returnViewId) {
     document.getElementById('empId').value              = emp.id;
+    document.getElementById('returnViewId').value       = returnViewId || '';
     document.getElementById('empModalTitle').innerHTML  = '<i class="fas fa-user-edit mr-2"></i>Edit Employee';
     document.getElementById('empSubmitBtn').innerHTML   = '<i class="fas fa-save mr-1"></i>Update Employee';
 

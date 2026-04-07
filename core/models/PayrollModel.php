@@ -84,14 +84,26 @@ class PayrollModel extends BaseModel
 
     public static function getByPeriod(string $period): array
     {
-        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE period = ? ORDER BY employee_name');
+        $stmt = self::db()->prepare('
+            SELECT vp.*, pr.salary_deduction, pr.unpaid_leave_deduction
+            FROM v_payroll vp
+            JOIN payroll_records pr ON pr.id = vp.id
+            WHERE vp.period = ?
+            ORDER BY vp.employee_name
+        ');
         $stmt->execute([$period]);
         return $stmt->fetchAll();
     }
 
     public static function getByEmployee(int $employeeId): array
     {
-        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE employee_id = ? ORDER BY period DESC');
+        $stmt = self::db()->prepare('
+            SELECT vp.*, pr.salary_deduction, pr.unpaid_leave_deduction
+            FROM v_payroll vp
+            JOIN payroll_records pr ON pr.id = vp.id
+            WHERE vp.employee_id = ?
+            ORDER BY vp.period DESC
+        ');
         $stmt->execute([$employeeId]);
         return $stmt->fetchAll();
     }
@@ -112,7 +124,13 @@ class PayrollModel extends BaseModel
 
     public static function findById(int $id): ?array
     {
-        $stmt = self::db()->prepare('SELECT * FROM v_payroll WHERE id = ? LIMIT 1');
+        $stmt = self::db()->prepare('
+            SELECT vp.*, pr.salary_deduction, pr.unpaid_leave_deduction
+            FROM v_payroll vp
+            JOIN payroll_records pr ON pr.id = vp.id
+            WHERE vp.id = ?
+            LIMIT 1
+        ');
         $stmt->execute([$id]);
         return $stmt->fetch() ?: null;
     }
@@ -379,6 +397,83 @@ class PayrollModel extends BaseModel
             ':sd3' => $totalSalaryDed,
             ':id'  => $payrollId,
         ]);
+    }
+
+
+    /**
+     * Delete a salary deduction item and recalculate payroll totals.
+     */
+    public static function deleteSalaryDeduction(int $deductionId): bool
+    {
+        $db = self::db();
+        // Get payroll_id before deleting
+        $stmt = $db->prepare('SELECT payroll_id, amount FROM salary_deductions WHERE id = ?');
+        $stmt->execute([$deductionId]);
+        $row = $stmt->fetch();
+        if (!$row) return false;
+        $payrollId = (int)$row['payroll_id'];
+
+        $stmt = $db->prepare('DELETE FROM salary_deductions WHERE id = ?');
+        $deleted = (bool) $stmt->execute([$deductionId]);
+        if (!$deleted) return false;
+
+        // Recalculate
+        $sumStmt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM salary_deductions WHERE payroll_id = ?');
+        $sumStmt->execute([$payrollId]);
+        $totalSalaryDed = (float)$sumStmt->fetchColumn();
+
+        $updateStmt = $db->prepare('
+            UPDATE payroll_records
+            SET salary_deduction  = :sd,
+                total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd2 + other_deductions,
+                net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd3 + other_deductions)
+            WHERE id = :id
+        ');
+        return (bool) $updateStmt->execute([':sd' => $totalSalaryDed, ':sd2' => $totalSalaryDed, ':sd3' => $totalSalaryDed, ':id' => $payrollId]);
+    }
+
+    /**
+     * Update an existing salary deduction item and recalculate payroll totals.
+     */
+    public static function updateSalaryDeduction(int $deductionId, array $d): bool
+    {
+        $db = self::db();
+        $stmt = $db->prepare('SELECT payroll_id FROM salary_deductions WHERE id = ?');
+        $stmt->execute([$deductionId]);
+        $row = $stmt->fetch();
+        if (!$row) return false;
+        $payrollId = (int)$row['payroll_id'];
+
+        $stmt = $db->prepare('UPDATE salary_deductions SET reason=?, description=?, amount=?, notes=? WHERE id=?');
+        $updated = (bool) $stmt->execute([$d['reason'], $d['description'] ?? null, (float)$d['amount'], $d['notes'], $deductionId]);
+        if (!$updated) return false;
+
+        // Recalculate
+        $sumStmt = $db->prepare('SELECT COALESCE(SUM(amount),0) FROM salary_deductions WHERE payroll_id = ?');
+        $sumStmt->execute([$payrollId]);
+        $totalSalaryDed = (float)$sumStmt->fetchColumn();
+
+        $updateStmt = $db->prepare('
+            UPDATE payroll_records
+            SET salary_deduction  = :sd,
+                total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd2 + other_deductions,
+                net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
+                                    + absent_deduction + unpaid_leave_deduction + :sd3 + other_deductions)
+            WHERE id = :id
+        ');
+        return (bool) $updateStmt->execute([':sd' => $totalSalaryDed, ':sd2' => $totalSalaryDed, ':sd3' => $totalSalaryDed, ':id' => $payrollId]);
+    }
+
+    /**
+     * Delete a payroll note.
+     */
+    public static function deleteNote(int $noteId): bool
+    {
+        $stmt = self::db()->prepare('DELETE FROM payroll_notes WHERE id = ?');
+        return (bool) $stmt->execute([$noteId]);
     }
 
     /**

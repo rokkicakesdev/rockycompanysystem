@@ -2,46 +2,43 @@
 $pageTitle = 'Attendance';
 require_once __DIR__ . '/../layouts/admin_header.php';
 
-// Generate CSRF token if not already set
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf_token = $_SESSION['csrf_token'];
 
-// Handle form submissions
 $msg = '';
+
+// Helper: decode attendance notes JSON array from remarks column
+function decodeAttNotes(string $remarks): array {
+    if (empty($remarks)) return [];
+    $decoded = json_decode($remarks, true);
+    if (is_array($decoded)) return $decoded;
+    return [['id' => 'legacy', 'note' => $remarks, 'by' => 'System', 'at' => '']];
+}
+function encodeAttNotes(array $notes): string {
+    return json_encode(array_values($notes), JSON_UNESCAPED_UNICODE);
+}
+
+// ── SAVE BULK ATTENDANCE ──────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_attendance'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
-        $msg = '<div class="alert alert-danger alert-dismissible fade show" role="alert">
-            Invalid security token. Please refresh the page and try again.
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">×</span>
-            </button>
-        </div>';
+        $msg = '<div class="alert alert-danger alert-dismissible fade show">Invalid security token.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
     } else {
-        $saved = 0;
-        $errors = 0;
-        $errorDetails = [];
-
+        $saved = 0; $errors = 0; $errorDetails = [];
+        $checkedIds = $_POST['checked_employees'] ?? [];
         foreach ($_POST['attendance'] as $empId => $record) {
+            if (!in_array((string)$empId, $checkedIds)) continue;
             $timeIn  = $record['time_in']  ?? null;
             $timeOut = $record['time_out'] ?? null;
-            $hoursWorked = null;
+            $hoursWorked   = null;
             $overtimeHours = min(12, max(0, (float)($record['overtime_hours'] ?? 0)));
-            $remarks = substr(strip_tags(trim($record['remarks'] ?? '')), 0, 50);
-
+            $notes = substr(strip_tags(trim($record['notes'] ?? '')), 0, 255);
             if ($timeIn && $timeOut) {
-                $in  = strtotime($timeIn);
-                $out = strtotime($timeOut);
-                if ($out > $in) {
-                    $hoursWorked = round(($out - $in) / 3600, 2);
-                } else {
-                    $errors++;
-                    $errorDetails[] = "Employee ID $empId: Time out is before or equal to time in";
-                    continue;
-                }
+                $in  = strtotime($timeIn); $out = strtotime($timeOut);
+                if ($out > $in) { $hoursWorked = round(($out - $in) / 3600, 2); }
+                else { $errors++; $errorDetails[] = "Employee ID $empId: Time out before time in"; continue; }
             }
-
             $ok = Model::saveAttendance([
                 'employee_id'    => (int)$empId,
                 'date'           => $_POST['att_date'],
@@ -49,87 +46,180 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_attendance'])) {
                 'time_out'       => $timeOut,
                 'status'         => $record['status']     ?? 'present',
                 'leave_type'     => $record['leave_type'] ?? null,
-                'remarks'        => $remarks,
+                'remarks'        => $notes,
                 'hours_worked'   => $hoursWorked,
                 'overtime_hours' => $overtimeHours,
                 'is_overtime'    => $overtimeHours > 0 ? 1 : 0,
                 'created_by'     => $_SESSION['user_id'] ?? null,
             ]);
-
-            if ($ok) {
-                $saved++;
-            } else {
-                $errors++;
-                $errorDetails[] = "Employee ID $empId: Database save failed";
-            }
+            $ok ? $saved++ : ($errors++ && $errorDetails[] = "Employee ID $empId: DB save failed");
         }
-
-        Model::log(
-            $_SESSION['user_id'] ?? null,
-            'SAVE_ATTENDANCE',
-            "Saved attendance for $saved employees on " . ($_POST['att_date'] ?? 'unknown') . " | Errors: $errors"
-        );
-
+        Model::log($_SESSION['user_id'] ?? null, 'SAVE_ATTENDANCE', "Saved {$saved} employees on " . ($_POST['att_date'] ?? 'unknown') . " | Errors: {$errors}");
         $msgClass = $errors === 0 ? 'success' : 'warning';
+        $msgText  = "Attendance saved for {$saved} employee(s)." . ($errors > 0 ? " {$errors} failed." : '');
+        $msg = "<div class=\"alert alert-{$msgClass} alert-dismissible fade show\">{$msgText}<button type=\"button\" class=\"close\" data-dismiss=\"alert\"><span>×</span></button></div>";
+    }
+}
 
-        $msgText = "Attendance saved for {$saved} employee(s).";
-        if ($errors > 0) {
-            $msgText .= " {$errors} failed.";
-            if (!empty($errorDetails)) {
-                $msgText .= '<br><small>' . implode('<br>', $errorDetails) . '</small>';
+// ── UPDATE SINGLE ATTENDANCE ──────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_single_attendance'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger alert-dismissible fade show">Invalid security token.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+    } else {
+        $empId     = (int)($_POST['upd_emp_id'] ?? 0);
+        $updDate   = $_POST['upd_date']   ?? '';
+        $timeIn    = $_POST['upd_time_in']  ?? null;
+        $timeOut   = $_POST['upd_time_out'] ?? null;
+        $updStatus = $_POST['upd_status']   ?? 'present';
+        $updNotes  = substr(strip_tags(trim($_POST['upd_notes'] ?? '')), 0, 500);
+        $updOt     = min(12, max(0, (float)($_POST['upd_overtime_hours'] ?? 0)));
+
+        if (empty($updNotes)) {
+            $msg = '<div class="alert alert-danger alert-dismissible fade show">Notes are required when updating attendance.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+        } elseif ($empId && $updDate) {
+            $hoursWorked = null;
+            if ($timeIn && $timeOut) {
+                $in = strtotime($timeIn); $out = strtotime($timeOut);
+                if ($out > $in) $hoursWorked = round(($out - $in) / 3600, 2);
+            }
+            // Load existing record to append note
+            $existing    = Model::getAttendanceByEmployee($empId, substr($updDate, 0, 7));
+            $existingRec = null;
+            foreach ($existing as $er) {
+                if ($er['date'] === $updDate) { $existingRec = $er; break; }
+            }
+            $notesList = decodeAttNotes($existingRec['remarks'] ?? '');
+            $byName    = $_SESSION['name'] ?? ('User #' . ($_SESSION['user_id'] ?? 0));
+            $notesList[] = ['id' => uniqid(), 'note' => $updNotes, 'by' => $byName, 'at' => date('Y-m-d H:i')];
+            $ok = Model::saveAttendance([
+                'employee_id'    => $empId,
+                'date'           => $updDate,
+                'time_in'        => $timeIn ?: null,
+                'time_out'       => $timeOut ?: null,
+                'status'         => $updStatus,
+                'leave_type'     => $_POST['upd_leave_type'] ?? null,
+                'remarks'        => encodeAttNotes($notesList),
+                'hours_worked'   => $hoursWorked,
+                'overtime_hours' => $updOt,
+                'is_overtime'    => $updOt > 0 ? 1 : 0,
+                'created_by'     => $_SESSION['user_id'] ?? null,
+            ]);
+            if ($ok) {
+                Model::log($_SESSION['user_id'] ?? null, 'UPDATE_ATTENDANCE', "Updated ID:{$empId} on {$updDate} | note: {$updNotes}");
+                $msg = '<div class="alert alert-success alert-dismissible fade show">Attendance updated successfully.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+            } else {
+                $msg = '<div class="alert alert-danger alert-dismissible fade show">Failed to update attendance.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
             }
         }
+    }
+}
 
-        // Escape for safety, then restore allowed tags
-        $msgText = htmlspecialchars($msgText, ENT_QUOTES, 'UTF-8');
-        $msgText = str_replace(
-            ['&lt;br&gt;', '&lt;small&gt;', '&lt;/small&gt;'],
-            ['<br>', '<small>', '</small>'],
-            $msgText
-        );
+// ── EDIT ATTENDANCE NOTE ──────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_att_note'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger alert-dismissible fade show">Invalid token.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+    } else {
+        $empId    = (int)($_POST['ann_emp_id']   ?? 0);
+        $annDate  = $_POST['ann_date']   ?? '';
+        $noteId   = $_POST['ann_note_id'] ?? '';
+        $noteText = substr(strip_tags(trim($_POST['ann_note_text'] ?? '')), 0, 500);
+        if ($empId && $annDate && $noteId && $noteText) {
+            $existing = Model::getAttendanceByEmployee($empId, substr($annDate, 0, 7));
+            $existingRec = null;
+            foreach ($existing as $er) { if ($er['date'] === $annDate) { $existingRec = $er; break; } }
+            $notesList = decodeAttNotes($existingRec['remarks'] ?? '');
+            foreach ($notesList as &$n) { if (($n['id'] ?? '') === $noteId) { $n['note'] = $noteText; break; } }
+            unset($n);
+            $ok = Model::saveAttendance([
+                'employee_id'    => $empId,
+                'date'           => $annDate,
+                'time_in'        => $existingRec['time_in']        ?? null,
+                'time_out'       => $existingRec['time_out']       ?? null,
+                'status'         => $existingRec['status']         ?? 'present',
+                'leave_type'     => $existingRec['leave_type']     ?? null,
+                'remarks'        => encodeAttNotes($notesList),
+                'hours_worked'   => $existingRec['hours_worked']   ?? null,
+                'overtime_hours' => $existingRec['overtime_hours'] ?? 0,
+                'is_overtime'    => $existingRec['is_overtime']    ?? 0,
+                'created_by'     => $_SESSION['user_id'] ?? null,
+            ]);
+            $msg = $ok
+                ? '<div class="alert alert-success alert-dismissible fade show">Note updated.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>'
+                : '<div class="alert alert-danger alert-dismissible fade show">Failed to update note.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+        }
+    }
+}
 
-        $msg = "<div class=\"alert alert-{$msgClass} alert-dismissible fade show\" role=\"alert\">
-            {$msgText}
-            <button type=\"button\" class=\"close\" data-dismiss=\"alert\" aria-label=\"Close\">
-                <span aria-hidden=\"true\">×</span>
-            </button>
-        </div>";
+// ── DELETE ATTENDANCE NOTE ────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_att_note'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger alert-dismissible fade show">Invalid token.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+    } else {
+        $empId   = (int)($_POST['dan_emp_id'] ?? 0);
+        $danDate = $_POST['dan_date']    ?? '';
+        $noteId  = $_POST['dan_note_id'] ?? '';
+        if ($empId && $danDate && $noteId) {
+            $existing = Model::getAttendanceByEmployee($empId, substr($danDate, 0, 7));
+            $existingRec = null;
+            foreach ($existing as $er) { if ($er['date'] === $danDate) { $existingRec = $er; break; } }
+            if ($existingRec) {
+                $notesList = decodeAttNotes($existingRec['remarks'] ?? '');
+                $notesList = array_values(array_filter($notesList, fn($n) => ($n['id'] ?? '') !== $noteId));
+                $ok = Model::saveAttendance([
+                    'employee_id'    => $empId,
+                    'date'           => $danDate,
+                    'time_in'        => $existingRec['time_in']        ?? null,
+                    'time_out'       => $existingRec['time_out']       ?? null,
+                    'status'         => $existingRec['status']         ?? 'present',
+                    'leave_type'     => $existingRec['leave_type']     ?? null,
+                    'remarks'        => encodeAttNotes($notesList),
+                    'hours_worked'   => $existingRec['hours_worked']   ?? null,
+                    'overtime_hours' => $existingRec['overtime_hours'] ?? 0,
+                    'is_overtime'    => $existingRec['is_overtime']    ?? 0,
+                    'created_by'     => $_SESSION['user_id'] ?? null,
+                ]);
+                $msg = $ok
+                    ? '<div class="alert alert-success alert-dismissible fade show">Note deleted.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>'
+                    : '<div class="alert alert-danger alert-dismissible fade show">Failed to delete note.<button type="button" class="close" data-dismiss="alert"><span>×</span></button></div>';
+            }
+        }
     }
 }
 
 $selectedDate  = $_GET['date']   ?? date('Y-m-d');
 $selectedMonth = $_GET['month']  ?? date('Y-m');
 $viewMode      = $_GET['view']   ?? 'daily';
+$filterDept    = $_GET['dept']   ?? '';
 
 $allEmployees    = Model::getAllEmployees('active');
+$departments     = Model::getAllDepartments();
 $existingRecords = [];
 
-// Filter: only show employees hired on or before the selected date (daily view)
-// or on or before the last day of the selected month (monthly view)
+if ($filterDept !== '') {
+    $allEmployees = array_values(array_filter($allEmployees, fn($e) => (int)$e['department_id'] === (int)$filterDept));
+}
+
 if ($viewMode === 'daily') {
-    $employees = array_filter($allEmployees, fn($e) =>
-        !empty($e['date_hired']) && $e['date_hired'] <= $selectedDate
-    );
-    $employees = array_values($employees);
+    $employees = array_values(array_filter($allEmployees, function($e) use ($selectedDate) {
+        $startDate = !empty($e['date_start']) ? $e['date_start'] : ($e['date_hired'] ?? '');
+        return !empty($startDate) && $startDate <= $selectedDate;
+    }));
     $recs = Model::getAttendanceByMonth(substr($selectedDate, 0, 7));
     foreach ($recs as $r) {
         if ($r['date'] === $selectedDate) $existingRecords[$r['employee_id']] = $r;
     }
 } else {
     $lastDayOfMonth = date('Y-m-t', strtotime($selectedMonth . '-01'));
-    $employees = array_filter($allEmployees, fn($e) =>
-        !empty($e['date_hired']) && $e['date_hired'] <= $lastDayOfMonth
-    );
-    $employees = array_values($employees);
+    $employees = array_values(array_filter($allEmployees, function($e) use ($lastDayOfMonth) {
+        $startDate = !empty($e['date_start']) ? $e['date_start'] : ($e['date_hired'] ?? '');
+        return !empty($startDate) && $startDate <= $lastDayOfMonth;
+    }));
     $recs = Model::getAttendanceByMonth($selectedMonth);
     foreach ($recs as $r) $existingRecords[$r['employee_id'] . '_' . $r['date']] = $r;
 }
 
-// ── Holiday detection for selected date ──────────────────────────
 $holidayInfo = ($viewMode === 'daily') ? Model::isHoliday($selectedDate) : null;
-
-// ── Weekend detection — Saturday (6) or Sunday (0) ───────────────
-$isWeekend = ($viewMode === 'daily') && in_array((int)date('w', strtotime($selectedDate)), [0, 6]);
+$isWeekend   = ($viewMode === 'daily') && in_array((int)date('w', strtotime($selectedDate)), [0, 6]);
 
 $statusOptions = [
     'present'  => ['label' => 'Present',  'color' => '#22c55e'],
@@ -154,10 +244,9 @@ $statusOptions = [
   <div class="card-body py-3">
     <form method="GET" class="form-inline flex-gap-2">
       <div class="mr-3 att-view-toggle">
-        <a href="?view=daily&date=<?= $selectedDate ?>" class="btn btn-sm <?= $viewMode==='daily' ? 'btn-primary' : 'btn-outline-primary' ?>">Daily View</a>
-        <a href="?view=monthly&month=<?= $selectedMonth ?>" class="btn btn-sm <?= $viewMode==='monthly' ? 'btn-primary' : 'btn-outline-primary' ?>">Monthly Summary</a>
+        <a href="?view=daily&date=<?= $selectedDate ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm <?= $viewMode==='daily' ? 'btn-primary' : 'btn-outline-primary' ?>">Daily View</a>
+        <a href="?view=monthly&month=<?= $selectedMonth ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm <?= $viewMode==='monthly' ? 'btn-primary' : 'btn-outline-primary' ?>">Monthly Summary</a>
       </div>
-
       <?php if ($viewMode === 'daily'): ?>
         <input type="hidden" name="view" value="daily">
         <label class="mr-2 font-weight-600">Date:</label>
@@ -167,14 +256,21 @@ $statusOptions = [
         <label class="mr-2 font-weight-600">Month:</label>
         <input type="month" name="month" value="<?= $selectedMonth ?>" class="form-control form-control-sm mr-2">
       <?php endif; ?>
-
+      <label class="mr-2 font-weight-600">Department:</label>
+      <select name="dept" class="form-control form-control-sm mr-2">
+        <option value="">All Departments</option>
+        <?php foreach ($departments as $dept): ?>
+          <option value="<?= $dept['id'] ?>" <?= (string)$filterDept === (string)$dept['id'] ? 'selected' : '' ?>>
+            <?= htmlspecialchars($dept['name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
       <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-filter mr-1"></i>Apply</button>
     </form>
   </div>
 </div>
 
 <?php if ($viewMode === 'daily'): ?>
-<!-- DAILY ENTRY FORM -->
 <div class="card">
   <div class="card-header">
     <i class="fas fa-clipboard-list mr-2"></i>
@@ -189,92 +285,303 @@ $statusOptions = [
     <i class="fas fa-calendar-day mr-2 att-holiday-icon"></i>
     <strong><?= htmlspecialchars($holidayInfo['name']) ?></strong> is a
     <strong><?= $holidayInfo['type'] === 'regular' ? 'Regular Holiday' : ($holidayInfo['type'] === 'special_non_working' ? 'Special Non-Working Holiday' : 'Special Working Holiday') ?></strong>.
-    All employees have been pre-set to <strong>Holiday</strong>. You can still override individual records below.
+    All employees pre-set to <strong>Holiday</strong>. You can override below.
   </div>
   <?php endif; ?>
   <?php if ($isWeekend): ?>
   <div class="alert att-weekend-banner mb-0 border-0 rounded-0">
     <i class="fas fa-moon mr-2 att-weekend-icon"></i>
-    <strong><?= date('l', strtotime($selectedDate)) ?></strong> is a weekend.
-    All employees have been pre-set to <strong>Rest Day</strong>. You can still override individual records below.
+    <strong><?= date('l', strtotime($selectedDate)) ?></strong> is a weekend. All employees pre-set to <strong>Rest Day</strong>.
   </div>
   <?php endif; ?>
   <div class="card-body p-0">
     <form method="POST" id="attendanceForm">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
-      <input type="hidden" name="att_date" value="<?= $selectedDate ?>">
+      <input type="hidden" name="att_date"   value="<?= $selectedDate ?>">
       <input type="hidden" name="save_attendance" value="1">
       <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 att-daily-table">
           <thead>
             <tr>
-              <th>Employee</th>
-              <th>Department</th>
-              <th class="att-col-status">Status</th>
+              <th class="att-col-check"><input type="checkbox" id="checkAll" title="Select All"></th>
+              <th class="att-col-employee">Employee</th>
+              <th class="att-col-dept">Department</th>
+              <th class="att-col-status">Status / Leave</th>
               <th class="att-col-timein">Time In</th>
               <th class="att-col-timein">Time Out</th>
               <th class="att-col-ot">OT Hrs</th>
-              <th class="att-col-remarks">Remarks</th>
+              <th class="att-col-saved">Saved</th>
+              <th class="att-col-notes">Notes</th>
+              <th class="att-col-action">Action</th>
             </tr>
           </thead>
           <tbody>
             <?php foreach ($employees as $emp):
               $rec    = $existingRecords[$emp['id']] ?? null;
-              // Priority: existing record → holiday → weekend → present
-              if ($rec) {
-                  $status = $rec['status'];
-              } elseif ($holidayInfo) {
-                  $status = 'holiday';
-              } elseif ($isWeekend) {
-                  $status = 'rest_day';
-              } else {
-                  $status = 'present';
+              $hasAtt = $rec !== null;
+              if ($rec)            { $status = $rec['status']; }
+              elseif ($holidayInfo){ $status = 'holiday'; }
+              elseif ($isWeekend)  { $status = 'rest_day'; }
+              else                 { $status = 'present'; }
+              // Decode notes for display
+              $rawRemarks = $rec['remarks'] ?? '';
+              $notesList  = [];
+              if (!empty($rawRemarks)) {
+                  $decoded   = json_decode($rawRemarks, true);
+                  $notesList = is_array($decoded)
+                      ? $decoded
+                      : [['id'=>'legacy','note'=>$rawRemarks,'by'=>'System','at'=>'']];
               }
+              $notesCount = count($notesList);
             ?>
             <tr>
-              <td>
+              <td class="att-col-check">
+                <input type="checkbox" name="checked_employees[]" value="<?= $emp['id'] ?>" class="emp-row-check" checked>
+              </td>
+              <td class="att-col-employee">
                 <strong class="att-emp-name"><?= htmlspecialchars($emp['name']) ?></strong><br>
                 <small class="text-muted"><?= htmlspecialchars($emp['employee_no']) ?></small>
               </td>
-              <td><small><?= htmlspecialchars($emp['department']) ?></small></td>
-              <td>
+              <td class="att-col-dept"><small><?= htmlspecialchars($emp['department']) ?></small></td>
+              <td class="att-col-status">
                 <select name="attendance[<?= $emp['id'] ?>][status]" class="form-control form-control-sm att-status" data-empid="<?= $emp['id'] ?>">
                   <?php foreach ($statusOptions as $val => $opt): ?>
-                    <option value="<?= $val ?>" <?= $status === $val ? 'selected' : '' ?> class="status-select-option">
-                      <?= $opt['label'] ?>
-                    </option>
+                    <option value="<?= $val ?>" <?= $status === $val ? 'selected' : '' ?>><?= $opt['label'] ?></option>
                   <?php endforeach; ?>
                 </select>
-                <select name="attendance[<?= $emp['id'] ?>][leave_type]" class="form-control form-control-sm mt-1 att-leave-select leave-type-select-<?= $emp['id'] ?>"
-                  class="att-on-leave-panel<?= $status === 'on_leave' ? ' visible' : '' ?>">
+                <select name="attendance[<?= $emp['id'] ?>][leave_type]" class="form-control form-control-sm mt-1 att-leave-select leave-type-select-<?= $emp['id'] ?>">
                   <option value="">-- Leave Type --</option>
                   <?php foreach (LEAVE_TYPES as $lk => $lv): ?>
                     <option value="<?= $lk ?>" <?= ($rec['leave_type'] ?? '') === $lk ? 'selected' : '' ?>><?= $lv ?></option>
                   <?php endforeach; ?>
                 </select>
               </td>
-              <td><input type="time" name="attendance[<?= $emp['id'] ?>][time_in]"  value="<?= $rec['time_in']  ?? '08:00' ?>" class="form-control form-control-sm"></td>
-              <td><input type="time" name="attendance[<?= $emp['id'] ?>][time_out]" value="<?= $rec['time_out'] ?? '17:00' ?>" class="form-control form-control-sm"></td>
-              <td><input type="number" step="0.5" min="0" max="12" name="attendance[<?= $emp['id'] ?>][overtime_hours]" value="<?= $rec['overtime_hours'] ?? 0 ?>" class="form-control form-control-sm" maxlength="2" oninput="this.value=this.value.slice(0,4)"></td>
-              <td><input type="text" name="attendance[<?= $emp['id'] ?>][remarks]"  value="<?= htmlspecialchars($rec['remarks'] ?? '') ?>" class="form-control form-control-sm" placeholder="Optional remarks" maxlength="50" autocomplete="off"></td>
+              <td class="att-col-timein">
+                <input type="time" name="attendance[<?= $emp['id'] ?>][time_in]"
+                       value="<?= $rec['time_in']  ?? '08:00' ?>"
+                       class="form-control form-control-sm">
+              </td>
+              <td class="att-col-timein">
+                <input type="time" name="attendance[<?= $emp['id'] ?>][time_out]"
+                       value="<?= $rec['time_out'] ?? '17:00' ?>"
+                       class="form-control form-control-sm">
+              </td>
+              <td class="att-col-ot">
+                <input type="number" step="0.5" min="0" max="12"
+                       name="attendance[<?= $emp['id'] ?>][overtime_hours]"
+                       value="<?= $rec['overtime_hours'] ?? 0 ?>"
+                       class="form-control form-control-sm"
+                       oninput="this.value=this.value.slice(0,4)">
+              </td>
+              <td class="att-col-saved text-center">
+                <?php if ($hasAtt): ?>
+                  <span class="badge badge-success"><i class="fas fa-check mr-1"></i>Saved</span>
+                <?php else: ?>
+                  <span class="badge badge-light text-muted"><i class="fas fa-minus mr-1"></i>New</span>
+                <?php endif; ?>
+              </td>
+              <td class="att-col-notes">
+                <button type="button" class="btn btn-sm btn-outline-info notes-icon-btn"
+                  data-empid="<?= $emp['id'] ?>"
+                  data-empname="<?= htmlspecialchars($emp['name'], ENT_QUOTES) ?>"
+                  data-date="<?= $selectedDate ?>"
+                  data-notes="<?= htmlspecialchars(json_encode($notesList, JSON_UNESCAPED_UNICODE), ENT_QUOTES) ?>"
+                  title="View Notes">
+                  <i class="fas fa-sticky-note"></i>
+                  <?php if ($notesCount > 0): ?>
+                    <span class="badge badge-info ml-1"><?= $notesCount ?></span>
+                  <?php endif; ?>
+                </button>
+                <input type="hidden" name="attendance[<?= $emp['id'] ?>][notes]"
+                       id="notes-field-<?= $emp['id'] ?>"
+                       value="<?= htmlspecialchars($rawRemarks, ENT_QUOTES) ?>">
+              </td>
+              <td class="att-col-action">
+                <button type="button" class="btn btn-sm btn-warning update-att-btn"
+                  data-empid="<?= $emp['id'] ?>"
+                  data-empname="<?= htmlspecialchars($emp['name'], ENT_QUOTES) ?>"
+                  data-date="<?= $selectedDate ?>"
+                  data-timein="<?= htmlspecialchars(substr($rec['time_in']  ?? '08:00', 0, 5), ENT_QUOTES) ?>"
+                  data-timeout="<?= htmlspecialchars(substr($rec['time_out'] ?? '17:00', 0, 5), ENT_QUOTES) ?>"
+                  data-status="<?= htmlspecialchars($status, ENT_QUOTES) ?>"
+                  data-leavetype="<?= htmlspecialchars($rec['leave_type'] ?? '', ENT_QUOTES) ?>"
+                  data-ot="<?= (float)($rec['overtime_hours'] ?? 0) ?>"
+                  title="Update Attendance">
+                  <i class="fas fa-edit"></i>
+                </button>
+              </td>
             </tr>
             <?php endforeach; ?>
           </tbody>
         </table>
       </div>
       <div class="card-footer d-flex justify-content-between align-items-center">
-        <button type="button" class="btn btn-primary" onclick="showAttendanceConfirm(<?= count($employees) ?>, '<?= date('M j, Y', strtotime($selectedDate)) ?>')">
-          <i class="fas fa-save mr-1"></i>Save Attendance
+        <button type="button" class="btn btn-primary"
+                onclick="showAttendanceConfirm(<?= count($employees) ?>, '<?= date('M j, Y', strtotime($selectedDate)) ?>')">
+          <i class="fas fa-save mr-1"></i>Save Checked Attendance
         </button>
-        <span class="text-muted"><?= count($employees) ?> employees | <?= date('M j, Y', strtotime($selectedDate)) ?></span>
+        <span class="text-muted"><?= count($employees) ?> employee(s) | <?= date('M j, Y', strtotime($selectedDate)) ?></span>
       </div>
     </form>
   </div>
 </div>
-
 <?php endif; ?>
 
-<!-- Attendance Confirm Modal (AdminLTE) — rendered always, works for daily view -->
+<!-- ── Notes List Modal ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="notesModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-info">
+        <h5 class="modal-title text-white">
+          <i class="fas fa-sticky-note mr-2"></i>Notes — <span id="notesModalEmpName"></span>
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted text-center py-3" id="notesModalEmpty">
+          <i class="fas fa-sticky-note fa-2x mb-2 d-block"></i>
+          No notes yet. Notes are added when attendance is updated via the <strong>Update</strong> button.
+        </p>
+        <div id="notesModalList"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times mr-1"></i>Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit Attendance Note Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="editAttNoteModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="POST" id="editAttNoteForm">
+        <input type="hidden" name="csrf_token"    value="<?= htmlspecialchars($csrf_token) ?>">
+        <input type="hidden" name="edit_att_note" value="1">
+        <input type="hidden" name="ann_emp_id"    id="annEmpId">
+        <input type="hidden" name="ann_date"      id="annDate">
+        <input type="hidden" name="ann_note_id"   id="annNoteId">
+        <div class="modal-header bg-warning">
+          <h5 class="modal-title"><i class="fas fa-edit mr-2"></i>Edit Note</h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group mb-0">
+            <label class="font-weight-bold">Note Text <span class="text-danger">*</span></label>
+            <textarea name="ann_note_text" id="annNoteText" class="form-control"
+                      rows="4" required maxlength="500"
+                      placeholder="Update the note text..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save mr-1"></i>Save Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Hidden Delete Note Form ─────────────────────────────────────────────── -->
+<form method="POST" id="deleteAttNoteForm" style="display:none;">
+  <input type="hidden" name="csrf_token"       value="<?= htmlspecialchars($csrf_token) ?>">
+  <input type="hidden" name="delete_att_note"  value="1">
+  <input type="hidden" name="dan_emp_id"       id="danEmpId">
+  <input type="hidden" name="dan_date"         id="danDate">
+  <input type="hidden" name="dan_note_id"      id="danNoteId">
+</form>
+
+<!-- ── Update Attendance Modal ─────────────────────────────────────────────── -->
+<div class="modal fade" id="updateAttModal" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="POST" id="updateAttForm">
+        <input type="hidden" name="csrf_token"               value="<?= htmlspecialchars($csrf_token) ?>">
+        <input type="hidden" name="update_single_attendance" value="1">
+        <input type="hidden" name="upd_emp_id"               id="updEmpId">
+        <input type="hidden" name="upd_date"                 value="<?= $selectedDate ?>">
+        <div class="modal-header bg-warning">
+          <h5 class="modal-title">
+            <i class="fas fa-edit mr-2"></i>Update Attendance — <span id="updEmpName"></span>
+          </h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Status</label>
+                <select name="upd_status" id="updStatus" class="form-control">
+                  <?php foreach ($statusOptions as $val => $opt): ?>
+                    <option value="<?= $val ?>"><?= $opt['label'] ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6" id="updLeaveTypeGroup">
+              <div class="form-group">
+                <label>Leave Type</label>
+                <select name="upd_leave_type" id="updLeaveType" class="form-control">
+                  <option value="">-- Leave Type --</option>
+                  <?php foreach (LEAVE_TYPES as $lk => $lv): ?>
+                    <option value="<?= $lk ?>"><?= $lv ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Time In</label>
+                <input type="time" name="upd_time_in" id="updTimeIn" class="form-control">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Time Out</label>
+                <input type="time" name="upd_time_out" id="updTimeOut" class="form-control">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>OT Hours</label>
+                <input type="number" step="0.5" min="0" max="12"
+                       name="upd_overtime_hours" id="updOt"
+                       class="form-control" value="0">
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-group mb-0">
+                <label>Notes <span class="text-danger">*</span>
+                  <small class="text-muted font-weight-normal">(Required — reason for update)</small>
+                </label>
+                <textarea name="upd_notes" id="updNotes" class="form-control"
+                          rows="3" maxlength="500" required
+                          placeholder="Enter reason for this update..."></textarea>
+                <small class="text-muted"><span id="updNotesCount">0</span>/500</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">
+            <i class="fas fa-times mr-1"></i>Cancel
+          </button>
+          <button type="submit" class="btn btn-warning">
+            <i class="fas fa-save mr-1"></i>Update Attendance
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── Save Confirm Modal ───────────────────────────────────────────────────── -->
 <div class="modal fade" id="attendanceConfirmModal" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-dialog-centered" role="document">
     <div class="modal-content">
@@ -286,8 +593,8 @@ $statusOptions = [
         <div class="d-flex align-items-start">
           <i class="fas fa-clipboard-check fa-2x text-primary mr-3 mt-1"></i>
           <div>
-            <p class="mb-1 font-weight-600" id="attConfirmMsg">Save attendance for all employees?</p>
-            <p class="text-muted mb-0 att-confirm-sub">This will overwrite any existing records for this date.</p>
+            <p class="mb-1 font-weight-600" id="attConfirmMsg">Save attendance?</p>
+            <p class="text-muted mb-0"><small>Only checked employees will be saved.</small></p>
           </div>
         </div>
       </div>
@@ -296,7 +603,7 @@ $statusOptions = [
           <i class="fas fa-times mr-1"></i>Cancel
         </button>
         <button type="button" class="btn btn-primary" id="attConfirmSaveBtn">
-          <i class="fas fa-save mr-1"></i>Save Attendance
+          <i class="fas fa-save mr-1"></i>Confirm Save
         </button>
       </div>
     </div>
@@ -307,8 +614,7 @@ $statusOptions = [
 <!-- MONTHLY SUMMARY -->
 <div class="card">
   <div class="card-header">
-    <i class="fas fa-calendar-alt mr-2"></i>
-    Monthly Summary — <?= date('F Y', strtotime($selectedMonth . '-01')) ?>
+    <i class="fas fa-calendar-alt mr-2"></i>Monthly Summary — <?= date('F Y', strtotime($selectedMonth . '-01')) ?>
   </div>
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -351,12 +657,16 @@ $statusOptions = [
 <?php endif; ?>
 
 <?php
-$extraJs = <<<JS
-// Show/hide leave type dropdown based on status selection
+$extraJs = <<<'JS'
+// ── Check all / uncheck all ─────────────────────────────────────────────────
+document.getElementById('checkAll') && document.getElementById('checkAll').addEventListener('change', function() {
+    document.querySelectorAll('.emp-row-check').forEach(function(cb) { cb.checked = this.checked; }.bind(this));
+});
+
+// ── Show/hide leave type dropdown ───────────────────────────────────────────
 document.querySelectorAll('.att-status').forEach(function(sel) {
     sel.addEventListener('change', function() {
-        var empId    = this.dataset.empid;
-        var leaveSel = document.querySelector('.leave-type-select-' + empId);
+        var leaveSel = document.querySelector('.leave-type-select-' + this.dataset.empid);
         if (leaveSel) {
             leaveSel.classList.toggle('att-leave-visible', this.value === 'on_leave');
             leaveSel.classList.toggle('att-leave-hidden',  this.value !== 'on_leave');
@@ -365,10 +675,112 @@ document.querySelectorAll('.att-status').forEach(function(sel) {
     sel.dispatchEvent(new Event('change'));
 });
 
-// Attendance confirm modal
+// ── Notes modal (list view) ─────────────────────────────────────────────────
+function attEsc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.querySelectorAll('.notes-icon-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var empId   = this.dataset.empid;
+        var empName = this.dataset.empname;
+        var date    = this.dataset.date;
+        var notes   = [];
+        try { notes = JSON.parse(this.dataset.notes || '[]'); } catch(e) {}
+
+        document.getElementById('notesModalEmpName').textContent = empName;
+        var emptyEl = document.getElementById('notesModalEmpty');
+        var listEl  = document.getElementById('notesModalList');
+
+        if (!notes || notes.length === 0) {
+            emptyEl.style.display = '';
+            listEl.innerHTML = '';
+        } else {
+            emptyEl.style.display = 'none';
+            var html = '<div class="list-group">';
+            notes.forEach(function(n) {
+                html += '<div class="list-group-item px-2 py-2">'
+                      + '<div class="d-flex justify-content-between align-items-start">'
+                      + '<div style="flex:1;min-width:0;">'
+                      + '<p class="mb-1">' + attEsc(n.note) + '</p>'
+                      + '<small class="text-muted">'
+                      + '<i class="fas fa-user mr-1"></i>' + attEsc(n.by || 'System')
+                      + (n.at ? ' &mdash; <i class="fas fa-clock ml-1 mr-1"></i>' + attEsc(n.at) : '')
+                      + '</small>'
+                      + '</div>'
+                      + '<div class="ml-2 flex-shrink-0">'
+                      + '<button type="button" class="btn btn-xs btn-warning mr-1 att-edit-note-btn"'
+                      +   ' data-emp-id="' + attEsc(empId) + '"'
+                      +   ' data-date="' + attEsc(date) + '"'
+                      +   ' data-note-id="' + attEsc(n.id) + '"'
+                      +   ' data-note-text="' + attEsc(n.note) + '">'
+                      +   '<i class="fas fa-edit"></i></button>'
+                      + '<button type="button" class="btn btn-xs btn-danger att-del-note-btn"'
+                      +   ' data-emp-id="' + attEsc(empId) + '"'
+                      +   ' data-date="' + attEsc(date) + '"'
+                      +   ' data-note-id="' + attEsc(n.id) + '">'
+                      +   '<i class="fas fa-trash"></i></button>'
+                      + '</div>'
+                      + '</div>'
+                      + '</div>';
+            });
+            html += '</div>';
+            listEl.innerHTML = html;
+
+            listEl.querySelectorAll('.att-edit-note-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    document.getElementById('annEmpId').value    = this.dataset.empId;
+                    document.getElementById('annDate').value     = this.dataset.date;
+                    document.getElementById('annNoteId').value   = this.dataset.noteId;
+                    document.getElementById('annNoteText').value = this.dataset.noteText;
+                    $('#notesModal').modal('hide');
+                    setTimeout(function(){ $('#editAttNoteModal').modal('show'); }, 350);
+                });
+            });
+            listEl.querySelectorAll('.att-del-note-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    if (!confirm('Delete this note? This cannot be undone.')) return;
+                    document.getElementById('danEmpId').value  = this.dataset.empId;
+                    document.getElementById('danDate').value   = this.dataset.date;
+                    document.getElementById('danNoteId').value = this.dataset.noteId;
+                    document.getElementById('deleteAttNoteForm').submit();
+                });
+            });
+        }
+        $('#notesModal').modal('show');
+    });
+});
+
+// ── Update Attendance modal ─────────────────────────────────────────────────
+document.querySelectorAll('.update-att-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.getElementById('updEmpId').value         = this.dataset.empid;
+        document.getElementById('updEmpName').textContent = this.dataset.empname;
+        document.getElementById('updStatus').value        = this.dataset.status   || 'present';
+        document.getElementById('updLeaveType').value     = this.dataset.leavetype || '';
+        document.getElementById('updTimeIn').value        = this.dataset.timein   || '08:00';
+        document.getElementById('updTimeOut').value       = this.dataset.timeout  || '17:00';
+        document.getElementById('updOt').value            = this.dataset.ot       || 0;
+        document.getElementById('updNotes').value         = '';
+        document.getElementById('updNotesCount').textContent = '0';
+        var lvGrp = document.getElementById('updLeaveTypeGroup');
+        if (lvGrp) lvGrp.style.display = this.dataset.status === 'on_leave' ? '' : 'none';
+        $('#updateAttModal').modal('show');
+    });
+});
+document.getElementById('updNotes') && document.getElementById('updNotes').addEventListener('input', function() {
+    document.getElementById('updNotesCount').textContent = this.value.length;
+});
+document.getElementById('updStatus') && document.getElementById('updStatus').addEventListener('change', function() {
+    var lvGrp = document.getElementById('updLeaveTypeGroup');
+    if (lvGrp) lvGrp.style.display = this.value === 'on_leave' ? '' : 'none';
+});
+
+// ── Save confirm modal ──────────────────────────────────────────────────────
 window.showAttendanceConfirm = function(empCount, dateLabel) {
-    var msg = document.getElementById('attConfirmMsg');
-    if (msg) msg.textContent = 'Save attendance for ' + empCount + ' employee(s) on ' + dateLabel + '?';
+    var checked = document.querySelectorAll('.emp-row-check:checked').length;
+    var msgEl   = document.getElementById('attConfirmMsg');
+    if (msgEl) msgEl.textContent = 'Save attendance for ' + checked + ' checked employee(s) on ' + dateLabel + '?';
     $('#attendanceConfirmModal').modal('show');
 };
 document.getElementById('attConfirmSaveBtn') && document.getElementById('attConfirmSaveBtn').addEventListener('click', function() {
@@ -376,29 +788,20 @@ document.getElementById('attConfirmSaveBtn') && document.getElementById('attConf
     document.getElementById('attendanceForm').submit();
 });
 
-// Auto-set all statuses to Rest Day when date picker changes to Saturday/Sunday.
+// ── Weekend auto-set ────────────────────────────────────────────────────────
 var datePicker = document.querySelector('input[name="date"]');
 if (datePicker) {
     datePicker.addEventListener('change', function() {
-        var d   = new Date(this.value + 'T00:00:00');
-        var dow = d.getDay(); // 0=Sunday, 6=Saturday
+        var dow = new Date(this.value + 'T00:00:00').getDay();
         if (dow === 0 || dow === 6) {
-            document.querySelectorAll('.att-status').forEach(function(sel) {
-                sel.value = 'rest_day';
-                sel.dispatchEvent(new Event('change'));
-            });
+            document.querySelectorAll('.att-status').forEach(function(s) { s.value = 'rest_day'; s.dispatchEvent(new Event('change')); });
         } else {
-            // Weekday — reset back to present as the default
-            document.querySelectorAll('.att-status').forEach(function(sel) {
-                if (sel.value === 'rest_day') {
-                    sel.value = 'present';
-                    sel.dispatchEvent(new Event('change'));
-                }
+            document.querySelectorAll('.att-status').forEach(function(s) {
+                if (s.value === 'rest_day') { s.value = 'present'; s.dispatchEvent(new Event('change')); }
             });
         }
     });
 }
 JS;
 ?>
-
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

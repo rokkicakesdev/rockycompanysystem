@@ -65,9 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── Load data ─────────────────────────────────────────────────────────────────
+$filterDept13   = $_GET['dept'] ?? '';
+$allDepartments13 = Model::getAllDepartments();
 $alreadyGenerated = Model::thirteenthMonthExists($selectedYear);
 $records          = $alreadyGenerated ? Model::get13thMonthByYear($selectedYear) : [];
 $preview          = !$alreadyGenerated ? Model::compute13thMonth($selectedYear) : [];
+
+// Apply department filter
+if ($filterDept13 !== '') {
+    $records = array_values(array_filter($records, function($r) use ($filterDept13) {
+        $emp = Model::findEmployeeById((int)$r['employee_id']);
+        return $emp && (int)$emp['department_id'] === (int)$filterDept13;
+    }));
+    $preview = array_values(array_filter($preview, function($r) use ($filterDept13) {
+        $emp = Model::findEmployeeById((int)$r['employee_id']);
+        return $emp && (int)$emp['department_id'] === (int)$filterDept13;
+    }));
+}
 
 $totalAmount  = array_sum(array_column($records, 'amount'));
 $pendingCount = count(array_filter($records, fn($r) => $r['status'] === 'pending'));
@@ -130,7 +144,19 @@ $TAX_EXEMPT_LIMIT = 90000.00;
         </form>
       <?php endif; ?>
 
-      <a href="thirteenth_month.php?year=<?= $selectedYear ?>&print=1" target="_blank"
+      <div class="ml-3 d-flex align-items-center">
+        <label class="mb-0 font-weight-bold mr-2 text-nowrap">Department:</label>
+        <select class="form-control thirteenth-dept-select"
+                onchange="window.location='thirteenth_month.php?year=<?= $selectedYear ?>&dept='+this.value">
+          <option value="">All Departments</option>
+          <?php foreach ($allDepartments13 as $dept13): ?>
+            <option value="<?= $dept13['id'] ?>" <?= (string)$filterDept13 === (string)$dept13['id'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($dept13['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <a href="thirteenth_month.php?year=<?= $selectedYear ?>&dept=<?= urlencode($filterDept13) ?>&print=1" target="_blank"
          class="btn btn-info ml-auto">
         <i class="fas fa-print mr-1"></i>Print
       </a>

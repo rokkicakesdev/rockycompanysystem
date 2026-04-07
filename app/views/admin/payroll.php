@@ -415,6 +415,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_salary_deduction'
 
             if ($added) {
                 $empName = $payRecord['employee_name'] ?? "ID:{$dedPayrollId}";
+                // Format: Reason - Amount - Notes (recorded as payroll note)
+                $reasonLabel = ucwords(str_replace('_', ' ', $dedReason));
+                $descPart    = !empty($dedDesc) ? " ({$dedDesc})" : '';
+                $noteText    = "{$reasonLabel}{$descPart} — ₱" . number_format($dedAmount, 2) . " — {$dedNotes}";
+                Model::addPayrollNote($dedPayrollId, substr($noteText, 0, 100), $_SESSION['user_id']);
                 Model::log($_SESSION['user_id'], 'ADD_SALARY_DEDUCTION',
                     "Added salary deduction ₱" . number_format($dedAmount, 2) .
                     " ({$dedReason}) to payroll ID:{$dedPayrollId} ({$empName}) period {$dedPeriod}. Notes: {$dedNotes}");
@@ -423,6 +428,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_salary_deduction'
             }
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to add salary deduction.</div>";
         }
+    }
+}
+
+// ===========================================================================
+//  POST: UPDATE SALARY DEDUCTION
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_salary_deduction'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
+    } else {
+        $dedId     = (int)($_POST['edit_ded_id']     ?? 0);
+        $dedPeriod = trim($_POST['edit_ded_period']  ?? '');
+        $dedReason = trim($_POST['edit_ded_reason']  ?? '');
+        $dedDesc   = trim($_POST['edit_ded_desc']    ?? '');
+        $dedAmount = (float)($_POST['edit_ded_amount'] ?? 0);
+        $dedNotes  = trim($_POST['edit_ded_notes']   ?? '');
+
+        if ($dedId && $dedReason && $dedAmount > 0 && !empty($dedNotes)) {
+            $updated = Model::updateSalaryDeduction($dedId, [
+                'reason'      => $dedReason,
+                'description' => $dedDesc,
+                'amount'      => $dedAmount,
+                'notes'       => $dedNotes,
+            ]);
+            if ($updated) {
+                Model::log($_SESSION['user_id'], 'UPDATE_SALARY_DEDUCTION', "Updated salary deduction ID:{$dedId}");
+                header("Location: payroll.php?period={$dedPeriod}&msg=deduction_added&name=Updated");
+                exit;
+            }
+        }
+        $msg = "<div class='alert alert-danger'>Failed to update deduction.</div>";
+    }
+}
+
+// ===========================================================================
+//  POST: DELETE SALARY DEDUCTION
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_salary_deduction'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
+    } else {
+        $dedId     = (int)($_POST['del_ded_id']    ?? 0);
+        $dedPeriod = trim($_POST['del_ded_period'] ?? '');
+        if ($dedId && Model::deleteSalaryDeduction($dedId)) {
+            Model::log($_SESSION['user_id'], 'DELETE_SALARY_DEDUCTION', "Deleted salary deduction ID:{$dedId}");
+            header("Location: payroll.php?period={$dedPeriod}&msg=deduction_added&name=Deleted");
+            exit;
+        }
+        $msg = "<div class='alert alert-danger'>Failed to delete deduction.</div>";
+    }
+}
+
+// ===========================================================================
+//  POST: DELETE PAYROLL NOTE
+// ===========================================================================
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_payroll_note'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = "<div class='alert alert-danger'>Invalid security token.</div>";
+    } else {
+        $noteId    = (int)($_POST['del_note_id']    ?? 0);
+        $notePeriod = trim($_POST['del_note_period'] ?? '');
+        if ($noteId && Model::deletePayrollNote($noteId)) {
+            Model::log($_SESSION['user_id'], 'DELETE_PAYROLL_NOTE', "Deleted payroll note ID:{$noteId}");
+            header("Location: payroll.php?period={$notePeriod}");
+            exit;
+        }
+        $msg = "<div class='alert alert-danger'>Failed to delete note.</div>";
     }
 }
 
@@ -506,8 +578,24 @@ if (!$msg) {
     }
 }
 
-$employees        = Model::getAllEmployees('active');
+$filterDept       = $_GET['dept'] ?? '';
+$allActiveEmps    = Model::getAllEmployees('active');
+$employees        = $filterDept !== ''
+    ? array_values(array_filter($allActiveEmps, fn($e) => (int)$e['department_id'] === (int)$filterDept))
+    : $allActiveEmps;
+$allDepartments   = Model::getAllDepartments();
 $periodPayroll    = Model::getPayrollByPeriod($selectedPeriod);
+// Apply dept filter to periodPayroll if needed
+if ($filterDept !== '') {
+    $empDeptCache = [];
+    $periodPayroll = array_values(array_filter($periodPayroll, function($p) use ($filterDept, &$empDeptCache) {
+        if (!isset($empDeptCache[$p['employee_id']])) {
+            $e = Model::findEmployeeById((int)$p['employee_id']);
+            $empDeptCache[$p['employee_id']] = (int)($e['department_id'] ?? 0);
+        }
+        return $empDeptCache[$p['employee_id']] === (int)$filterDept;
+    }));
+}
 $totalGross       = array_sum(array_column($periodPayroll, 'gross_pay'));
 $totalDed         = array_sum(array_column($periodPayroll, 'total_deductions'));
 $totalNet         = array_sum(array_column($periodPayroll, 'net_pay'));
@@ -586,6 +674,18 @@ foreach ($periodPayroll as $p) {
         <?php endif; ?>
       <?php endif; ?>
 
+      <div class="ml-3 d-flex align-items-center">
+        <label class="mb-0 font-weight-bold mr-2 text-nowrap">Department:</label>
+        <select class="form-control payroll-period-select-md"
+                onchange="window.location='payroll.php?period=<?= urlencode($selectedPeriod) ?>&dept='+this.value">
+          <option value="">All Departments</option>
+          <?php foreach ($allDepartments as $dept): ?>
+            <option value="<?= $dept['id'] ?>" <?= (string)$filterDept === (string)$dept['id'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($dept['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <button class="btn btn-info ml-auto" onclick="window.print()">
         <i class="fas fa-print mr-1"></i><span class="d-none d-sm-inline">Print</span>
       </button>
@@ -718,14 +818,22 @@ foreach ($periodPayroll as $p) {
               <span class="badge <?= $badgeCls ?>"><?= ucfirst($p['status']) ?></span>
             </td>
             <td class="text-center payroll-notes-cell no-print">
-              <?php $rowNotes = $payrollNotes[$p['id']] ?? []; ?>
+              <?php
+                $rowNotes = $payrollNotes[$p['id']] ?? [];
+                $rowDeds  = Model::getSalaryDeductions((int)$p['id']);
+              ?>
               <button type="button"
                       class="btn btn-sm btn-outline-secondary payroll-notes-btn"
                       title="View Notes"
                       data-payroll-id="<?= $p['id'] ?>"
                       data-employee="<?= htmlspecialchars($p['employee_name']) ?>"
-                      data-notes="<?= htmlspecialchars(json_encode($rowNotes)) ?>">
+                      data-notes="<?= htmlspecialchars(json_encode($rowNotes)) ?>"
+                      data-deductions="<?= htmlspecialchars(json_encode($rowDeds)) ?>"
+                      data-period="<?= htmlspecialchars($selectedPeriod) ?>">
                 <i class="fas fa-book"></i>
+                <?php if (count($rowNotes) > 0 || count($rowDeds) > 0): ?>
+                  <span class="badge badge-info ml-1"><?= count($rowNotes) ?></span>
+                <?php endif; ?>
               </button>
             </td>
             <td class="text-center payroll-actions-cell no-print">
@@ -835,24 +943,113 @@ foreach ($periodPayroll as $p) {
 
 <!-- ── NOTES VIEW MODAL ─────────────────────────────────────── -->
 <div class="modal fade no-print" id="payrollNotesModal" tabindex="-1">
-  <div class="modal-dialog">
+  <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header bg-secondary text-white">
-        <h5 class="modal-title"><i class="fas fa-book mr-2"></i>Payroll Notes</h5>
+        <h5 class="modal-title"><i class="fas fa-book mr-2"></i>Payroll Notes — <span id="notesModalEmpName"></span></h5>
         <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
       </div>
       <div class="modal-body">
-        <p class="text-muted mb-3 payroll-edit-emp-label">
-          <i class="fas fa-user mr-1"></i><strong id="notesModalEmpName"></strong>
-        </p>
         <div id="notesModalContent"></div>
+        <!-- Hidden salary deduction items for edit referencing -->
+        <div id="notesModalDedItems" style="display:none;"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fas fa-times mr-1"></i>Close</button>
       </div>
     </div>
   </div>
 </div>
+
+<!-- ── EDIT SALARY DEDUCTION MODAL (launched from notes list) ── -->
+<div class="modal fade no-print" id="editDeductionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning">
+        <h5 class="modal-title"><i class="fas fa-edit mr-2"></i>Edit Salary Deduction</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <form method="POST" id="editDeductionForm">
+        <input type="hidden" name="update_salary_deduction" value="1">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+        <input type="hidden" name="edit_ded_id" id="editDedId">
+        <input type="hidden" name="edit_ded_period" value="<?= htmlspecialchars($selectedPeriod) ?>">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label class="font-weight-bold">Reason <span class="text-danger">*</span></label>
+                <select name="edit_ded_reason" id="editDedReason" class="form-control" required onchange="updateEditDedDescription(this.value)">
+                  <option value="">— Select Reason —</option>
+                  <option value="destroyed_asset">Destroyed Company Asset</option>
+                  <option value="lost_asset">Lost Company Asset</option>
+                  <option value="cash_advance">Cash Advance</option>
+                  <option value="loan">Company Loan</option>
+                  <option value="overpayment">Salary Overpayment</option>
+                  <option value="damage">Property Damage</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6" id="editDedDescGroup">
+              <div class="form-group">
+                <label class="font-weight-bold">Asset / Item</label>
+                <select name="edit_ded_desc" id="editDedDescSelect" class="form-control">
+                  <option value="">— Select Asset —</option>
+                  <option value="Laptop">Laptop</option>
+                  <option value="Mobile Phone">Mobile Phone</option>
+                  <option value="Monitor">Monitor</option>
+                  <option value="Keyboard / Mouse">Keyboard / Mouse</option>
+                  <option value="Office Chair">Office Chair</option>
+                  <option value="ID / Access Card">ID / Access Card</option>
+                  <option value="Uniform">Uniform</option>
+                  <option value="Tools / Equipment">Tools / Equipment</option>
+                  <option value="Vehicle">Vehicle</option>
+                  <option value="Other Asset">Other Asset</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label class="font-weight-bold">Amount (₱) <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <div class="input-group-prepend"><span class="input-group-text">₱</span></div>
+                  <input type="number" name="edit_ded_amount" id="editDedAmount" class="form-control" step="0.01" min="0.01" required>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="font-weight-bold">Notes <span class="text-danger">*</span></label>
+            <textarea name="edit_ded_notes" id="editDedNotes" class="form-control" rows="3" required maxlength="500"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal"><i class="fas fa-times mr-1"></i>Cancel</button>
+          <button type="submit" class="btn btn-warning"><i class="fas fa-save mr-1"></i>Update Deduction</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ── DELETE PAYROLL NOTE FORM (hidden) ── -->
+<form method="POST" id="deleteNoteForm" style="display:none;">
+  <input type="hidden" name="delete_payroll_note" value="1">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+  <input type="hidden" name="del_note_id" id="delNoteId">
+  <input type="hidden" name="del_note_period" value="<?= htmlspecialchars($selectedPeriod) ?>">
+</form>
+
+<!-- ── DELETE DEDUCTION FORM (hidden) ── -->
+<form method="POST" id="deleteDedForm" style="display:none;">
+  <input type="hidden" name="delete_salary_deduction" value="1">
+  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+  <input type="hidden" name="del_ded_id" id="delDedId">
+  <input type="hidden" name="del_ded_period" value="<?= htmlspecialchars($selectedPeriod) ?>">
+</form>
 
 <!-- ── DELETE PAYROLL MODAL ──────────────────────────────────── -->
 <div class="modal fade no-print" id="deletePayrollModal" tabindex="-1">
@@ -1315,29 +1512,137 @@ document.getElementById('editStatusNote') && document.getElementById('editStatus
 });
 
 // ── Notes View Modal ────────────────────────────────────────────
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 document.querySelectorAll('.payroll-notes-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
-        var empName = this.dataset.employee;
-        var notes   = JSON.parse(this.dataset.notes || '[]');
+        var empName    = this.dataset.employee;
+        var period     = this.dataset.period || '';
+        var notes      = [];
+        var deductions = [];
+        try { notes      = JSON.parse(this.dataset.notes      || '[]'); } catch(e){}
+        try { deductions = JSON.parse(this.dataset.deductions || '[]'); } catch(e){}
+
         document.getElementById('notesModalEmpName').textContent = empName;
 
-        var content = document.getElementById('notesModalContent');
-        if (!notes || notes.length === 0) {
-            content.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-book-open fa-2x mb-2 d-block payroll-notes-empty-icon"></i>No notes on record.</p>';
-        } else {
-            var html = '<ul class="list-group list-group-flush">';
-            notes.forEach(function(n) {
-                html += '<li class="list-group-item px-0">'
-                      + '<small class="text-muted payroll-note-date d-block"><i class="fas fa-clock mr-1"></i>' + (n.created_at || '') + ' &mdash; ' + (n.created_by_name || 'System') + '</small>'
-                      + '<span class="payroll-note-text">' + n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>'
-                      + '</li>';
-            });
-            html += '</ul>';
-            content.innerHTML = html;
+        var modalContent = document.getElementById('notesModalContent');
+        modalContent.innerHTML = '';
+
+        if (deductions.length === 0 && notes.length === 0) {
+            modalContent.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-book-open fa-2x mb-2 d-block payroll-notes-empty-icon"></i>No notes or deductions on record.</p>';
         }
+
+        // ── Salary Deductions section ──────────────────────────────────────
+        if (deductions.length > 0) {
+            var dedHeader = document.createElement('h6');
+            dedHeader.className = 'font-weight-bold text-danger mb-2';
+            dedHeader.innerHTML = '<i class="fas fa-minus-circle mr-1"></i>Salary Deductions';
+            modalContent.appendChild(dedHeader);
+
+            var dedList = document.createElement('div');
+            dedList.className = 'list-group mb-3';
+
+            deductions.forEach(function(d) {
+                var reasonLabel = String(d.reason || '').replace(/_/g,' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+                var descPart    = d.description ? ' (' + esc(d.description) + ')' : '';
+                var amtFmt      = parseFloat(d.amount || 0).toLocaleString('en-PH', {minimumFractionDigits:2});
+
+                var item = document.createElement('div');
+                item.className = 'list-group-item px-2 py-2';
+                item.innerHTML =
+                    '<div class="d-flex justify-content-between align-items-start">'
+                  + '<div style="flex:1;min-width:0;">'
+                  + '<strong class="text-danger">' + esc(reasonLabel) + esc(descPart) + '</strong>'
+                  + ' &mdash; <strong>&#8369;' + amtFmt + '</strong>'
+                  + '<br><small class="text-muted"><i class="fas fa-sticky-note mr-1"></i>' + esc(d.notes) + '</small>'
+                  + '<br><small class="text-muted"><i class="fas fa-clock mr-1"></i>' + esc(d.created_at || '') + '</small>'
+                  + '</div>'
+                  + '<div class="ml-2 flex-shrink-0">'
+                  + '<button type="button" class="btn btn-xs btn-warning mr-1 edit-ded-btn"><i class="fas fa-edit"></i></button>'
+                  + '<button type="button" class="btn btn-xs btn-danger del-ded-btn" data-ded-id="' + esc(String(d.id)) + '" data-period="' + esc(period) + '"><i class="fas fa-trash"></i></button>'
+                  + '</div>'
+                  + '</div>';
+
+                // Attach deduction data directly to the edit button DOM node (avoids JSON-in-HTML-attribute)
+                item.querySelector('.edit-ded-btn')._dedData = d;
+                dedList.appendChild(item);
+            });
+            modalContent.appendChild(dedList);
+
+            // Bind edit buttons
+            dedList.querySelectorAll('.edit-ded-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    var d = this._dedData;
+                    document.getElementById('editDedId').value     = d.id;
+                    document.getElementById('editDedReason').value = d.reason || '';
+                    document.getElementById('editDedAmount').value = parseFloat(d.amount) || 0;
+                    document.getElementById('editDedNotes').value  = d.notes  || '';
+                    updateEditDedDescription(d.reason || '');
+                    setTimeout(function(){
+                        document.getElementById('editDedDescSelect').value = d.description || '';
+                    }, 50);
+                    $('#payrollNotesModal').modal('hide');
+                    setTimeout(function(){ $('#editDeductionModal').modal('show'); }, 350);
+                });
+            });
+            // Bind delete buttons
+            dedList.querySelectorAll('.del-ded-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    if (!confirm('Delete this salary deduction? Net pay will be recalculated.')) return;
+                    document.getElementById('delDedId').value = this.dataset.dedId;
+                    document.getElementById('deleteDedForm').submit();
+                });
+            });
+        }
+
+        // ── Notes Log section ──────────────────────────────────────────────
+        if (notes.length > 0) {
+            var notesHeader = document.createElement('h6');
+            notesHeader.className = 'font-weight-bold text-secondary mb-2';
+            notesHeader.innerHTML = '<i class="fas fa-book mr-1"></i>Notes Log';
+            modalContent.appendChild(notesHeader);
+
+            var notesList = document.createElement('div');
+            notesList.className = 'list-group';
+            notes.forEach(function(n) {
+                var nItem = document.createElement('div');
+                nItem.className = 'list-group-item px-2 py-2';
+                nItem.innerHTML =
+                    '<div class="d-flex justify-content-between align-items-start">'
+                  + '<div style="flex:1;min-width:0;">'
+                  + '<span class="payroll-note-text">' + esc(n.note) + '</span>'
+                  + '<br><small class="text-muted"><i class="fas fa-clock mr-1"></i>'
+                  + esc(n.created_at || '') + ' &mdash; ' + esc(n.created_by_name || 'System')
+                  + '</small>'
+                  + '</div>'
+                  + '<div class="ml-2 flex-shrink-0">'
+                  + '<button type="button" class="btn btn-xs btn-danger del-note-btn" data-note-id="' + esc(String(n.id)) + '" data-period="' + esc(period) + '"><i class="fas fa-trash"></i></button>'
+                  + '</div>'
+                  + '</div>';
+                notesList.appendChild(nItem);
+            });
+            modalContent.appendChild(notesList);
+
+            notesList.querySelectorAll('.del-note-btn').forEach(function(b) {
+                b.addEventListener('click', function() {
+                    if (!confirm('Delete this note?')) return;
+                    document.getElementById('delNoteId').value = this.dataset.noteId;
+                    document.getElementById('deleteNoteForm').submit();
+                });
+            });
+        }
+
         $('#payrollNotesModal').modal('show');
     });
 });
+
+// Edit deduction description dropdown handler
+function updateEditDedDescription(reason) {
+    var group = document.getElementById('editDedDescGroup');
+    if (!group) return;
+    var showDesc = ['destroyed_asset','lost_asset','damage'].includes(reason);
+    group.style.display = showDesc ? '' : 'none';
+}
 JSEOF;
 
 require_once __DIR__ . '/../layouts/admin_footer.php';

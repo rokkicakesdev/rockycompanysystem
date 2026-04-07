@@ -50,7 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     }
 }
 
-$employees = Model::getAllEmployees('active');
+$filterDept13ps = $_GET['dept'] ?? '';
+$allDepartments13ps = Model::getAllDepartments();
+$allActiveEmps = Model::getAllEmployees('active');
+$employees = $filterDept13ps !== ''
+    ? array_values(array_filter($allActiveEmps, fn($e) => (int)$e['department_id'] === (int)$filterDept13ps))
+    : $allActiveEmps;
 
 // Pre-load settings and compute previews for all employees
 $settingsMap = [];
@@ -100,13 +105,42 @@ foreach ($employees as $emp) {
   </ul>
 </div>
 
+<!-- Department Filter -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <form method="GET" class="form-inline flex-gap-2">
+      <label class="mr-2 font-weight-bold">Filter by Department:</label>
+      <select name="dept" class="form-control form-control-sm mr-2" style="min-width:200px;">
+        <option value="">All Departments</option>
+        <?php foreach ($allDepartments13ps as $dps): ?>
+          <option value="<?= $dps['id'] ?>" <?= (string)$filterDept13ps === (string)$dps['id'] ? 'selected' : '' ?>>
+            <?= htmlspecialchars($dps['name']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="fas fa-filter mr-1"></i>Apply
+      </button>
+      <?php if ($filterDept13ps): ?>
+        <a href="payroll_settings.php" class="btn btn-sm btn-outline-secondary ml-1">
+          <i class="fas fa-times mr-1"></i>Clear
+        </a>
+      <?php endif; ?>
+    </form>
+  </div>
+</div>
+
 <form method="POST">
   <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
   <input type="hidden" name="save_settings" value="1">
 
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span><i class="fas fa-users mr-2"></i>Employee Payroll Configuration</span>
+      <span><i class="fas fa-users mr-2"></i>Employee Payroll Configuration
+        <?php if ($filterDept13ps): ?>
+          <span class="badge badge-primary ml-2"><?= htmlspecialchars($allDepartments13ps[array_search($filterDept13ps, array_column($allDepartments13ps,'id'))]['name'] ?? '') ?></span>
+        <?php endif; ?>
+      </span>
       <button type="submit" class="btn btn-primary btn-sm ml-auto">
         <i class="fas fa-save mr-1"></i>Save All Changes
       </button>
