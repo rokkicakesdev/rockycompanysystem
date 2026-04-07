@@ -146,7 +146,7 @@ $TAX_EXEMPT_LIMIT = 90000.00;
 
       <div class="ml-3 d-flex align-items-center">
         <label class="mb-0 font-weight-bold mr-2 text-nowrap">Department:</label>
-        <select class="form-control thirteenth-year-select"
+        <select class="form-control thirteenth-dept-select"
                 onchange="window.location='thirteenth_month.php?year=<?= $selectedYear ?>&dept='+this.value">
           <option value="">All Departments</option>
           <?php foreach ($allDepartments13 as $dept13): ?>

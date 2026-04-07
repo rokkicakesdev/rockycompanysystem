@@ -173,6 +173,9 @@ class Model
 
     public static function addSalaryDeduction(int $payrollId, array $d, int $uid): bool { return PayrollModel::addSalaryDeduction($payrollId, $d, $uid); }
     public static function getSalaryDeductions(int $payrollId): array                    { return PayrollModel::getSalaryDeductions($payrollId); }
+    public static function deleteSalaryDeduction(int $dedId): bool                       { return PayrollModel::deleteSalaryDeduction($dedId); }
+    public static function updateSalaryDeduction(int $dedId, array $d): bool            { return PayrollModel::updateSalaryDeduction($dedId, $d); }
+    public static function deletePayrollNote(int $noteId): bool                          { return PayrollModel::deleteNote($noteId); }
 
     // Year-to-date aggregates (used in year-end reconciliation & payslip YTD block)
     public static function getTotalBasicByYear(int $id, int $y): float             { return PayrollModel::getTotalBasicByYear($id, $y); }

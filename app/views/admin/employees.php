@@ -91,6 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $empId = (int)$_POST['emp_id'];
             Model::updateEmployee($empId, $data);
             Model::log($_SESSION['user_id'], 'UPDATE_EMPLOYEE', "Updated employee ID:{$empId}");
+            // If we came from a 201 view, redirect back to it with a success flag
+            $returnView = (int)($_POST['return_view_id'] ?? 0);
+            if ($returnView > 0) {
+                header('Location: employees.php?view_id=' . $returnView . '&updated=1');
+                exit;
+            }
             $msg = '<div class="alert alert-success alert-dismissible fade show" role="alert">
                 Employee updated successfully.
                 <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
@@ -201,6 +207,12 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
 </div>
 
 <?= $msg ?>
+<?php if (isset($_GET['updated']) && $_GET['updated'] == '1'): ?>
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <i class="fas fa-check-circle mr-1"></i>Employee profile updated successfully.
+  <button type="button" class="close" data-dismiss="alert"><span>×</span></button>
+</div>
+<?php endif; ?>
 
 <?php if ($viewEmp): ?>
 <!-- 201 FILE VIEW (unchanged) -->
@@ -215,9 +227,10 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
     <span class="badge badge-<?= $viewEmp['status'] === 'active' ? 'success' : 'danger' ?> ml-2">
       <?= ucfirst($viewEmp['status']) ?>
     </span>
-    <a href="employees.php?edit=<?= $viewEmp['id'] ?>" class="btn btn-warning btn-sm ml-auto">
+    <button type="button" class="btn btn-warning btn-sm ml-auto"
+      onclick="openEditModal(<?= htmlspecialchars(json_encode($viewEmp), ENT_QUOTES) ?>, <?= (int)$viewEmp['id'] ?>)">
       <i class="fas fa-edit mr-1"></i> Edit Profile
-    </a>
+    </button>
   </div>
 </div>
 
@@ -606,6 +619,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
       <form method="POST" id="employeeForm">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
         <input type="hidden" name="emp_id" id="empId">
+        <input type="hidden" name="return_view_id" id="returnViewId" value="">
 
         <div class="modal-header">
           <h5 class="modal-title" id="empModalTitle">
@@ -885,8 +899,9 @@ $extraJs .= <<<'JS'
 $(document).ready(function () {
   $('[data-toggle="tooltip"]').tooltip();
 
-  window.openEditModal = function(emp) {
+  window.openEditModal = function(emp, returnViewId) {
     document.getElementById('empId').value              = emp.id;
+    document.getElementById('returnViewId').value       = returnViewId || '';
     document.getElementById('empModalTitle').innerHTML  = '<i class="fas fa-user-edit mr-2"></i>Edit Employee';
     document.getElementById('empSubmitBtn').innerHTML   = '<i class="fas fa-save mr-1"></i>Update Employee';
 
