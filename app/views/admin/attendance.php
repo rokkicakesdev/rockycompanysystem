@@ -1,6 +1,126 @@
 <?php
 $pageTitle = 'Attendance';
 require_once __DIR__ . '/../layouts/admin_header.php';
+?>
+<style>
+/* ── Attendance Calendar View ─────────────────────────────────────────── */
+.att-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+.att-cal-dow {
+  text-align: center;
+  font-weight: 700;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  padding: 6px 2px;
+  color: #6c757d;
+  text-transform: uppercase;
+}
+.att-cal-dow.att-cal-weekend-hdr { color: #94a3b8; }
+.att-cal-cell {
+  border-radius: 8px;
+  padding: 7px 5px 6px;
+  min-height: 84px;
+  background: color-mix(in srgb, var(--cell-color, #f1f5f9) 12%, white);
+  border: 1.5px solid color-mix(in srgb, var(--cell-color, #e2e8f0) 28%, white);
+  position: relative;
+  transition: box-shadow .15s, transform .1s;
+  cursor: default;
+}
+.att-cal-cell:hover:not(.att-cal-empty) {
+  box-shadow: 0 3px 10px rgba(0,0,0,.13);
+  transform: translateY(-1px);
+  z-index: 2;
+}
+.att-cal-cell.att-cal-empty {
+  background: transparent;
+  border-color: transparent;
+  min-height: 84px;
+}
+.att-cal-cell.att-cal-weekend { opacity: .75; }
+.att-cal-cell.att-cal-today {
+  border-width: 2.5px;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+.att-cal-day-num {
+  font-size: .78rem;
+  font-weight: 700;
+  color: #374151;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.att-cal-today .att-cal-day-num {
+  background: #2563eb;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .72rem;
+}
+.att-cal-icon {
+  font-size: 1.1rem;
+  color: var(--cell-color, #94a3b8);
+  margin-bottom: 3px;
+  line-height: 1;
+}
+.att-cal-status-label {
+  font-size: .62rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--cell-color, #64748b) 80%, #1e293b);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.att-cal-hol-name {
+  font-size: .56rem;
+  color: #0f766e;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+.att-cal-time {
+  font-size: .57rem;
+  color: #6b7280;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Legend */
+.att-cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+.att-cal-leg-item {
+  font-size: .73rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.att-cal-leg-item i {
+  color: var(--leg-color, #94a3b8);
+  font-size: .85rem;
+}
+/* Summary tiles */
+.bg-purple { background-color: #a855f7 !important; }
+.bg-teal   { background-color: #14b8a6 !important; }
+/* Payroll table — Absent/Unpaid column width */
+.payroll-col-absentded { min-width: 110px; }
+</style>
+<?php
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -190,6 +310,8 @@ $selectedDate  = $_GET['date']   ?? date('Y-m-d');
 $selectedMonth = $_GET['month']  ?? date('Y-m');
 $viewMode      = $_GET['view']   ?? 'daily';
 $filterDept    = $_GET['dept']   ?? '';
+// calendar view: single employee
+$calEmpId      = isset($_GET['emp_id']) ? (int)$_GET['emp_id'] : 0;
 
 $allEmployees    = Model::getAllEmployees('active');
 $departments     = Model::getAllDepartments();
@@ -208,6 +330,23 @@ if ($viewMode === 'daily') {
     foreach ($recs as $r) {
         if ($r['date'] === $selectedDate) $existingRecords[$r['employee_id']] = $r;
     }
+} elseif ($viewMode === 'calendar') {
+    $lastDayOfMonth = date('Y-m-t', strtotime($selectedMonth . '-01'));
+    $employees = array_values(array_filter($allEmployees, function($e) use ($lastDayOfMonth) {
+        $startDate = !empty($e['date_start']) ? $e['date_start'] : ($e['date_hired'] ?? '');
+        return !empty($startDate) && $startDate <= $lastDayOfMonth;
+    }));
+    $recs = Model::getAttendanceByMonth($selectedMonth);
+    foreach ($recs as $r) $existingRecords[$r['employee_id'] . '_' . $r['date']] = $r;
+    // Load holidays for the month
+    $calMonthStart  = $selectedMonth . '-01';
+    $calMonthEnd    = $lastDayOfMonth;
+    $calHolidays    = [];
+    foreach (Model::getHolidaysInRange($calMonthStart, $calMonthEnd) as $h) {
+        $calHolidays[$h['date']] = $h;
+    }
+    // Default to first employee if none selected
+    if (!$calEmpId && !empty($employees)) $calEmpId = (int)$employees[0]['id'];
 } else {
     $lastDayOfMonth = date('Y-m-t', strtotime($selectedMonth . '-01'));
     $employees = array_values(array_filter($allEmployees, function($e) use ($lastDayOfMonth) {
@@ -246,13 +385,14 @@ $statusOptions = [
       <div class="mr-3 att-view-toggle">
         <a href="?view=daily&date=<?= $selectedDate ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm <?= $viewMode==='daily' ? 'btn-primary' : 'btn-outline-primary' ?>">Daily View</a>
         <a href="?view=monthly&month=<?= $selectedMonth ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm <?= $viewMode==='monthly' ? 'btn-primary' : 'btn-outline-primary' ?>">Monthly Summary</a>
+        <a href="?view=calendar&month=<?= $selectedMonth ?>&emp_id=<?= $calEmpId ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm <?= $viewMode==='calendar' ? 'btn-success' : 'btn-outline-success' ?>"><i class="fas fa-calendar-check mr-1"></i>Calendar View</a>
       </div>
       <?php if ($viewMode === 'daily'): ?>
         <input type="hidden" name="view" value="daily">
         <label class="mr-2 font-weight-600">Date:</label>
         <input type="date" name="date" value="<?= $selectedDate ?>" class="form-control form-control-sm mr-2">
       <?php else: ?>
-        <input type="hidden" name="view" value="monthly">
+        <input type="hidden" name="view" value="<?= htmlspecialchars($viewMode) ?>">
         <label class="mr-2 font-weight-600">Month:</label>
         <input type="month" name="month" value="<?= $selectedMonth ?>" class="form-control form-control-sm mr-2">
       <?php endif; ?>
@@ -610,6 +750,234 @@ $statusOptions = [
   </div>
 </div>
 
+<?php if ($viewMode === 'calendar'): ?>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<!-- CALENDAR VIEW — Per-Employee Monthly Attendance Calendar                 -->
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+<?php
+  // Find the selected employee record
+  $calEmp = null;
+  foreach ($employees as $e) {
+      if ((int)$e['id'] === $calEmpId) { $calEmp = $e; break; }
+  }
+  if (!$calEmp && !empty($employees)) { $calEmp = $employees[0]; $calEmpId = (int)$calEmp['id']; }
+
+  // Build day-keyed attendance map for this employee
+  $calAttMap = [];
+  foreach ($recs as $r) {
+      if ((int)$r['employee_id'] === $calEmpId) $calAttMap[$r['date']] = $r;
+  }
+
+  // Calendar math
+  $calY    = (int)substr($selectedMonth, 0, 4);
+  $calM    = (int)substr($selectedMonth, 5, 2);
+  $daysInM = (int)date('t', mktime(0,0,0,$calM,1,$calY));
+  $firstDow = (int)date('N', mktime(0,0,0,$calM,1,$calY)); // 1=Mon..7=Sun
+  $empStart = $calEmp ? ($calEmp['date_start'] ?? $calEmp['date_hired'] ?? '') : '';
+
+  // Legend config
+  $calLegend = [
+      'present'    => ['label'=>'Present',    'color'=>'#22c55e', 'icon'=>'fas fa-check-circle'],
+      'late'       => ['label'=>'Late',        'color'=>'#f59e0b', 'icon'=>'fas fa-clock'],
+      'half_day'   => ['label'=>'Half Day',    'color'=>'#a855f7', 'icon'=>'fas fa-adjust'],
+      'absent'     => ['label'=>'Absent',      'color'=>'#ef4444', 'icon'=>'fas fa-times-circle'],
+      'on_leave'   => ['label'=>'On Leave',    'color'=>'#3b82f6', 'icon'=>'fas fa-plane-departure'],
+      'holiday'    => ['label'=>'Holiday',     'color'=>'#14b8a6', 'icon'=>'fas fa-star'],
+      'rest_day'   => ['label'=>'Rest Day',    'color'=>'#94a3b8', 'icon'=>'fas fa-moon'],
+      'no_record'  => ['label'=>'No Record',   'color'=>'#fbbf24', 'icon'=>'fas fa-question-circle'],
+      'pre_start'  => ['label'=>'Pre-Start',   'color'=>'#e5e7eb', 'icon'=>'fas fa-minus-circle'],
+  ];
+
+  // Monthly attendance summary counters
+  $calCounts = array_fill_keys(array_keys($calLegend), 0);
+  $calCounts['no_record'] = 0;
+?>
+
+<!-- Employee Selector -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <div class="row align-items-center">
+      <div class="col-md-5">
+        <label class="font-weight-600 mr-2 mb-0">Employee:</label>
+        <select id="calEmpSelect" class="form-control form-control-sm d-inline-block" style="width:auto;min-width:220px;"
+                onchange="window.location='?view=calendar&month=<?= $selectedMonth ?>&emp_id='+this.value+'&dept=<?= urlencode($filterDept) ?>'">
+          <?php foreach ($employees as $e): ?>
+            <option value="<?= $e['id'] ?>" <?= (int)$e['id']===$calEmpId ? 'selected' : '' ?>>
+              <?= htmlspecialchars($e['employee_no'].' — '.$e['name']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+      <?php if ($calEmp): ?>
+      <div class="col-md-7 text-md-right mt-2 mt-md-0">
+        <span class="badge badge-secondary mr-2"><?= htmlspecialchars($calEmp['department'] ?? '') ?></span>
+        <span class="text-muted small">Started: <strong><?= $empStart ? date('M j, Y', strtotime($empStart)) : 'N/A' ?></strong></span>
+      </div>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
+<?php if ($calEmp): ?>
+<!-- Calendar Card -->
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <i class="fas fa-calendar-check mr-2 text-success"></i>
+      <strong><?= htmlspecialchars($calEmp['name']) ?></strong>
+      &mdash; <?= date('F Y', mktime(0,0,0,$calM,1,$calY)) ?>
+    </div>
+    <div>
+      <?php
+        $prevM = date('Y-m', mktime(0,0,0,$calM-1,1,$calY));
+        $nextM = date('Y-m', mktime(0,0,0,$calM+1,1,$calY));
+      ?>
+      <a href="?view=calendar&month=<?= $prevM ?>&emp_id=<?= $calEmpId ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm btn-outline-secondary mr-1">
+        <i class="fas fa-chevron-left"></i> <?= date('M', mktime(0,0,0,$calM-1,1,$calY)) ?>
+      </a>
+      <a href="?view=calendar&month=<?= $nextM ?>&emp_id=<?= $calEmpId ?>&dept=<?= urlencode($filterDept) ?>" class="btn btn-sm btn-outline-secondary">
+        <?= date('M', mktime(0,0,0,$calM+1,1,$calY)) ?> <i class="fas fa-chevron-right"></i>
+      </a>
+    </div>
+  </div>
+  <div class="card-body p-3">
+    <!-- Calendar Grid -->
+    <div class="att-calendar-grid">
+      <!-- Day-of-week headers -->
+      <?php foreach (['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] as $dh): ?>
+        <div class="att-cal-dow <?= in_array($dh,['Sat','Sun']) ? 'att-cal-weekend-hdr' : '' ?>"><?= $dh ?></div>
+      <?php endforeach; ?>
+
+      <!-- Empty cells before first day (firstDow: 1=Mon, 7=Sun) -->
+      <?php for ($blank = 1; $blank < $firstDow; $blank++): ?>
+        <div class="att-cal-cell att-cal-empty"></div>
+      <?php endfor; ?>
+
+      <!-- Day cells -->
+      <?php for ($day = 1; $day <= $daysInM; $day++):
+        $ds      = sprintf('%04d-%02d-%02d', $calY, $calM, $day);
+        $dow     = (int)date('N', mktime(0,0,0,$calM,$day,$calY)); // 1=Mon..7=Sun
+        $isWkend = $dow >= 6;
+        $isHol   = isset($calHolidays[$ds]);
+        $holInfo = $calHolidays[$ds] ?? null;
+        $isToday = ($ds === date('Y-m-d'));
+        $isPreStart = ($empStart && $ds < $empStart);
+        $att     = $calAttMap[$ds] ?? null;
+
+        // Determine cell status
+        if ($isPreStart) {
+            $cellStatus = 'pre_start';
+            $cellLabel  = 'Pre-Employment';
+        } elseif ($att) {
+            $cellStatus = $att['status'];
+            $cellLabel  = $calLegend[$cellStatus]['label'] ?? ucfirst($cellStatus);
+            if ($cellStatus === 'on_leave' && !empty($att['leave_type'])) {
+                $cellLabel = ucwords(str_replace('_',' ',$att['leave_type'])).' Leave';
+            }
+        } elseif ($isHol) {
+            $cellStatus = 'holiday';
+            $cellLabel  = $holInfo['name'];
+        } elseif ($isWkend) {
+            $cellStatus = 'rest_day';
+            $cellLabel  = 'Rest Day';
+        } elseif ($ds > date('Y-m-d')) {
+            $cellStatus = 'pre_start'; // future — neutral
+            $cellLabel  = 'Future';
+        } else {
+            $cellStatus = 'no_record';
+            $cellLabel  = 'No Record';
+        }
+
+        // Count for summary (only from employee start, only for valid statuses)
+        if (!$isPreStart && isset($calCounts[$cellStatus])) {
+            $calCounts[$cellStatus]++;
+        }
+
+        $cfg   = $calLegend[$cellStatus] ?? ['color'=>'#e5e7eb','icon'=>'fas fa-circle'];
+        $color = $cfg['color'];
+        $icon  = $cfg['icon'];
+
+        // Extra info for tooltip
+        $tipLines = ["<strong>".date('l, M j', mktime(0,0,0,$calM,$day,$calY))."</strong>", $cellLabel];
+        if ($att) {
+            if (!empty($att['time_in']))  $tipLines[] = 'In: '.substr($att['time_in'],0,5);
+            if (!empty($att['time_out'])) $tipLines[] = 'Out: '.substr($att['time_out'],0,5);
+            if ((float)($att['overtime_hours'] ?? 0) > 0) $tipLines[] = 'OT: '.(float)$att['overtime_hours'].' hrs';
+        }
+        if ($isHol && $holInfo) {
+            $tipLines[] = '🗓 '.ucwords(str_replace('_',' ',$holInfo['type']));
+        }
+        $tooltip = implode('<br>', $tipLines);
+      ?>
+        <div class="att-cal-cell <?= $isWkend ? 'att-cal-weekend' : '' ?> <?= $isToday ? 'att-cal-today' : '' ?>"
+             style="--cell-color:<?= $color ?>;"
+             data-tippy="<?= htmlspecialchars($tooltip, ENT_QUOTES) ?>">
+          <div class="att-cal-day-num"><?= $day ?></div>
+          <div class="att-cal-icon"><i class="<?= $icon ?>"></i></div>
+          <div class="att-cal-status-label"><?= htmlspecialchars($cellLabel) ?></div>
+          <?php if ($isHol && $holInfo): ?>
+            <div class="att-cal-hol-name"><?= htmlspecialchars($holInfo['name']) ?></div>
+          <?php endif; ?>
+          <?php if ($att && !empty($att['time_in'])): ?>
+            <div class="att-cal-time"><?= substr($att['time_in'],0,5) ?>–<?= substr($att['time_out'] ?? '?',0,5) ?></div>
+          <?php endif; ?>
+        </div>
+      <?php endfor; ?>
+
+      <!-- Fill remaining cells to complete last week row -->
+      <?php
+        $totalCells  = ($firstDow - 1) + $daysInM;
+        $remainder   = $totalCells % 7;
+        $trailingBlanks = ($remainder === 0) ? 0 : 7 - $remainder;
+        for ($b = 0; $b < $trailingBlanks; $b++): ?>
+          <div class="att-cal-cell att-cal-empty"></div>
+      <?php endfor; ?>
+    </div><!-- /.att-calendar-grid -->
+
+    <!-- Legend -->
+    <div class="att-cal-legend mt-3">
+      <?php foreach ($calLegend as $key => $leg): ?>
+        <span class="att-cal-leg-item" style="--leg-color:<?= $leg['color'] ?>;">
+          <i class="<?= $leg['icon'] ?>"></i> <?= $leg['label'] ?>
+        </span>
+      <?php endforeach; ?>
+    </div>
+  </div><!-- /.card-body -->
+</div><!-- /.card -->
+
+<!-- Monthly Summary Tiles -->
+<div class="row mb-4">
+  <?php
+  $summaryTiles = [
+      'present'   => ['Present',   'bg-success', 'fas fa-check-circle'],
+      'late'      => ['Late',       'bg-warning', 'fas fa-clock'],
+      'half_day'  => ['Half Day',   'bg-purple',  'fas fa-adjust'],
+      'absent'    => ['Absent',     'bg-danger',  'fas fa-times-circle'],
+      'on_leave'  => ['On Leave',   'bg-info',    'fas fa-plane-departure'],
+      'holiday'   => ['Holiday',    'bg-teal',    'fas fa-star'],
+      'rest_day'  => ['Rest Day',   'bg-secondary','fas fa-moon'],
+      'no_record' => ['No Record',  'bg-warning', 'fas fa-question-circle'],
+  ];
+  foreach ($summaryTiles as $key => [$label, $bg, $icon]):
+    $cnt = $calCounts[$key] ?? 0;
+  ?>
+  <div class="col-6 col-md-3 mb-3">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body py-3 text-center">
+        <div class="<?= $bg ?> text-white rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2" style="width:42px;height:42px;">
+          <i class="<?= $icon ?>"></i>
+        </div>
+        <div class="h4 mb-0 font-weight-bold"><?= $cnt ?></div>
+        <div class="text-muted small"><?= $label ?></div>
+      </div>
+    </div>
+  </div>
+  <?php endforeach; ?>
+</div>
+
+<?php endif; /* calEmp */ ?>
+<?php endif; /* viewMode === calendar */ ?>
+
 <?php if ($viewMode !== 'daily'): ?>
 <!-- MONTHLY SUMMARY -->
 <div class="card">
@@ -802,6 +1170,40 @@ if (datePicker) {
         }
     });
 }
+
+// ── Attendance Calendar — tooltip on hover ──────────────────────────────────
+(function() {
+    var tip = null;
+    function createTip() {
+        tip = document.createElement('div');
+        tip.id = 'calTip';
+        tip.style.cssText = [
+            'position:fixed','z-index:9999','pointer-events:none',
+            'background:#1e293b','color:#f8fafc','font-size:.75rem',
+            'padding:7px 11px','border-radius:7px','box-shadow:0 4px 14px rgba(0,0,0,.3)',
+            'line-height:1.5','max-width:200px','opacity:0','transition:opacity .12s'
+        ].join(';');
+        document.body.appendChild(tip);
+    }
+    document.querySelectorAll('.att-cal-cell[data-tippy]').forEach(function(cell) {
+        cell.addEventListener('mouseenter', function(e) {
+            if (!tip) createTip();
+            tip.innerHTML = this.dataset.tippy;
+            tip.style.opacity = '1';
+        });
+        cell.addEventListener('mousemove', function(e) {
+            if (!tip) return;
+            var x = e.clientX + 14, y = e.clientY - 10;
+            if (x + 210 > window.innerWidth)  x = e.clientX - 220;
+            if (y + 80  > window.innerHeight) y = e.clientY - 90;
+            tip.style.left = x + 'px';
+            tip.style.top  = y + 'px';
+        });
+        cell.addEventListener('mouseleave', function() {
+            if (tip) tip.style.opacity = '0';
+        });
+    });
+})();
 JS;
 ?>
 <?php require_once __DIR__ . '/../layouts/admin_footer.php'; ?>

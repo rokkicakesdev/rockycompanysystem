@@ -781,7 +781,7 @@ foreach ($periodPayroll as $p) {
             <th class="payroll-col-philhealth">PhilHealth</th>
             <th class="payroll-col-pagibig">Pag-IBIG</th>
             <th class="payroll-col-wtax">W. Tax</th>
-            <th class="payroll-col-absentded">Absent Ded.</th>
+            <th class="payroll-col-absentded">Absent / Unpaid</th>
             <th>Total Ded.</th>
             <th class="text-success">Net Pay</th>
             <th>Status</th>
@@ -804,7 +804,7 @@ foreach ($periodPayroll as $p) {
             <td class="text-danger payroll-col-philhealth">&#8369;<?= number_format($p['philhealth_ee'], 2) ?></td>
             <td class="text-danger payroll-col-pagibig">&#8369;<?= number_format($p['pagibig_ee'], 2) ?></td>
             <td class="text-danger payroll-col-wtax">&#8369;<?= number_format($p['withholding_tax'], 2) ?></td>
-            <td class="text-danger payroll-col-absentded">&#8369;<?= number_format(($p['absent_deduction'] ?? 0) + ($p['unpaid_leave_deduction'] ?? 0) + ($p['salary_deduction'] ?? 0), 2) ?></td>
+            <td class="text-danger payroll-col-absentded">&#8369;<?= number_format(($p['absent_deduction'] ?? 0) + ($p['unpaid_leave_deduction'] ?? 0), 2) ?></td>
             <td class="text-danger font-weight-bold">&#8369;<?= number_format($p['total_deductions'], 2) ?></td>
             <td class="text-success font-weight-bold">&#8369;<?= number_format($p['net_pay'], 2) ?></td>
             <td>
