@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 05, 2026 at 05:00 PM
+-- Generation Time: Apr 08, 2026 at 11:29 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -136,7 +136,28 @@ INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `description`, `ip_addre
 (93, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-28 | Errors: 0', '::1', '2026-04-05 14:30:06'),
 (94, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-29 | Errors: 0', '::1', '2026-04-05 14:30:17'),
 (95, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-01-30 | Errors: 0', '::1', '2026-04-05 14:30:22'),
-(96, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-2: 2 records created, 0 skipped.', '::1', '2026-04-05 14:30:45');
+(96, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-2: 2 records created, 0 skipped.', '::1', '2026-04-05 14:30:45'),
+(97, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-06 02:49:03'),
+(98, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 1 employees on 2026-04-06 | Errors: 0', '::1', '2026-04-06 02:58:16'),
+(99, 1, 'SAVE_ATTENDANCE', 'Saved attendance for 2 employees on 2026-04-06 | Errors: 0', '::1', '2026-04-06 03:16:28'),
+(100, 1, 'UPDATE_ATTENDANCE', 'Updated attendance for employee ID:1 on 2026-04-06 | notes: Updated the time in', '::1', '2026-04-06 03:17:43'),
+(101, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:21 for Chichi The Dog period 2026-01-1', '::1', '2026-04-06 03:20:33'),
+(102, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:22 for Chichi The Dog period 2026-01-2', '::1', '2026-04-06 03:20:40'),
+(103, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:23 for Chicken the Cat period 2026-01-2', '::1', '2026-04-06 03:20:42'),
+(104, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-06 03:40:19'),
+(105, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱1,000.00 (lost_asset) to payroll ID:24 (Chichi The Dog) period 2026-01-1. Notes: Replacement of Keyboard and Mouse', '::1', '2026-04-06 03:44:29'),
+(106, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-07 00:14:41'),
+(107, 1, 'UPDATE_ATTENDANCE', 'Updated ID:1 on 2026-04-07 | note: Notes', '::1', '2026-04-07 00:15:09'),
+(108, 1, 'SAVE_ATTENDANCE', 'Saved 1 employees on 2026-04-07 | Errors: 0', '::1', '2026-04-07 00:15:18'),
+(109, 1, 'SAVE_ATTENDANCE', 'Saved 2 employees on 2026-04-07 | Errors: 0', '::1', '2026-04-07 00:16:00'),
+(110, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:24 for Chichi The Dog period 2026-01-1', '::1', '2026-04-07 00:21:53'),
+(111, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-07 00:21:57'),
+(112, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-07 05:01:32'),
+(113, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-08 08:41:50'),
+(114, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱30,000.00 (destroyed_asset) to payroll ID:25 (Chichi The Dog) period 2026-01-1. Notes: Cracked screen and not typing keyboard', '::1', '2026-04-08 08:42:39'),
+(115, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:25 for Chichi The Dog period 2026-01-1', '::1', '2026-04-08 08:43:38'),
+(116, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-08 08:43:42'),
+(117, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱10,000.00 (damage) to payroll ID:26 (Chichi The Dog) period 2026-01-1. Notes: Destroyed entire laptop screen', '::1', '2026-04-08 08:44:03');
 
 -- --------------------------------------------------------
 
@@ -235,7 +256,11 @@ INSERT INTO `attendance` (`id`, `employee_id`, `date`, `time_in`, `time_out`, `s
 (32, 1, '2026-01-29', '08:00:00', '17:00:00', 'holiday', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:17', '2026-04-05 14:30:17'),
 (33, 2, '2026-01-29', '08:00:00', '17:00:00', 'holiday', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:17', '2026-04-05 14:30:17'),
 (34, 1, '2026-01-30', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:22', '2026-04-05 14:30:22'),
-(35, 2, '2026-01-30', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:22', '2026-04-05 14:30:22');
+(35, 2, '2026-01-30', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-05 14:30:22', '2026-04-05 14:30:22'),
+(36, 1, '2026-04-06', '07:35:00', '17:00:00', 'present', '', '[{\"note\":\"Updated the time in\",\"by\":\"System\",\"at\":\"\"}]', 9.42, 0, 0.00, 1, '2026-04-06 02:58:16', '2026-04-06 09:24:15'),
+(38, 2, '2026-04-06', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-06 03:16:28', '2026-04-06 03:16:28'),
+(41, 1, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '[]', 9.00, 0, 0.00, 1, '2026-04-07 00:15:09', '2026-04-07 00:15:47'),
+(46, 2, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-07 00:16:00', '2026-04-07 00:16:00');
 
 -- --------------------------------------------------------
 
@@ -478,7 +503,11 @@ INSERT INTO `login_attempts` (`id`, `username`, `ip_address`, `attempted_at`, `w
 (30, 'admin1', '::1', '2026-04-04 16:09:30', 0),
 (31, 'admin1', '::1', '2026-04-04 16:09:35', 1),
 (32, 'admin1', '::1', '2026-04-04 19:25:24', 1),
-(33, 'admin1', '::1', '2026-04-05 21:38:51', 1);
+(33, 'admin1', '::1', '2026-04-05 21:38:51', 1),
+(34, 'admin1', '::1', '2026-04-06 10:49:03', 1),
+(35, 'admin1', '::1', '2026-04-07 08:14:41', 1),
+(36, 'admin1', '::1', '2026-04-07 13:01:32', 1),
+(37, 'admin1', '::1', '2026-04-08 16:41:50', 1);
 
 -- --------------------------------------------------------
 
@@ -493,6 +522,13 @@ CREATE TABLE `payroll_notes` (
   `created_by` int(10) UNSIGNED DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `payroll_notes`
+--
+
+INSERT INTO `payroll_notes` (`id`, `payroll_id`, `note`, `created_by`, `created_at`) VALUES
+(4, 26, 'Damage (Laptop) — ₱10,000.00 — Destroyed entire laptop screen', 1, '2026-04-08 16:44:03');
 
 -- --------------------------------------------------------
 
@@ -543,9 +579,7 @@ CREATE TABLE `payroll_records` (
 --
 
 INSERT INTO `payroll_records` (`id`, `employee_id`, `period`, `basic_salary`, `allowance`, `gross_pay`, `sss_msc`, `sss_ee`, `sss_er`, `philhealth_mbs`, `philhealth_ee`, `philhealth_er`, `pagibig_mfs`, `pagibig_ee`, `pagibig_er`, `taxable_income`, `withholding_tax`, `other_deductions`, `total_deductions`, `net_pay`, `status`, `processed_by`, `released_at`, `remarks`, `created_at`, `updated_at`, `days_worked`, `days_absent`, `days_paid_leave`, `absent_deduction`, `overtime_pay`, `holiday_pay`, `salary_deduction`, `unpaid_leave_deduction`, `working_days_in_month`) VALUES
-(21, 1, '2026-01-1', 50000.00, 5000.00, 45909.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 40909.09, 6164.77, 0.00, 15255.68, 39744.32, 'pending', 1, NULL, '', '2026-04-05 13:41:34', '2026-04-05 13:41:34', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 0.00, 0.00, 11),
-(22, 1, '2026-01-2', 50000.00, 5000.00, 55000.00, 35000.00, 1750.00, 3500.00, 100000.00, 2500.00, 2500.00, 10000.00, 200.00, 200.00, 45550.00, 7325.00, 0.00, 11775.00, 43225.00, 'pending', 1, NULL, '', '2026-04-05 14:30:45', '2026-04-05 14:30:45', 10.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 11),
-(23, 2, '2026-01-2', 100000.00, 5000.00, 95909.09, 35000.00, 1750.00, 3500.00, 100000.00, 2500.00, 2500.00, 10000.00, 200.00, 200.00, 86459.09, 17708.56, 0.00, 31249.47, 73750.53, 'pending', 1, NULL, '', '2026-04-05 14:30:45', '2026-04-05 14:30:45', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 0.00, 0.00, 11);
+(26, 1, '2026-01-1', 50000.00, 5000.00, 45909.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 40909.09, 6164.77, 0.00, 25255.68, 20653.41, 'pending', 1, NULL, '', '2026-04-08 08:43:42', '2026-04-08 08:44:03', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 10000.00, 0.00, 11);
 
 -- --------------------------------------------------------
 
@@ -625,7 +659,10 @@ CREATE TABLE `salary_deductions` (
 --
 
 INSERT INTO `salary_deductions` (`id`, `payroll_id`, `reason`, `description`, `amount`, `notes`, `created_by`, `created_at`) VALUES
-(1, 20, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Keyboard and Mouse replacement', 1, '2026-04-05 13:40:34');
+(1, 20, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Keyboard and Mouse replacement', 1, '2026-04-05 13:40:34'),
+(2, 24, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Replacement of Keyboard and Mouse', 1, '2026-04-06 03:44:29'),
+(3, 25, 'destroyed_asset', 'Laptop', 30000.00, 'Cracked screen and not typing keyboard', 1, '2026-04-08 08:42:39'),
+(4, 26, 'damage', 'Laptop', 10000.00, 'Destroyed entire laptop screen', 1, '2026-04-08 08:44:03');
 
 -- --------------------------------------------------------
 
@@ -963,7 +1000,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=97;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=118;
 
 --
 -- AUTO_INCREMENT for table `announcements`
@@ -981,7 +1018,7 @@ ALTER TABLE `applicants`
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -1023,19 +1060,19 @@ ALTER TABLE `leave_requests`
 -- AUTO_INCREMENT for table `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `payroll_notes`
 --
 ALTER TABLE `payroll_notes`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `payroll_records`
 --
 ALTER TABLE `payroll_records`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `positions`
@@ -1053,7 +1090,7 @@ ALTER TABLE `reimbursements`
 -- AUTO_INCREMENT for table `salary_deductions`
 --
 ALTER TABLE `salary_deductions`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `salary_history`
