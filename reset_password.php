@@ -1,5 +1,6 @@
 <?php
 // reset_password.php — Step 2: validate token + set new password
+// This file is accessed via the link sent in the password reset email.
 session_start();
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
