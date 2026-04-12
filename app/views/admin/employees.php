@@ -24,6 +24,94 @@ if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
 }
 
 $pageTitle = 'Employees';
+require_once __DIR__ . '/../../../core/FileUploadService.php';
+
+// ── Define upload base path ────────────────────────────────────────────────────
+// Stored relative to the project root — one level up from this file's htdocs sub-path.
+// UPLOAD_BASE_DIR = absolute path to /uploads inside the project root.
+// UPLOAD_BASE_REL = relative path stored in DB (served via a download handler, not direct URL).
+if (!defined('UPLOAD_BASE_DIR')) {
+    define('UPLOAD_BASE_DIR', rtrim(dirname(__DIR__, 3), '/') . '/uploads');
+}
+
+// ── Handle: Upload employee document ──────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_document'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger">Invalid security token.</div>';
+    } else {
+        $docEmpId   = (int)($_POST['doc_emp_id'] ?? 0);
+        $docType    = trim($_POST['document_type'] ?? '');
+        $docTitle   = trim($_POST['document_title'] ?? '');
+        $docExpiry  = trim($_POST['expiry_date'] ?? '') ?: null;
+        $docNotes   = trim($_POST['doc_notes'] ?? '');
+
+        $allowedDocTypes = [
+            'resume','nbi_clearance','police_clearance','birth_certificate',
+            'sss_id','philhealth_id','pagibig_id','tin_id','valid_id',
+            'diploma','transcript','certificate','contract','other',
+        ];
+
+        if (!$docEmpId || !in_array($docType, $allowedDocTypes, true) || $docTitle === '') {
+            $msg = '<div class="alert alert-danger">Please fill in all required document fields.</div>';
+        } elseif (empty($_FILES['document_file']['name'])) {
+            $msg = '<div class="alert alert-danger">Please select a file to upload.</div>';
+        } else {
+            $destDir = UPLOAD_BASE_DIR . '/employee_docs/' . $docEmpId;
+            $result  = FileUploadService::upload(
+                $_FILES['document_file'],
+                FileUploadService::EMPLOYEE_DOC,
+                $destDir,
+                'uploads/employee_docs/' . $docEmpId
+            );
+
+            if (!$result->ok) {
+                $msg = '<div class="alert alert-danger"><i class="fas fa-exclamation-circle mr-2"></i>'
+                     . htmlspecialchars($result->error) . '</div>';
+            } else {
+                Model::createDocument([
+                    'employee_id'   => $docEmpId,
+                    'document_type' => $docType,
+                    'title'         => $docTitle,
+                    'file_path'     => $result->relativePath,
+                    'expiry_date'   => $docExpiry,
+                    'notes'         => $docNotes ?: null,
+                    'uploaded_by'   => $_SESSION['user_id'],
+                ]);
+                Model::log($_SESSION['user_id'], 'UPLOAD_DOCUMENT',
+                    "Uploaded document '{$docTitle}' ({$docType}) for employee ID:{$docEmpId}");
+                header('Location: employees.php?view_id=' . $docEmpId . '&doc_tab=1&updated=1');
+                exit;
+            }
+        }
+    }
+}
+
+// ── Handle: Delete employee document ──────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_document'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger">Invalid security token.</div>';
+    } else {
+        $delDocId  = (int)($_POST['doc_id']     ?? 0);
+        $delEmpId  = (int)($_POST['doc_emp_id'] ?? 0);
+        // Fetch doc to get file path for deletion
+        $docRecord = Model::findDocumentById($delDocId);
+        if ($docRecord && (int)$docRecord['employee_id'] === $delEmpId) {
+            // Delete physical file if it exists
+            if (!empty($docRecord['file_path'])) {
+                $absPath = rtrim(dirname(__DIR__, 3), '/') . '/' . ltrim($docRecord['file_path'], '/');
+                if (file_exists($absPath)) {
+                    @unlink($absPath);
+                }
+            }
+            Model::deleteDocument($delDocId);
+            Model::log($_SESSION['user_id'], 'DELETE_DOCUMENT',
+                "Deleted document ID:{$delDocId} for employee ID:{$delEmpId}");
+        }
+        header('Location: employees.php?view_id=' . $delEmpId . '&doc_tab=1');
+        exit;
+    }
+}
+
 require_once __DIR__ . '/../layouts/admin_header.php';
 
 // ── Handle create / update ────────────────────────────────────────────────────
@@ -307,7 +395,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
       <div class="card-header p-0 border-bottom-0">
         <ul class="nav nav-tabs px-3 pt-2" id="employeeTabs" role="tablist">
           <li class="nav-item">
-            <a class="nav-link active" data-toggle="pill" href="#tabPersonal">
+            <a class="nav-link <?= !isset($_GET['doc_tab']) ? 'active' : '' ?>" data-toggle="pill" href="#tabPersonal">
               <i class="fas fa-id-card mr-1"></i>Personal
             </a>
           </li>
@@ -326,12 +414,20 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
               <i class="fas fa-chart-line mr-1"></i>Salary History
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link <?= isset($_GET['doc_tab']) ? 'active' : '' ?>" data-toggle="pill" href="#tabDocuments">
+              <i class="fas fa-folder-open mr-1"></i>Documents
+              <?php if (!empty($viewDocs)): ?>
+                <span class="badge badge-secondary ml-1"><?= count($viewDocs) ?></span>
+              <?php endif; ?>
+            </a>
+          </li>
         </ul>
       </div>
       <div class="card-body">
         <div class="tab-content">
           <!-- Personal Info -->
-          <div class="tab-pane fade show active" id="tabPersonal">
+          <div class="tab-pane fade <?= !isset($_GET['doc_tab']) ? 'show active' : '' ?>" id="tabPersonal">
             <div class="row">
               <div class="col-md-6">
                 <p><strong>Gender:</strong> <?= ucfirst($viewEmp['gender'] ?? '—') ?></p>
@@ -466,11 +562,172 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
               </table>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+
+          <!-- Documents Tab — MUST be inside tab-content, not outside -->
+          <div class="tab-pane fade <?= isset($_GET['doc_tab']) ? 'show active' : '' ?>" id="tabDocuments">
+
+            <!-- Upload form -->
+            <form method="POST" enctype="multipart/form-data" class="mb-4" id="docUploadForm">
+              <input type="hidden" name="csrf_token"   value="<?= htmlspecialchars($csrf_token) ?>">
+              <input type="hidden" name="upload_document" value="1">
+              <input type="hidden" name="doc_emp_id"   value="<?= (int)$viewEmp['id'] ?>">
+
+              <div class="card border-primary mb-0">
+                <div class="card-header bg-primary text-white py-2">
+                  <i class="fas fa-cloud-upload-alt mr-2"></i>Upload New Document
+                </div>
+                <div class="card-body pb-2">
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <label class="font-weight-600">Document Type <span class="text-danger">*</span></label>
+                        <select name="document_type" class="form-control form-control-sm" required>
+                          <option value="">-- Select Type --</option>
+                          <?php
+                          $docTypes = [
+                            'resume'           => 'Resume / CV',
+                            'nbi_clearance'    => 'NBI Clearance',
+                            'police_clearance' => 'Police Clearance',
+                            'birth_certificate'=> 'Birth Certificate',
+                            'sss_id'           => 'SSS ID / Card',
+                            'philhealth_id'    => 'PhilHealth ID',
+                            'pagibig_id'       => 'Pag-IBIG ID',
+                            'tin_id'           => 'TIN ID / Card',
+                            'valid_id'         => 'Valid Government ID',
+                            'diploma'          => 'Diploma',
+                            'transcript'       => 'Transcript of Records',
+                            'certificate'      => 'Certificate',
+                            'contract'         => 'Employment Contract',
+                            'other'            => 'Other',
+                          ];
+                          foreach ($docTypes as $dv => $dl): ?>
+                            <option value="<?= $dv ?>"><?= $dl ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <label class="font-weight-600">Document Title <span class="text-danger">*</span></label>
+                        <input type="text" name="document_title" class="form-control form-control-sm"
+                               placeholder="e.g. NBI Clearance 2026" maxlength="200" required>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <label class="font-weight-600">Expiry Date <small class="text-muted">(optional)</small></label>
+                        <input type="date" name="expiry_date" class="form-control form-control-sm">
+                      </div>
+                    </div>
+                    <div class="col-md-8">
+                      <div class="form-group">
+                        <label class="font-weight-600">File <span class="text-danger">*</span>
+                          <small class="text-muted font-weight-normal ml-1">PDF, JPG, PNG, WEBP — max 10 MB</small>
+                        </label>
+                        <div class="custom-file">
+                          <input type="file" class="custom-file-input" id="docFileInput"
+                                 name="document_file" accept=".pdf,.jpg,.jpeg,.png,.webp" required>
+                          <label class="custom-file-label" for="docFileInput">Choose file…</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="form-group">
+                        <label class="font-weight-600">Notes <small class="text-muted">(optional)</small></label>
+                        <input type="text" name="doc_notes" class="form-control form-control-sm"
+                               placeholder="Additional info…" maxlength="500">
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-upload mr-1"></i>Upload Document
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Document list -->
+            <?php if (empty($viewDocs)): ?>
+              <div class="text-center text-muted py-4">
+                <i class="fas fa-folder-open fa-2x mb-2 d-block"></i>
+                No documents uploaded yet.
+              </div>
+            <?php else: ?>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered mb-0">
+                  <thead class="thead-dark">
+                    <tr>
+                      <th>Type</th>
+                      <th>Title</th>
+                      <th>Uploaded</th>
+                      <th>Expiry</th>
+                      <th>Notes</th>
+                      <th class="text-center no-print">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($viewDocs as $doc):
+                      $expiryDate   = $doc['expiry_date'] ?? null;
+                      $isExpired    = $expiryDate && strtotime($expiryDate) < time();
+                      $expiresInDays= $expiryDate ? (int)floor((strtotime($expiryDate) - time()) / 86400) : null;
+                    ?>
+                    <tr class="<?= $isExpired ? 'table-danger' : ($expiresInDays !== null && $expiresInDays <= 30 ? 'table-warning' : '') ?>">
+                      <td>
+                        <span class="badge badge-secondary">
+                          <?= htmlspecialchars($docTypes[$doc['document_type']] ?? ucfirst(str_replace('_',' ',$doc['document_type']))) ?>
+                        </span>
+                      </td>
+                      <td>
+                        <?= htmlspecialchars($doc['title']) ?>
+                        <?php if (!empty($doc['file_path'])): ?>
+                          <br><small class="text-muted">
+                            <i class="fas fa-paperclip mr-1"></i>
+                            <?= htmlspecialchars(basename($doc['file_path'])) ?>
+                          </small>
+                        <?php endif; ?>
+                      </td>
+                      <td>
+                        <?= date('M j, Y', strtotime($doc['created_at'])) ?><br>
+                        <small class="text-muted"><?= htmlspecialchars($doc['uploaded_by_name'] ?? '—') ?></small>
+                      </td>
+                      <td>
+                        <?php if ($expiryDate): ?>
+                          <?= date('M j, Y', strtotime($expiryDate)) ?>
+                          <?php if ($isExpired): ?>
+                            <span class="badge badge-danger ml-1">Expired</span>
+                          <?php elseif ($expiresInDays <= 30): ?>
+                            <span class="badge badge-warning ml-1"><?= $expiresInDays ?>d left</span>
+                          <?php endif; ?>
+                        <?php else: ?>
+                          <span class="text-muted">—</span>
+                        <?php endif; ?>
+                      </td>
+                      <td><small><?= htmlspecialchars($doc['notes'] ?? '—') ?></small></td>
+                      <td class="text-center no-print">
+                        <form method="POST" style="display:inline;"
+                              onsubmit="return confirm('Delete this document? This cannot be undone.')">
+                          <input type="hidden" name="csrf_token"      value="<?= htmlspecialchars($csrf_token) ?>">
+                          <input type="hidden" name="delete_document" value="1">
+                          <input type="hidden" name="doc_id"          value="<?= (int)$doc['id'] ?>">
+                          <input type="hidden" name="doc_emp_id"      value="<?= (int)$viewEmp['id'] ?>">
+                          <button type="submit" class="btn btn-danger btn-xs">
+                            <i class="fas fa-trash"></i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
+            <?php endif; ?>
+          </div><!-- /#tabDocuments -->
+
+        </div><!-- /.tab-content -->
+      </div><!-- /.card-body -->
+    </div><!-- /.card -->
+  </div><!-- /.col-lg-8 -->
+</div><!-- /.row -->
 
 <?php else: ?>
 <!-- EMPLOYEE LIST -->

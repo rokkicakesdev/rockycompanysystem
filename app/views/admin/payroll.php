@@ -5,6 +5,7 @@
 $pageTitle  = 'Payroll Processing';
 $breadcrumb = 'Payroll';
 $activeMenu = 'payroll';
+$msg        = '';  // initialise before any conditional assignments (fixes linter warning)
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 if (!defined('ROLE_ADMIN'))   require_once __DIR__ . '/../../../config/config.php';
@@ -12,6 +13,9 @@ if (!defined('DB_HOST'))      require_once __DIR__ . '/../../../config/database.
 if (!class_exists('Database'))             require_once __DIR__ . '/../../../core/Database.php';
 if (!class_exists('Model'))                require_once __DIR__ . '/../../../core/Model.php';
 if (!class_exists('PhilippineDeductions')) require_once __DIR__ . '/../../../core/PhilippineDeductions.php';
+if (!class_exists('PayrollService'))       require_once __DIR__ . '/../../../core/PayrollService.php';
+if (!class_exists('Mailer'))               require_once __DIR__ . '/../../../core/Mailer.php';
+if (!class_exists('EmailTemplate'))        require_once __DIR__ . '/../../../core/EmailTemplate.php';
 
 // Auth guard
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADMIN, ROLE_MANAGEMENT])) {
@@ -24,260 +28,59 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf_token = $_SESSION['csrf_token'];
 
+// ── Helper: send payslip-released email ──────────────────────────────────────
+// HTML is sourced from app/views/emails/payslip_released.php — no inline HTML here.
+function _sendPayslipReleasedEmail(array $empUser, array $payRecord, string $period): void
+{
+    $company = defined('COMPANY_NAME') ? COMPANY_NAME : 'Rocky HRIS';
+
+    $html = EmailTemplate::render('payslip_released', [
+        'company'     => $company,
+        'name'        => $empUser['name'],
+        'periodLabel' => Model::periodLabel($period),
+        'netPay'      => '₱' . number_format((float)($payRecord['net_pay']          ?? 0), 2),
+        'grossPay'    => '₱' . number_format((float)($payRecord['gross_pay']         ?? 0), 2),
+        'totalDed'    => '₱' . number_format((float)($payRecord['total_deductions']  ?? 0), 2),
+    ]);
+
+    Mailer::send(
+        $empUser['email'],
+        $empUser['name'],
+        'Payslip Released: ' . Model::periodLabel($period) . ' — ' . $company,
+        $html
+    );
+}
+
+// ── Guard: prevent editing locked (released) payroll records ────────────────
+// Released payroll records are immutable. Only viewing the payslip is allowed.
+function _isPayrollLocked(int $payrollId): bool
+{
+    $rec = Model::findPayrollById($payrollId);
+    return $rec && $rec['status'] === 'released';
+}
+
 // ===========================================================================
-//  POST: GENERATE PAYROLL
+//  POST: GENERATE PAYROLL — delegated to PayrollService (core/PayrollService.php)
 // ===========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_payroll'])) {
-
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token. Please refresh and try again.</div>";
     } else {
-        $genPeriod      = trim($_POST['gen_period'] ?? '');
-        $selectedEmpIds = $_POST['employee_ids'] ?? [];
-        $maxAllowed     = date('Y-m', strtotime('+1 month'));
+        $genPeriod      = trim($_POST['gen_period']    ?? '');
+        $selectedEmpIds = $_POST['employee_ids']       ?? [];
 
-        if (!preg_match('/^\d{4}-\d{2}-[12]$/', $genPeriod)) {
-            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid payroll period format.</div>";
-        } elseif (Model::periodBase($genPeriod) > $maxAllowed) {
-            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Cannot generate payroll more than one month in the future.</div>";
-        } elseif (empty($selectedEmpIds)) {
-            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>No employees selected.</div>";
+        $result = PayrollService::generateForPeriod($genPeriod, $selectedEmpIds, (int)$_SESSION['user_id']);
+
+        if ($result->success) {
+            Model::log($_SESSION['user_id'], 'GENERATE_PAYROLL',
+                "Generated payroll for period {$result->period}: {$result->generated} records created, {$result->skipped} skipped.");
+            $skipParam = !empty($result->skipReasons)
+                ? '&skipreasons=' . urlencode(implode('|', $result->skipReasons))
+                : '';
+            header("Location: payroll.php?period={$result->period}&msg=generated&count={$result->generated}&skipped={$result->skipped}{$skipParam}");
+            exit;
         } else {
-            // ── Check for missing attendance logs ─────────────────────
-            $missingAttendance = Model::getEmployeesWithMissingAttendance($selectedEmpIds, $genPeriod);
-            if (!empty($missingAttendance)) {
-                $missingList = '<ul class="mb-0 mt-1 payroll-skip-list">';
-                foreach ($missingAttendance as $name) {
-                    $missingList .= '<li>' . $name . '</li>';
-                }
-                $missingList .= '</ul>';
-                $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>"
-                     . "<strong>Cannot generate payroll.</strong> The following employee(s) have no attendance log for this period:"
-                     . $missingList . "</div>";
-            } else {
-            $generated   = 0;
-            $skipped     = 0;
-            $skipReasons = [];
-            $workingDays = WORKING_DAYS;  // full month working days (default 22)
-            $db          = Database::getInstance();
-            $db->beginTransaction();
-            $txSuccess = false;
-
-            try {
-                foreach ($selectedEmpIds as $empId) {
-                    $empId = (int)$empId;
-                    $emp   = Model::findEmployeeById($empId);
-
-                    if (!$emp) { $skipped++; $skipReasons[] = "ID:{$empId} - employee not found"; continue; }
-                    if ($emp['status'] !== 'active') { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - not active ({$emp['status']})"; continue; }
-                    if (Model::employeeExistsInPeriod($empId, $genPeriod)) { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - already has a record for {$genPeriod}"; continue; }
-
-                    $settings    = Model::getEmployeePayrollSettings($empId);
-                    $fixedAmount = $settings['cutoff1_fixed_amount'] !== null ? (float)$settings['cutoff1_fixed_amount'] : null;
-                    $taxMethod   = $settings['tax_method'];
-                    $govMode     = $settings['gov_deduction_mode'];
-                    $cutoffNum   = Model::periodCutoff($genPeriod);
-                    $yearMonth   = Model::periodBase($genPeriod);  // e.g. "2026-01"
-                    $dateStart   = $emp['date_start'] ?? $emp['date_hired'] ?? '';
-
-                    // ── Determine cutoff date range ─────────────────────────────
-                    // 1st cutoff: 1st–15th of the month
-                    // 2nd cutoff: 16th–last day of the month
-                    [$year, $month] = explode('-', $yearMonth);
-                    $lastDay = date('t', mktime(0, 0, 0, (int)$month, 1, (int)$year));
-                    if ($cutoffNum === 1) {
-                        $cutoffFrom = "{$yearMonth}-01";
-                        $cutoffTo   = "{$yearMonth}-15";
-                    } else {
-                        $cutoffFrom = "{$yearMonth}-16";
-                        $cutoffTo   = "{$yearMonth}-{$lastDay}";
-                    }
-
-                    // ── Get cutoff-specific attendance (uses date_start for proration) ──
-                    $attData               = Model::getCutoffAttendanceSummary($empId, $cutoffFrom, $cutoffTo, $dateStart);
-                    $scheduledDays         = (int)($attData['scheduled_days']          ?? 0);  // full cutoff weekdays (payslip display)
-                    $effectiveSchedDays    = (int)($attData['effective_scheduled_days'] ?? $scheduledDays); // from dateStart (deduction denominator)
-                    $totalAbsent           = (int)($attData['total_absent']             ?? 0);
-                    $daysHalf              = (int)($attData['days_half']                ?? 0);
-                    $daysPaidLeave         = (int)($attData['days_on_leave']            ?? 0);
-                    $daysUnpaidLeave       = (int)($attData['days_unpaid_leave']        ?? 0);
-                    $daysPresent           = (int)($attData['days_present']             ?? 0);
-                    $daysAbsentOnly        = (int)($attData['days_absent']              ?? 0); // excl. unpaid leave
-                    // Overtime and holiday premium data
-                    $otHoursRegularDay     = (float)($attData['ot_hours_regular_day']        ?? 0);
-                    $otHoursOnHoliday      = (float)($attData['ot_hours_on_holiday']         ?? 0);
-                    $workedRegHolidays     = (int)($attData['worked_regular_holiday_days']   ?? 0);
-                    $workedSpecialHolidays = (int)($attData['worked_special_holiday_days']   ?? 0);
-
-                    // ── Compute daily rate and deductions ──────────────────────
-                    // Daily rate denominator = scheduledDays (ALL weekdays in the full cutoff,
-                    // including public holidays). This is the correct denominator because
-                    // holidays are PAID days in Philippine labor law — they are part of the
-                    // salary structure, not excluded from it.
-                    //
-                    // Proration for new hires:
-                    //   proratedDays = scheduledDays − effectiveSchedDays
-                    //   = weekdays BEFORE the employee's start date (e.g. Jan 1 holiday + Jan 2
-                    //     for an employee who started Jan 5 in a Jan 1–15 cutoff = 2 days).
-                    //   proratedDeduction = proratedDays × dailyRate
-                    //   This is added to absentDeduction so it flows into total_deductions
-                    //   and net_pay automatically without any schema change.
-                    if ($scheduledDays > 0) {
-                        $cutoffBasicAmount    = $fixedAmount !== null ? $fixedAmount : round((float)$emp['basic_salary'] / 2, 2);
-                        $dailyRate            = round($cutoffBasicAmount / $scheduledDays, 4);
-                        // Proration deduction = days before employee's start date × daily rate
-                        $proratedDays        = max(0, $scheduledDays - $effectiveSchedDays);
-                        $proratedDeduction   = round($proratedDays * $dailyRate, 2);
-                        // Absent deduction = explicit absent days (NOT unpaid leave — tracked separately)
-                        $absentDeduction      = round($proratedDeduction + ($daysAbsentOnly * $dailyRate) + ($daysHalf * $dailyRate * 0.5), 2);
-                        // Unpaid leave deduction = LWOP days × daily rate
-                        $unpaidLeaveDeduction = round($daysUnpaidLeave * $dailyRate, 2);
-                    } else {
-                        $dailyRate            = 0.0;
-                        $proratedDeduction    = 0.0;
-                        $absentDeduction      = 0.0;
-                        $unpaidLeaveDeduction = 0.0;
-                    }
-
-                    // ── Overtime pay (Art. 87 Labor Code) ─────────────────────
-                    $overtimePay = 0.0;
-                    if ($scheduledDays > 0 && ($otHoursRegularDay > 0 || $otHoursOnHoliday > 0)) {
-                        $overtimePay = PhilippineDeductions::computeOvertimePay(
-                            $cutoffBasicAmount,
-                            $scheduledDays,
-                            WORK_HOURS,
-                            $otHoursRegularDay,
-                            $otHoursOnHoliday
-                        );
-                    }
-
-                    // ── Holiday premium pay (PD 442 Labor Code) ────────────────
-                    // Additional pay for working on Regular (200%) or Special Non-Working (130%) holidays.
-                    // The base daily rate is already in gross_pay as a normal worked day.
-                    // This is the PREMIUM (additional) portion only.
-                    $holidayPay = 0.0;
-                    if ($scheduledDays > 0 && ($workedRegHolidays > 0 || $workedSpecialHolidays > 0)) {
-                        $holidayPay = PhilippineDeductions::computeHolidayPremiumPay(
-                            $cutoffBasicAmount,
-                            $scheduledDays,
-                            $workedRegHolidays,
-                            $workedSpecialHolidays
-                        );
-                    }
-
-                    $extraEarnings = round($overtimePay + $holidayPay, 2);
-
-                    // ── 13th month (December 1st cutoff only) ──────────────────
-                    $thirteenthAmount = 0.0;
-                    if (Model::isDecember1stCutoff($genPeriod)) {
-                        $rec13 = Model::get13thMonthByEmployee($empId, Model::periodYear($genPeriod));
-                        if ($rec13 && $rec13['status'] === 'pending') {
-                            $thirteenthAmount = (float)$rec13['amount'];
-                        }
-                    }
-
-                    // ── Year-end reconciliation (December 2nd cutoff only) ──────
-                    // Only applies to employees who have been with the company for at least
-                    // one full cutoff BEFORE December. New hires in December are excluded
-                    // because they haven't had enough periods for any tax over/under-payment.
-                    $reconciliation = 0.0;
-                    if (Model::isDecember2ndCutoff($genPeriod)) {
-                        $year4 = Model::periodYear($genPeriod);
-                        if (Model::hasPayrollBeforeDecember($empId, $year4)) {
-                            // annualBasic = YTD basic from all prior records + actual basic earned in this Dec 2nd cutoff.
-                            // Use (cutoffBasicAmount - proratedDeduction) instead of raw basic_salary/2
-                            // to correctly exclude proration gaps for employees hired mid-cutoff.
-                            $currentCutoffEarned = max(0.0, $cutoffBasicAmount - $proratedDeduction);
-                            $annualBasic   = Model::getTotalBasicByYear($empId, $year4) + $currentCutoffEarned;
-                            $annualGovDeds = Model::getTotalGovDedsByYear($empId, $year4);
-                            $annualTaxPaid = Model::getTotalWithholdingTaxByYear($empId, $year4);
-                            $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
-                                $annualBasic, $annualGovDeds, $annualTaxPaid
-                            );
-                        }
-                    }
-
-                    // ── Compute payroll deductions ──────────────────────────────
-                    if ($cutoffNum === 1) {
-                        $deductions = PhilippineDeductions::computeFirstCutoff(
-                            (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
-                            $fixedAmount, $taxMethod, $thirteenthAmount,
-                            $absentDeduction + $unpaidLeaveDeduction,
-                            $extraEarnings
-                        );
-                    } else {
-                        $deductions = PhilippineDeductions::computeSecondCutoff(
-                            (float)$emp['basic_salary'], (float)($emp['allowance'] ?? 0),
-                            $fixedAmount, $taxMethod, $govMode,
-                            $absentDeduction + $unpaidLeaveDeduction, $reconciliation,
-                            $extraEarnings
-                        );
-                    }
-
-                    // Days worked = full present days + half-days counted as 0.5 each.
-                    // NOTE: $daysPresent counts only 'present'/'late' rows — half_day rows
-                    // are tracked separately in $daysHalf and must be ADDED, not subtracted.
-                    $daysWorked = max(0, $daysPresent + ($daysHalf * 0.5));
-
-                    $record = [
-                        'employee_id'             => $empId,
-                        'period'                  => $genPeriod,
-                        'basic_salary'            => $deductions['basic_salary'],
-                        'allowance'               => $deductions['allowance'],
-                        'gross_pay'               => $deductions['gross_pay'],
-                        'sss_msc'                 => $deductions['sss_msc'],
-                        'sss_ee'                  => $deductions['sss_ee'],
-                        'sss_er'                  => $deductions['sss_er'],
-                        'philhealth_mbs'          => $deductions['philhealth_mbs'],
-                        'philhealth_ee'           => $deductions['philhealth_ee'],
-                        'philhealth_er'           => $deductions['philhealth_er'],
-                        'pagibig_mfs'             => $deductions['pagibig_mfs'],
-                        'pagibig_ee'              => $deductions['pagibig_ee'],
-                        'pagibig_er'              => $deductions['pagibig_er'],
-                        'taxable_income'          => $deductions['taxable_income'],
-                        'withholding_tax'         => $deductions['withholding_tax'],
-                        // other_deductions = year-end reconciliation ONLY (not absent/unpaid)
-                        'other_deductions'        => round($deductions['reconciliation'] ?? 0, 2),
-                        'absent_deduction'        => $absentDeduction,
-                        'unpaid_leave_deduction'  => $unpaidLeaveDeduction,
-                        'overtime_pay'            => $overtimePay,
-                        'holiday_pay'             => $holidayPay,
-                        'salary_deduction'        => 0,
-                        'total_deductions'        => $deductions['total_deductions'],
-                        'net_pay'                 => $deductions['net_pay'],
-                        'days_worked'             => $daysWorked,
-                        'days_absent'             => $daysAbsentOnly + $daysUnpaidLeave,
-                        'days_paid_leave'         => $daysPaidLeave,
-                        'working_days_in_month'   => $scheduledDays,
-                        'remarks'                 => ($thirteenthAmount > 0 ? '13th month included. ' : '')
-                                                   . ($overtimePay > 0 ? 'OT pay: ₱' . number_format($overtimePay, 2) . '. ' : '')
-                                                   . ($holidayPay > 0 ? 'Holiday premium: ₱' . number_format($holidayPay, 2) . '. ' : '')
-                                                   . ($reconciliation != 0 ? 'Year-end tax reconciliation: ' . ($reconciliation > 0 ? '+' : '') . number_format($reconciliation, 2) . '.' : ''),
-                        'status'                  => 'pending',
-                        'processed_by'            => $_SESSION['user_id'],
-                    ];
-
-                    if (Model::createPayrollRecord($record)) { $generated++; }
-                    else { $skipped++; $skipReasons[] = htmlspecialchars($emp['name']) . " - DB insert failed"; }
-                }
-
-                $db->commit();
-                $txSuccess = true;
-
-            } catch (Exception $e) {
-                $db->rollBack();
-                error_log("Payroll generation error for period {$genPeriod}: " . $e->getMessage());
-                $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Payroll generation failed due to a database error. No records were saved. Please try again.</div>";
-            }
-
-            if ($txSuccess) {
-                Model::log($_SESSION['user_id'], 'GENERATE_PAYROLL',
-                    "Generated payroll for period {$genPeriod}: {$generated} records created, {$skipped} skipped.");
-                $skipParam = !empty($skipReasons) ? '&skipreasons=' . urlencode(implode('|', $skipReasons)) : '';
-                header("Location: payroll.php?period={$genPeriod}&msg=generated&count={$generated}&skipped={$skipped}{$skipParam}");
-                exit;
-            }
-            } // end missing attendance else
+            $msg = $result->errorHtml;
         }
     }
 }
@@ -296,6 +99,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['release_single'])) {
             $empName   = $payRecord['employee_name'] ?? "ID:{$releaseId}";
             Model::log($_SESSION['user_id'], 'RELEASE_PAYROLL',
                 "Released payroll ID:{$releaseId} for {$empName} period {$releasePeriod}");
+
+            // ── Email notification: payslip released ──────────────────────
+            if ($payRecord) {
+                require_once __DIR__ . '/../../../core/Mailer.php';
+                $empUser = Model::findUserByEmployeeId((int)$payRecord['employee_id']);
+                if ($empUser && filter_var($empUser['email'] ?? '', FILTER_VALIDATE_EMAIL)) {
+                    _sendPayslipReleasedEmail($empUser, $payRecord, $releasePeriod);
+                }
+            }
+            // ── End email ─────────────────────────────────────────────────
+
             header("Location: payroll.php?period={$releasePeriod}&msg=released&name=" . urlencode($empName));
             exit;
         }
@@ -334,15 +148,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
         $editPeriod = trim($_POST['edit_period']   ?? '');
         $allowed    = ['released', 'pending'];
 
-        if ($editId && in_array($newStatus, $allowed, true)) {
+        // ── LOCK GUARD: released records are immutable ────────────────────
+        if ($editId && _isPayrollLocked($editId) && $newStatus !== 'released') {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-lock mr-2'></i><strong>Locked:</strong> Released payroll records cannot be edited. This record has already been released to the employee.</div>";
+        } elseif ($editId && in_array($newStatus, $allowed, true)) {
             $payRecord = Model::findPayrollById($editId);
             $empName   = $payRecord['employee_name'] ?? "ID:{$editId}";
             $oldStatus = $payRecord['status']         ?? 'unknown';
 
             if (Model::updatePayrollStatus($editId, $newStatus)) {
-                // Save note if status requires it or a note was provided
                 if (!empty($noteText)) {
                     Model::addPayrollNote($editId, substr($noteText, 0, 100), $_SESSION['user_id']);
+                }
+                // Send payslip email if newly released
+                if ($newStatus === 'released' && $payRecord) {
+                    $empUser = Model::findUserByEmployeeId((int)$payRecord['employee_id']);
+                    if ($empUser && filter_var($empUser['email'] ?? '', FILTER_VALIDATE_EMAIL)) {
+                        _sendPayslipReleasedEmail($empUser, $payRecord, $editPeriod);
+                    }
                 }
                 Model::log(
                     $_SESSION['user_id'],
@@ -354,7 +177,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_status'])) {
                 exit;
             }
         }
-        $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update status.</div>";
+        if (empty($msg)) {
+            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update status.</div>";
+        }
     }
 }
 

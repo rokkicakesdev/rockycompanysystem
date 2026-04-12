@@ -203,6 +203,18 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             </a>
           </li>
           <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/bir_2316.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'bir_2316.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-file-contract"></i>
+              <p>BIR Form 2316</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/gov_reports.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'gov_reports.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-file-invoice"></i>
+              <p>Gov. Reports</p>
+            </a>
+          </li>
+          <li class="nav-item">
             <a href="<?= BASE_URL ?>/app/views/admin/payroll_settings.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'payroll_settings.php' ? 'active' : '' ?>">
               <i class="nav-icon fas fa-sliders-h"></i>
               <p>Payroll Settings</p>

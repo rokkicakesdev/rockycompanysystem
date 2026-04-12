@@ -21,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $msg = "<div class='alert alert-danger'>Invalid security token. Please refresh and try again.</div>";
     } else {
         require_once __DIR__ . '/../../../core/Validator.php';
+        require_once __DIR__ . '/../../../core/Mailer.php';
+        require_once __DIR__ . '/../../../core/EmailTemplate.php';
         $v = new Validator($_POST);
         $v->required('leave_id', 'Leave request')
           ->inList('action', ['approved', 'rejected'], 'Action');
@@ -34,6 +36,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $leave = Model::findLeaveRequestById($id);
             Model::log($_SESSION['user_id'], strtoupper($action) . '_LEAVE',
                 "{$action} leave request ID:{$id} for {$leave['employee_name']}");
+
+            // ── Email notification to employee ──────────────────────────────
+            if ($leave) {
+                $empUser = Model::findUserByEmployeeId((int)$leave['employee_id']);
+                if ($empUser && filter_var($empUser['email'] ?? '', FILTER_VALIDATE_EMAIL)) {
+                    $isApproved = ($action === 'approved');
+                    $company    = defined('COMPANY_NAME') ? COMPANY_NAME : 'Rocky HRIS';
+                    $statusWord = $isApproved ? 'Approved' : 'Rejected';
+
+                    $html = EmailTemplate::render('leave_notification', [
+                        'company'     => $company,
+                        'name'        => $empUser['name'],
+                        'statusWord'  => $statusWord,
+                        'statusColor' => $isApproved ? '#16a34a' : '#dc2626',
+                        'statusBg'    => $isApproved ? '#f0fdf4' : '#fef2f2',
+                        'statusIcon'  => $isApproved ? '✅' : '❌',
+                        'leaveType'   => LEAVE_TYPES[$leave['leave_type']] ?? ucfirst($leave['leave_type']),
+                        'dateFrom'    => date('M j, Y', strtotime($leave['date_from'])),
+                        'dateTo'      => date('M j, Y', strtotime($leave['date_to'])),
+                        'days'        => $leave['days_applied'],
+                        'notes'       => $notes,
+                    ]);
+
+                    Mailer::send(
+                        $empUser['email'],
+                        $empUser['name'],
+                        "{$statusWord}: " . (LEAVE_TYPES[$leave['leave_type']] ?? ucfirst($leave['leave_type'])) . " Leave Request — {$company}",
+                        $html
+                    );
+                }
+            }
+            // ── End email ────────────────────────────────────────────────────
+
             $msg = "<div class='alert alert-success alert-auto-dismiss'>Leave request <strong>{$action}</strong> successfully.</div>";
         }
     }

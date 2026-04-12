@@ -96,6 +96,7 @@ define('LEAVE_BALANCE_FIELDS', [
 
 // ── Security / Misc ──────────────────────────────────────────────
 define('SESSION_TIMEOUT_MINUTES', 30); // auto-logout after inactivity
+define('PASSWORD_RESET_EXPIRY_MINUTES', 30); // password reset link lifetime
 
 // ── Error Reporting ───────────────────────────────────────────────
 if (APP_ENV === 'production') {
