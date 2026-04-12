@@ -9,10 +9,12 @@ require_once __DIR__ . '/../layouts/employee_header.php';
 $employeeId = (int)($_SESSION['employee_id'] ?? 0);
 $employee   = $employeeId ? Model::findEmployeeById($employeeId) : null;
 
-// Recent payroll (last 3)
-$payrollRecords = $employeeId ? Model::getPayrollRecordsByEmployee($employeeId) : [];
-$recentPayroll  = array_slice($payrollRecords, 0, 3);
-$latestPayroll  = $payrollRecords[0] ?? null;
+// Recent payroll — only RELEASED records shown on dashboard
+// Pending records are not yet official; employees should only see confirmed pay.
+$payrollRecords   = $employeeId ? Model::getPayrollRecordsByEmployee($employeeId) : [];
+$releasedPayroll  = array_values(array_filter($payrollRecords, fn($p) => $p['status'] === 'released'));
+$recentPayroll    = array_slice($releasedPayroll, 0, 3);
+$latestPayroll    = $releasedPayroll[0] ?? null;
 
 // Leave requests
 $leaveRequests = $employeeId ? Model::getLeaveRequestsByEmployee($employeeId) : [];

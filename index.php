@@ -113,6 +113,11 @@ $csrf_token = $_SESSION['csrf_token'];
         <button type="submit" class="btn-login">
           <i class="fas fa-sign-in-alt mr-2"></i> Sign In
         </button>
+        <div style="text-align:center;margin-top:14px;">
+          <a href="forgot_password.php" style="font-size:.85rem;color:#64748b;text-decoration:none;">
+            <i class="fas fa-key mr-1"></i>Forgot your password?
+          </a>
+        </div>
       </form>
     </div>
 

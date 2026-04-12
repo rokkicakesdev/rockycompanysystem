@@ -320,6 +320,13 @@ class EmployeeModel extends BaseModel
         return (bool) $stmt->execute([$id]);
     }
 
+    public static function findDocumentById(int $id): ?array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM employee_documents WHERE id = ? LIMIT 1');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+
     // ── Salary History ───────────────────────────────────────────────────────
 
     public static function getSalaryHistory(int $employeeId): array

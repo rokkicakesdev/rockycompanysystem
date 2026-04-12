@@ -1,0 +1,7 @@
+# Rocky HRIS — Deny script execution in upload directories
+Options -ExecCGI
+AddHandler cgi-script .php .php3 .php4 .php5 .php7 .phtml .phar .pl .py .sh
+php_flag engine off
+<FilesMatch "\.php$">
+  Deny from all
+</FilesMatch>

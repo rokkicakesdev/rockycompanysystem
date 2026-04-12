@@ -101,4 +101,89 @@ class UserModel extends BaseModel
         $stmt = self::db()->prepare('UPDATE users SET status = ? WHERE id = ?');
         return (bool) $stmt->execute([$status, $id]);
     }
+
+    public static function findByEmail(string $email): ?array
+    {
+        $stmt = self::db()->prepare('SELECT * FROM users WHERE email = ? AND status = ? LIMIT 1');
+        $stmt->execute([$email, 'active']);
+        return $stmt->fetch() ?: null;
+    }
+
+    /**
+     * Store a password reset token.
+     * Creates the password_reset_tokens table on first use (zero-migration bootstrap).
+     * Token is hashed with SHA-256 before storage — raw token goes only to the email.
+     */
+    public static function createResetToken(int $userId, string $rawToken, int $expiryMinutes = 30): bool
+    {
+        self::ensureResetTokenTable();
+        // Invalidate any existing tokens for this user first
+        self::db()->prepare('DELETE FROM password_reset_tokens WHERE user_id = ?')->execute([$userId]);
+
+        $stmt = self::db()->prepare('
+            INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+            VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE))
+        ');
+        return (bool) $stmt->execute([$userId, hash('sha256', $rawToken), $expiryMinutes]);
+    }
+
+    /**
+     * Validate a raw token (hashes it internally for comparison).
+     * Returns the matching user record or null if invalid/expired.
+     */
+    public static function consumeResetToken(string $rawToken): ?array
+    {
+        self::ensureResetTokenTable();
+        $hash = hash('sha256', $rawToken);
+        $stmt = self::db()->prepare('
+            SELECT prt.user_id, u.name, u.email, u.username
+            FROM password_reset_tokens prt
+            JOIN users u ON u.id = prt.user_id
+            WHERE prt.token_hash = ?
+              AND prt.expires_at > NOW()
+              AND prt.used_at IS NULL
+            LIMIT 1
+        ');
+        $stmt->execute([$hash]);
+        $row = $stmt->fetch();
+        if (!$row) return null;
+
+        // Mark token as used immediately (single-use)
+        self::db()->prepare('UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = ?')
+                  ->execute([$hash]);
+
+        return $row;
+    }
+
+    /**
+     * Check a token is still valid (without consuming it) — used on the reset form page load.
+     */
+    public static function isResetTokenValid(string $rawToken): bool
+    {
+        self::ensureResetTokenTable();
+        $stmt = self::db()->prepare('
+            SELECT COUNT(*) FROM password_reset_tokens
+            WHERE token_hash = ? AND expires_at > NOW() AND used_at IS NULL
+        ');
+        $stmt->execute([hash('sha256', $rawToken)]);
+        return (int)$stmt->fetchColumn() > 0;
+    }
+
+    /** Bootstrap the reset token table if it doesn't exist yet. */
+    private static function ensureResetTokenTable(): void
+    {
+        self::db()->exec("
+            CREATE TABLE IF NOT EXISTS `password_reset_tokens` (
+                `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                `user_id`    INT UNSIGNED NOT NULL,
+                `token_hash` VARCHAR(64)  NOT NULL,
+                `expires_at` DATETIME     NOT NULL,
+                `used_at`    DATETIME     DEFAULT NULL,
+                `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `uq_token` (`token_hash`),
+                KEY `idx_user` (`user_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
 }
