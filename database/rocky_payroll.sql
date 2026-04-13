@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 08, 2026 at 11:29 AM
+-- Generation Time: Apr 13, 2026 at 08:16 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -157,7 +157,40 @@ INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `description`, `ip_addre
 (114, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱30,000.00 (destroyed_asset) to payroll ID:25 (Chichi The Dog) period 2026-01-1. Notes: Cracked screen and not typing keyboard', '::1', '2026-04-08 08:42:39'),
 (115, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:25 for Chichi The Dog period 2026-01-1', '::1', '2026-04-08 08:43:38'),
 (116, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-08 08:43:42'),
-(117, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱10,000.00 (damage) to payroll ID:26 (Chichi The Dog) period 2026-01-1. Notes: Destroyed entire laptop screen', '::1', '2026-04-08 08:44:03');
+(117, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱10,000.00 (damage) to payroll ID:26 (Chichi The Dog) period 2026-01-1. Notes: Destroyed entire laptop screen', '::1', '2026-04-08 08:44:03'),
+(118, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-2: 1 records created, 0 skipped.', '::1', '2026-04-08 09:41:11'),
+(119, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-08 13:20:17'),
+(120, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:26 for Chichi The Dog period 2026-01-1', '::1', '2026-04-08 13:20:27'),
+(121, 1, 'DELETE_PAYROLL', 'Deleted payroll ID:27 for Chichi The Dog period 2026-01-2', '::1', '2026-04-08 13:20:33'),
+(122, 1, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-1: 1 records created, 0 skipped.', '::1', '2026-04-08 13:22:24'),
+(123, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱7,000.00 (lost_asset) to payroll ID:28 (Chichi The Dog) period 2026-01-1. Notes: Lost company phone', '::1', '2026-04-08 13:22:56'),
+(124, 1, 'ADD_SALARY_DEDUCTION', 'Added salary deduction ₱2,000.00 (loan) to payroll ID:28 (Chichi The Dog) period 2026-01-1. Notes: 1/5 Salary Loan', '::1', '2026-04-08 13:24:14'),
+(125, 3, 'LOGIN', 'User \'management1\' logged in from ::1', '::1', '2026-04-09 10:27:58'),
+(126, 3, 'GENERATE_PAYROLL', 'Generated payroll for period 2026-01-2: 1 records created, 0 skipped.', '::1', '2026-04-09 10:28:22'),
+(127, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-09 15:30:03'),
+(128, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-10 15:28:32'),
+(129, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-10 15:59:43'),
+(130, 3, 'LOGIN', 'User \'management1\' logged in from ::1', '::1', '2026-04-10 16:01:48'),
+(131, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-10 16:05:09'),
+(132, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-11 09:59:40'),
+(133, 3, 'LOGIN', 'User \'management1\' logged in from ::1', '::1', '2026-04-11 10:01:48'),
+(134, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-11 15:59:43'),
+(135, 1, 'UPDATE_EMPLOYEE', 'Updated employee ID:1', '::1', '2026-04-11 15:59:57'),
+(136, 1, 'CREATE_LEAVE', 'Filed leave for employee ID:1', '::1', '2026-04-11 16:00:27'),
+(137, 1, 'APPROVED_LEAVE', 'approved leave request ID:1 for Chichi The Dog', '::1', '2026-04-11 16:00:35'),
+(138, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-11 16:00:54'),
+(139, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-11 16:07:16'),
+(140, 1, 'CREATE_LEAVE', 'Filed leave for employee ID:1', '::1', '2026-04-11 16:08:21'),
+(141, 1, 'APPROVED_LEAVE', 'approved leave request ID:2 for Chichi The Dog', '::1', '2026-04-11 16:08:24'),
+(142, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-11 16:12:56'),
+(143, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-11 16:17:51'),
+(144, 1, 'REJECTED_LEAVE', 'rejected leave request ID:3 for Chichi The Dog', '::1', '2026-04-11 16:18:04'),
+(145, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-11 16:22:01'),
+(146, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 01:55:39'),
+(147, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 02:17:04'),
+(148, 1, 'SAVE_ATTENDANCE', 'Saved 2 employees on 2026-03-31 | Errors: 0', '::1', '2026-04-12 04:13:11'),
+(149, 1, 'UPDATE_ATTENDANCE', 'Updated ID:1 on 2026-03-31 | note: Late Update', '::1', '2026-04-12 04:14:59'),
+(150, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 12:57:55');
 
 -- --------------------------------------------------------
 
@@ -260,7 +293,9 @@ INSERT INTO `attendance` (`id`, `employee_id`, `date`, `time_in`, `time_out`, `s
 (36, 1, '2026-04-06', '07:35:00', '17:00:00', 'present', '', '[{\"note\":\"Updated the time in\",\"by\":\"System\",\"at\":\"\"}]', 9.42, 0, 0.00, 1, '2026-04-06 02:58:16', '2026-04-06 09:24:15'),
 (38, 2, '2026-04-06', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-06 03:16:28', '2026-04-06 03:16:28'),
 (41, 1, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '[]', 9.00, 0, 0.00, 1, '2026-04-07 00:15:09', '2026-04-07 00:15:47'),
-(46, 2, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-07 00:16:00', '2026-04-07 00:16:00');
+(46, 2, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-07 00:16:00', '2026-04-07 00:16:00'),
+(47, 1, '2026-03-31', '09:00:00', '17:00:00', 'late', '', '[{\"id\":\"69db1c43b3ec3\",\"note\":\"Late Update\",\"by\":\"Rocky Astor\",\"at\":\"2026-04-12 06:14\"}]', 8.00, 0, 0.00, 1, '2026-04-12 04:13:11', '2026-04-12 04:14:59'),
+(48, 2, '2026-03-31', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-12 04:13:11', '2026-04-12 04:13:11');
 
 -- --------------------------------------------------------
 
@@ -344,7 +379,7 @@ CREATE TABLE `employees` (
 --
 
 INSERT INTO `employees` (`id`, `employee_no`, `name`, `gender`, `civil_status`, `birthdate`, `birthplace`, `nationality`, `address`, `email`, `phone`, `sss_no`, `philhealth_no`, `pagibig_no`, `tin_no`, `department_id`, `position_id`, `basic_salary`, `allowance`, `date_hired`, `date_start`, `employment_type`, `date_regularized`, `date_separated`, `separation_reason`, `status`, `sick_leave_balance`, `vacation_leave_balance`, `bereavement_leave_balance`, `emergency_leave_balance`, `sil_balance`, `maternity_leave_balance`, `paternity_leave_balance`, `solo_parent_leave_balance`, `vawc_leave_balance`, `magna_carta_leave_balance`, `created_at`, `updated_at`, `emergency_contact_name`, `emergency_contact_phone`, `emergency_contact_relation`, `profile_photo`, `cutoff1_fixed_amount`, `tax_method`, `gov_deduction_mode`) VALUES
-(1, 'EMP-001', 'Chichi The Dog', 'female', 'single', '2000-11-11', NULL, 'Filipino', 'Dasma Cavite', 'chichi@rocky.com', '09123456789', '1234567890', '123456789012', '123456789012', '123456789012', 4, 12, 100000.00, 10000.00, '2026-01-02', '2026-01-05', 'probationary', NULL, NULL, NULL, 'active', 10.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 14:36:55', '2026-04-04 04:28:53', 'Nami the Dog', '09123456789', 'Daughter', NULL, NULL, 'half_monthly', 'second_cutoff'),
+(1, 'EMP-001', 'Chichi The Dog', 'female', 'single', '2000-11-11', NULL, 'Filipino', 'Dasma Cavite', 'rokki.kaito@gmail.com', '09123456789', '1234567890', '123456789012', '123456789012', '123456789012', 4, 12, 100000.00, 10000.00, '2026-01-02', '2026-01-05', 'probationary', NULL, NULL, NULL, 'active', 8.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 14:36:55', '2026-04-11 16:08:24', 'Nami the Dog', '09123456789', 'Daughter', NULL, NULL, 'half_monthly', 'second_cutoff'),
 (2, 'EMP-002', 'Chicken the Cat', 'male', 'single', '2000-12-02', NULL, 'Filipino', 'Dasma Cavite', 'chicken@rocky.com', '09123456710', '1234567001', '123456789001', '123456789001', '123456789001', 1, 2, 200000.00, 10000.00, '2026-01-14', '2026-01-19', 'probationary', NULL, NULL, NULL, 'active', 10.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 16:54:12', '2026-04-04 04:44:17', 'Goku the Cat', '09203456710', 'Son', NULL, NULL, 'half_monthly', 'second_cutoff');
 
 -- --------------------------------------------------------
@@ -452,6 +487,15 @@ CREATE TABLE `leave_requests` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `leave_requests`
+--
+
+INSERT INTO `leave_requests` (`id`, `employee_id`, `leave_type`, `date_from`, `date_to`, `days_applied`, `reason`, `status`, `reviewed_by`, `reviewed_at`, `review_notes`, `filed_at`, `updated_at`) VALUES
+(1, 1, 'sick', '2026-04-10', '2026-04-10', 1.0, 'Masakit ang tyan', 'approved', 1, '2026-04-11 16:00:35', 'Approve ka sakin boy', '2026-04-11 16:00:27', '2026-04-11 16:00:35'),
+(2, 1, 'sick', '2026-04-08', '2026-04-08', 1.0, 'Masakit katawan ko boss', 'approved', 1, '2026-04-11 16:08:24', '', '2026-04-11 16:08:21', '2026-04-11 16:08:24'),
+(3, 1, 'vacation', '2026-04-24', '2026-04-24', 1.0, 'Bakasyon lang boss', 'rejected', 1, '2026-04-11 16:18:04', 'Dami mo ng leave bossing', '2026-04-11 16:17:43', '2026-04-11 16:18:04');
+
 -- --------------------------------------------------------
 
 --
@@ -507,7 +551,25 @@ INSERT INTO `login_attempts` (`id`, `username`, `ip_address`, `attempted_at`, `w
 (34, 'admin1', '::1', '2026-04-06 10:49:03', 1),
 (35, 'admin1', '::1', '2026-04-07 08:14:41', 1),
 (36, 'admin1', '::1', '2026-04-07 13:01:32', 1),
-(37, 'admin1', '::1', '2026-04-08 16:41:50', 1);
+(37, 'admin1', '::1', '2026-04-08 16:41:50', 1),
+(38, 'admin1', '::1', '2026-04-08 21:20:17', 1),
+(39, 'management1', '::1', '2026-04-09 18:27:58', 1),
+(40, 'admin1', '::1', '2026-04-09 23:30:03', 1),
+(41, 'admin1', '::1', '2026-04-10 23:28:32', 1),
+(42, 'chichi.emp', '::1', '2026-04-10 23:59:43', 1),
+(43, 'management1', '::1', '2026-04-11 00:01:48', 1),
+(44, 'admin1', '::1', '2026-04-11 00:05:09', 1),
+(45, 'chichi.emp', '::1', '2026-04-11 17:59:40', 1),
+(46, 'management1', '::1', '2026-04-11 18:01:48', 1),
+(47, 'admin1', '::1', '2026-04-11 23:59:43', 1),
+(48, 'chichi.emp', '::1', '2026-04-12 00:00:54', 1),
+(49, 'admin1', '::1', '2026-04-12 00:07:16', 1),
+(50, 'chichi.emp', '::1', '2026-04-12 00:12:56', 1),
+(51, 'admin1', '::1', '2026-04-12 00:17:51', 1),
+(52, 'chichi.emp', '::1', '2026-04-12 00:22:01', 1),
+(53, 'admin1', '::1', '2026-04-12 09:55:39', 1),
+(54, 'admin1', '::1', '2026-04-12 10:17:04', 1),
+(55, 'admin1', '::1', '2026-04-12 20:57:55', 1);
 
 -- --------------------------------------------------------
 
@@ -528,7 +590,8 @@ CREATE TABLE `payroll_notes` (
 --
 
 INSERT INTO `payroll_notes` (`id`, `payroll_id`, `note`, `created_by`, `created_at`) VALUES
-(4, 26, 'Damage (Laptop) — ₱10,000.00 — Destroyed entire laptop screen', 1, '2026-04-08 16:44:03');
+(5, 28, 'Lost Asset (Mobile Phone) — ₱7,000.00 — Lost company phone', 1, '2026-04-08 21:22:56'),
+(6, 28, 'Loan — ₱2,000.00 — 1/5 Salary Loan', 1, '2026-04-08 21:24:14');
 
 -- --------------------------------------------------------
 
@@ -579,7 +642,8 @@ CREATE TABLE `payroll_records` (
 --
 
 INSERT INTO `payroll_records` (`id`, `employee_id`, `period`, `basic_salary`, `allowance`, `gross_pay`, `sss_msc`, `sss_ee`, `sss_er`, `philhealth_mbs`, `philhealth_ee`, `philhealth_er`, `pagibig_mfs`, `pagibig_ee`, `pagibig_er`, `taxable_income`, `withholding_tax`, `other_deductions`, `total_deductions`, `net_pay`, `status`, `processed_by`, `released_at`, `remarks`, `created_at`, `updated_at`, `days_worked`, `days_absent`, `days_paid_leave`, `absent_deduction`, `overtime_pay`, `holiday_pay`, `salary_deduction`, `unpaid_leave_deduction`, `working_days_in_month`) VALUES
-(26, 1, '2026-01-1', 50000.00, 5000.00, 45909.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 40909.09, 6164.77, 0.00, 25255.68, 20653.41, 'pending', 1, NULL, '', '2026-04-08 08:43:42', '2026-04-08 08:44:03', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 10000.00, 0.00, 11);
+(28, 1, '2026-01-1', 50000.00, 5000.00, 45909.09, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 40909.09, 6164.77, 0.00, 24255.68, 21653.41, 'pending', 1, NULL, '', '2026-04-08 13:22:24', '2026-04-08 13:24:14', 9.00, 0.00, 0.00, 9090.91, 0.00, 0.00, 9000.00, 0.00, 11),
+(29, 1, '2026-01-2', 50000.00, 5000.00, 55000.00, 35000.00, 1750.00, 3500.00, 100000.00, 2500.00, 2500.00, 10000.00, 200.00, 200.00, 45550.00, 7325.00, 0.00, 11775.00, 43225.00, 'pending', 3, NULL, '', '2026-04-09 10:28:22', '2026-04-09 10:28:22', 10.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 11);
 
 -- --------------------------------------------------------
 
@@ -662,7 +726,9 @@ INSERT INTO `salary_deductions` (`id`, `payroll_id`, `reason`, `description`, `a
 (1, 20, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Keyboard and Mouse replacement', 1, '2026-04-05 13:40:34'),
 (2, 24, 'lost_asset', 'Keyboard / Mouse', 1000.00, 'Replacement of Keyboard and Mouse', 1, '2026-04-06 03:44:29'),
 (3, 25, 'destroyed_asset', 'Laptop', 30000.00, 'Cracked screen and not typing keyboard', 1, '2026-04-08 08:42:39'),
-(4, 26, 'damage', 'Laptop', 10000.00, 'Destroyed entire laptop screen', 1, '2026-04-08 08:44:03');
+(4, 26, 'damage', 'Laptop', 10000.00, 'Destroyed entire laptop screen', 1, '2026-04-08 08:44:03'),
+(5, 28, 'lost_asset', 'Mobile Phone', 7000.00, 'Lost company phone', 1, '2026-04-08 13:22:56'),
+(6, 28, 'loan', '', 2000.00, '1/5 Salary Loan', 1, '2026-04-08 13:24:14');
 
 -- --------------------------------------------------------
 
@@ -732,7 +798,7 @@ INSERT INTO `users` (`id`, `name`, `username`, `email`, `password`, `role`, `emp
 (2, 'Jalen Andrino', 'admin2', 'admin2@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'admin', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-03-19 06:55:52'),
 (3, 'Mochi Manager', 'management1', 'management1@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'management', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-03-19 06:55:52'),
 (4, 'Chichi The Dog', 'admin3', 'admin3@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'admin', NULL, 'active', 1, '2026-03-04 01:14:34', '2026-03-19 06:55:52'),
-(5, 'Chichi The Dog', 'chichi.emp', 'chichi@rocky.com', '$2y$10$OnvEPm50E7IApL5P.Nf2x.E1LJ2ka1Il6OKoVl1yKV3kcoHqTgU02', 'employee', 1, 'active', 1, '2026-03-28 14:36:55', '2026-03-28 17:28:58'),
+(5, 'Chichi The Dog', 'chichi.emp', 'rokki.kaito@gmail.com', '$2y$10$OnvEPm50E7IApL5P.Nf2x.E1LJ2ka1Il6OKoVl1yKV3kcoHqTgU02', 'employee', 1, 'active', 1, '2026-03-28 14:36:55', '2026-04-11 16:07:53'),
 (6, 'Chicken the Cat', 'chicken.emp', 'chicken@rocky.com', '$2y$10$kHCdYhq89Mxtq06rNS87huzdp1PZtZgK4EORIQRnuSVufHBoM/bGm', 'employee', 2, 'active', 1, '2026-03-28 16:54:12', '2026-03-28 16:54:12');
 
 -- --------------------------------------------------------
@@ -1000,7 +1066,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=118;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
 
 --
 -- AUTO_INCREMENT for table `announcements`
@@ -1018,7 +1084,7 @@ ALTER TABLE `applicants`
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -1054,25 +1120,25 @@ ALTER TABLE `job_postings`
 -- AUTO_INCREMENT for table `leave_requests`
 --
 ALTER TABLE `leave_requests`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
 
 --
 -- AUTO_INCREMENT for table `payroll_notes`
 --
 ALTER TABLE `payroll_notes`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `payroll_records`
 --
 ALTER TABLE `payroll_records`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `positions`
@@ -1090,7 +1156,7 @@ ALTER TABLE `reimbursements`
 -- AUTO_INCREMENT for table `salary_deductions`
 --
 ALTER TABLE `salary_deductions`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `salary_history`

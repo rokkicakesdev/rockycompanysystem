@@ -1,126 +1,6 @@
 <?php
 $pageTitle = 'Attendance';
 require_once __DIR__ . '/../layouts/admin_header.php';
-?>
-<style>
-/* ── Attendance Calendar View ─────────────────────────────────────────── */
-.att-calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5px;
-}
-.att-cal-dow {
-  text-align: center;
-  font-weight: 700;
-  font-size: .72rem;
-  letter-spacing: .04em;
-  padding: 6px 2px;
-  color: #6c757d;
-  text-transform: uppercase;
-}
-.att-cal-dow.att-cal-weekend-hdr { color: #94a3b8; }
-.att-cal-cell {
-  border-radius: 8px;
-  padding: 7px 5px 6px;
-  min-height: 84px;
-  background: color-mix(in srgb, var(--cell-color, #f1f5f9) 12%, white);
-  border: 1.5px solid color-mix(in srgb, var(--cell-color, #e2e8f0) 28%, white);
-  position: relative;
-  transition: box-shadow .15s, transform .1s;
-  cursor: default;
-}
-.att-cal-cell:hover:not(.att-cal-empty) {
-  box-shadow: 0 3px 10px rgba(0,0,0,.13);
-  transform: translateY(-1px);
-  z-index: 2;
-}
-.att-cal-cell.att-cal-empty {
-  background: transparent;
-  border-color: transparent;
-  min-height: 84px;
-}
-.att-cal-cell.att-cal-weekend { opacity: .75; }
-.att-cal-cell.att-cal-today {
-  border-width: 2.5px;
-  border-color: #2563eb !important;
-  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
-}
-.att-cal-day-num {
-  font-size: .78rem;
-  font-weight: 700;
-  color: #374151;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-.att-cal-today .att-cal-day-num {
-  background: #2563eb;
-  color: #fff;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: .72rem;
-}
-.att-cal-icon {
-  font-size: 1.1rem;
-  color: var(--cell-color, #94a3b8);
-  margin-bottom: 3px;
-  line-height: 1;
-}
-.att-cal-status-label {
-  font-size: .62rem;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--cell-color, #64748b) 80%, #1e293b);
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.att-cal-hol-name {
-  font-size: .56rem;
-  color: #0f766e;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-style: italic;
-}
-.att-cal-time {
-  font-size: .57rem;
-  color: #6b7280;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* Legend */
-.att-cal-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  padding-top: 10px;
-  border-top: 1px solid #e5e7eb;
-}
-.att-cal-leg-item {
-  font-size: .73rem;
-  color: #374151;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.att-cal-leg-item i {
-  color: var(--leg-color, #94a3b8);
-  font-size: .85rem;
-}
-/* Summary tiles */
-.bg-purple { background-color: #a855f7 !important; }
-.bg-teal   { background-color: #14b8a6 !important; }
-/* Payroll table — Absent/Unpaid column width */
-.payroll-col-absentded { min-width: 110px; }
-</style>
-<?php
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -330,6 +210,44 @@ if ($viewMode === 'daily') {
     foreach ($recs as $r) {
         if ($r['date'] === $selectedDate) $existingRecords[$r['employee_id']] = $r;
     }
+    // Load approved leaves for the selected date as a safety net.
+    // If an attendance record already exists, it takes precedence.
+    // If not, we use the approved leave to pre-fill the row as on_leave
+    // and auto-insert the missing attendance record.
+    $approvedLeavesOnDate = Model::getApprovedLeavesForDate($selectedDate);
+    foreach ($approvedLeavesOnDate as $empId => $leaveRow) {
+        if (!isset($existingRecords[$empId])) {
+            // Auto-insert was missed — create the record now on-the-fly
+            Model::saveAttendance([
+                'employee_id'    => $empId,
+                'date'           => $selectedDate,
+                'time_in'        => null,
+                'time_out'       => null,
+                'status'         => 'on_leave',
+                'leave_type'     => $leaveRow['leave_type'],
+                'remarks'        => 'Auto-created: leave approved (ID:' . $leaveRow['leave_id'] . ')',
+                'hours_worked'   => null,
+                'overtime_hours' => 0,
+                'is_overtime'    => 0,
+                'created_by'     => null,
+            ]);
+            // Populate existingRecords so the row renders correctly
+            $existingRecords[$empId] = [
+                'employee_id'    => $empId,
+                'date'           => $selectedDate,
+                'status'         => 'on_leave',
+                'leave_type'     => $leaveRow['leave_type'],
+                'time_in'        => null,
+                'time_out'       => null,
+                'overtime_hours' => 0,
+                'remarks'        => '',
+            ];
+        } elseif ($existingRecords[$empId]['status'] !== 'on_leave') {
+            // Record exists but was saved as something else after the leave was approved.
+            // Do NOT silently override — just mark that this employee has an approved leave
+            // so we can show a visual warning in the table row.
+        }
+    }
 } elseif ($viewMode === 'calendar') {
     $lastDayOfMonth = date('Y-m-t', strtotime($selectedMonth . '-01'));
     $employees = array_values(array_filter($allEmployees, function($e) use ($lastDayOfMonth) {
@@ -463,6 +381,9 @@ $statusOptions = [
               elseif ($holidayInfo){ $status = 'holiday'; }
               elseif ($isWeekend)  { $status = 'rest_day'; }
               else                 { $status = 'present'; }
+              // Flag: this employee has an approved leave today but attendance status differs
+              $approvedLeaveRow       = $approvedLeavesOnDate[$emp['id']] ?? null;
+              $hasConflictingLeave    = $approvedLeaveRow && $status !== 'on_leave';
               // Decode notes for display
               $rawRemarks = $rec['remarks'] ?? '';
               $notesList  = [];
@@ -474,12 +395,19 @@ $statusOptions = [
               }
               $notesCount = count($notesList);
             ?>
-            <tr>
+            <tr class="<?= $status === 'on_leave' ? 'att-row-on-leave' : '' ?> <?= $hasConflictingLeave ? 'att-row-leave-conflict' : '' ?>">
               <td class="att-col-check">
-                <input type="checkbox" name="checked_employees[]" value="<?= $emp['id'] ?>" class="emp-row-check" checked>
+                <input type="checkbox" name="checked_employees[]" value="<?= $emp['id'] ?>" class="emp-row-check"
+                  <?= $status === 'on_leave' ? '' : 'checked' ?>>
               </td>
               <td class="att-col-employee">
-                <strong class="att-emp-name"><?= htmlspecialchars($emp['name']) ?></strong><br>
+                <strong class="att-emp-name"><?= htmlspecialchars($emp['name']) ?></strong>
+                <?php if ($status === 'on_leave'): ?>
+                  <span class="badge badge-info att-leave-badge" title="Approved leave on this date"><i class="fas fa-plane-departure mr-1"></i>On Leave</span>
+                <?php elseif ($hasConflictingLeave): ?>
+                  <span class="badge badge-warning att-leave-badge" title="Has approved leave but attendance is marked differently"><i class="fas fa-exclamation-triangle mr-1"></i>Leave Conflict</span>
+                <?php endif; ?>
+                <br>
                 <small class="text-muted"><?= htmlspecialchars($emp['employee_no']) ?></small>
               </td>
               <td class="att-col-dept"><small><?= htmlspecialchars($emp['department']) ?></small></td>

@@ -106,25 +106,77 @@ class LeaveModel extends BaseModel
 
             if ($status === 'approved') {
                 $leave = self::findById($id);
-                if ($leave && $leave['leave_type'] !== 'unpaid') {
-                    $balanceFields = LEAVE_BALANCE_FIELDS;
-                    if (isset($balanceFields[$leave['leave_type']])) {
-                        $field = $balanceFields[$leave['leave_type']];
+                if ($leave) {
+                    // ── Deduct leave balance (non-unpaid types only) ──────────
+                    if ($leave['leave_type'] !== 'unpaid') {
+                        $balanceFields = LEAVE_BALANCE_FIELDS;
+                        if (isset($balanceFields[$leave['leave_type']])) {
+                            $field = $balanceFields[$leave['leave_type']];
+                            $allowedColumns = array_values(LEAVE_BALANCE_FIELDS);
+                            if (!in_array($field, $allowedColumns, true)) {
+                                error_log("LeaveModel::review: rejected unsafe column '{$field}' for employee {$leave['employee_id']}");
+                                $db->rollBack();
+                                return false;
+                            }
+                            $deductStmt = $db->prepare("
+                                UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
+                            ");
+                            $deductStmt->execute([
+                                ':days'   => $leave['days_applied'],
+                                ':emp_id' => $leave['employee_id'],
+                            ]);
+                        }
+                    }
 
-                        // Whitelist $field against known balance columns to prevent SQL injection
-                        $allowedColumns = array_values(LEAVE_BALANCE_FIELDS);
-                        if (!in_array($field, $allowedColumns, true)) {
-                            error_log("LeaveModel::review: rejected unsafe column '{$field}' for employee {$leave['employee_id']}");
-                            $db->rollBack();
-                            return false;
+                    // ── Auto-create attendance records for each leave day ─────
+                    // Payroll calculation reads from the attendance table.
+                    // Without attendance records, approved leave days appear as
+                    // "No Record" in the calendar and are counted as absent in payroll.
+                    // We insert on_leave rows for every weekday in the date range.
+                    // ON DUPLICATE KEY UPDATE preserves any existing attendance record
+                    // (e.g. if admin already marked attendance for that day).
+                    $leaveType  = $leave['leave_type'];
+                    $empId      = (int)$leave['employee_id'];
+                    $dateFrom   = new \DateTime($leave['date_from']);
+                    $dateTo     = new \DateTime($leave['date_to']);
+                    $dateTo->modify('+1 day'); // make end date exclusive for DatePeriod
+
+                    $interval = new \DateInterval('P1D');
+                    $period   = new \DatePeriod($dateFrom, $interval, $dateTo);
+
+                    // Fetch holidays in the range to skip them
+                    $holStmt = $db->prepare(
+                        'SELECT date FROM holidays WHERE date BETWEEN ? AND ?'
+                    );
+                    $holStmt->execute([$leave['date_from'], $leave['date_to']]);
+                    $holidays = array_column($holStmt->fetchAll(\PDO::FETCH_ASSOC), 'date');
+
+                    // Only insert if no attendance record yet exists for that day.
+                    // We do NOT overwrite existing records (e.g. admin already marked
+                    // attendance before the leave was approved).
+                    $attStmt = $db->prepare('
+                        INSERT IGNORE INTO attendance
+                          (employee_id, date, status, leave_type, remarks, created_by)
+                        VALUES
+                          (:employee_id, :date, :status, :leave_type, :remarks, :created_by)
+                    ');
+
+                    foreach ($period as $day) {
+                        $dow     = (int)$day->format('N'); // 1=Mon..7=Sun
+                        $dateStr = $day->format('Y-m-d');
+
+                        // Skip weekends and public holidays
+                        if ($dow > 5 || in_array($dateStr, $holidays, true)) {
+                            continue;
                         }
 
-                        $deductStmt = $db->prepare("
-                            UPDATE employees SET {$field} = GREATEST(0, {$field} - :days) WHERE id = :emp_id
-                        ");
-                        $deductStmt->execute([
-                            ':days'   => $leave['days_applied'],
-                            ':emp_id' => $leave['employee_id'],
+                        $attStmt->execute([
+                            ':employee_id' => $empId,
+                            ':date'        => $dateStr,
+                            ':status'      => 'on_leave',
+                            ':leave_type'  => $leaveType,
+                            ':remarks'     => 'Auto-created: leave approved (ID:' . $id . ')',
+                            ':created_by'  => $reviewedBy,
                         ]);
                     }
                 }
@@ -144,5 +196,31 @@ class LeaveModel extends BaseModel
     {
         $row = self::db()->query("SELECT COUNT(*) AS cnt FROM leave_requests WHERE status = 'pending'")->fetch();
         return (int) $row['cnt'];
+    }
+
+    /**
+     * Return approved leave requests that cover a specific date.
+     * Used by the daily attendance view to flag employees who are on approved leave
+     * even when no attendance record was auto-created (e.g. leave approved before
+     * the feature existed, or the auto-insert silently failed).
+     *
+     * Returns a map of employee_id => leave_request row.
+     */
+    public static function getApprovedForDate(string $date): array
+    {
+        $stmt = self::db()->prepare("
+            SELECT lr.employee_id, lr.leave_type, lr.id AS leave_id
+            FROM leave_requests lr
+            WHERE lr.status   = 'approved'
+              AND lr.date_from <= :date
+              AND lr.date_to   >= :date2
+        ");
+        $stmt->execute([':date' => $date, ':date2' => $date]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $map  = [];
+        foreach ($rows as $r) {
+            $map[(int)$r['employee_id']] = $r;
+        }
+        return $map;
     }
 }

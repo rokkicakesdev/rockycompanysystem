@@ -118,6 +118,7 @@ class Model
     public static function createLeaveRequest(array $data): bool                                      { return LeaveModel::create($data); }
     public static function reviewLeaveRequest(int $id, string $s, int $by, string $n = ''): bool      { return LeaveModel::review($id, $s, $by, $n); }
     public static function countPendingLeaves(): int                                                  { return LeaveModel::countPending(); }
+    public static function getApprovedLeavesForDate(string $date): array                              { return LeaveModel::getApprovedForDate($date); }
 
     // ════════════════════════════════════════════════════════
     //  RECRUITMENT  →  RecruitmentModel
