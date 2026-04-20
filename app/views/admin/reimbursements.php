@@ -176,6 +176,7 @@ require_once __DIR__ . '/../layouts/admin_header.php';
             <th>Receipt Date</th>
             <th>Description</th>
             <th>Receipt No.</th>
+            <th>Attachment</th>
             <th class="text-right">Amount</th>
             <th class="text-center">Status</th>
             <th class="text-center no-print">Action</th>
@@ -196,6 +197,16 @@ require_once __DIR__ . '/../layouts/admin_header.php';
               <?= htmlspecialchars($r['description'] ?? '—') ?>
             </td>
             <td><?= htmlspecialchars($r['receipt_no'] ?? '—') ?></td>
+            <td>
+              <?php if (!empty($r['receipt_file'])): ?>
+                <a href="<?= BASE_URL . '/' . ltrim(htmlspecialchars($r['receipt_file']), '/') ?>"
+                   target="_blank" class="btn btn-xs btn-outline-info" title="View/Download Attachment">
+                  <i class="fas fa-paperclip mr-1"></i>View
+                </a>
+              <?php else: ?>
+                <span class="text-muted small">None</span>
+              <?php endif; ?>
+            </td>
             <td class="text-right font-weight-bold">
               &#8369;&nbsp;<?= number_format($r['amount'], 2) ?>
             </td>

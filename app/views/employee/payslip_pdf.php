@@ -420,16 +420,16 @@ $html .= <<<HTML
 
 {$ytdBlock}
 
-<!-- Signature Lines -->
+<!-- Authorized Signatory only (employee signature removed) -->
 <table class="sig-table"><tr>
-  <td class="sig-td"><div class="sig-line">Employee Signature / Date<br><small style="color:#bbb;">{$empName}</small></div></td>
+  <td class="sig-td"></td>
   <td class="sig-td"><div class="sig-line">Authorized Signatory / Date<br><small style="color:#bbb;">&nbsp;</small></div></td>
 </tr></table>
 
-<!-- Footer -->
+<!-- Footer: company info only, no generated timestamp -->
 <table class="footer-table"><tr>
   <td class="footer-td">{$companyName} &mdash; Official Payroll Slip &mdash; {$periodLabel}</td>
-  <td class="footer-td footer-right">Generated: {$generatedAt} &mdash; {$companyName} HRIS</td>
+  <td class="footer-td footer-right">{$companyName} HRIS + Payroll System</td>
 </tr></table>
 
 </div><!-- .page -->

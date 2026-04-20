@@ -213,6 +213,12 @@ require_once __DIR__ . '/../layouts/admin_header.php';
         <button onclick="window.print()" class="btn btn-sm btn-primary ml-auto">
           <i class="fas fa-print mr-1"></i>Print Form
         </button>
+        <?php if ($employee && !empty($ytd)): ?>
+        <a href="bir_2316_export.php?year=<?= $selectedYear ?>&emp_id=<?= $selectedEmpId ?>"
+           class="btn btn-sm btn-danger ml-2" target="_blank">
+          <i class="fas fa-file-pdf mr-1"></i>Save as PDF
+        </a>
+        <?php endif; ?>
       </div>
     </div>
   </div>

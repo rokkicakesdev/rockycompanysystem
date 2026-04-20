@@ -30,14 +30,14 @@ require_once __DIR__ . '/models/UserModel.php';
 require_once __DIR__ . '/models/DepartmentModel.php';
 require_once __DIR__ . '/models/EmployeeModel.php';
 require_once __DIR__ . '/models/AttendanceModel.php';
-require_once __DIR__ . '/models/LeaveModel.php';
-require_once __DIR__ . '/models/RecruitmentModel.php';
+require_once __DIR__ . '/models/LeaveModel.php';require_once __DIR__ . '/models/RecruitmentModel.php';
 require_once __DIR__ . '/models/PayrollModel.php';
 require_once __DIR__ . '/models/AnnouncementModel.php';
 require_once __DIR__ . '/models/HolidayModel.php';
 require_once __DIR__ . '/models/ActivityLogModel.php';
 require_once __DIR__ . '/models/DashboardModel.php';
 require_once __DIR__ . '/models/ReimbursementModel.php';
+require_once __DIR__ . '/models/EmployeeNotificationModel.php';
 
 class Model
 {
@@ -86,6 +86,7 @@ class Model
     public static function countEmployeesByStatus(): array                   { return EmployeeModel::countByStatus(); }
     public static function createEmployee(array $data): bool                 { return EmployeeModel::create($data); }
     public static function updateEmployee(int $id, array $data): bool        { return EmployeeModel::update($id, $data); }
+    public static function updateEmployeePartial(int $id, array $data): bool { return EmployeeModel::updatePartial($id, $data); }
     public static function updateEmployeeProfile(int $id, array $data): bool { return EmployeeModel::updateProfile($id, $data); }
     public static function toggleEmployeeStatus(int $id, string $s): bool    { return EmployeeModel::toggleStatus($id, $s); }
     public static function searchEmployees(string $q): array                 { return EmployeeModel::search($q); }
@@ -245,4 +246,12 @@ class Model
 
     public static function getDashboardStats(): array        { return DashboardModel::getStats(); }
     public static function getHeadcountByDepartment(): array { return DashboardModel::getHeadcountByDepartment(); }
+
+    // ════════════════════════════════════════════════════════
+    //  EMPLOYEE NOTIFICATIONS  →  EmployeeNotificationModel
+    // ════════════════════════════════════════════════════════
+
+    public static function createEmployeeNotification(array $data): bool   { return EmployeeNotificationModel::create($data); }
+    public static function popUnreadNotifications(int $empId): array       { return EmployeeNotificationModel::popUnread($empId); }
+    public static function countUnreadNotifications(int $empId): int       { return EmployeeNotificationModel::countUnread($empId); }
 }

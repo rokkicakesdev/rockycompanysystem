@@ -327,14 +327,48 @@ class EmployeeModel extends BaseModel
         return $stmt->fetch() ?: null;
     }
 
+    /**
+     * Update a specific subset of employee columns without touching everything else.
+     * Used by the promotion/demotion/role-change handler to apply only salary + position.
+     * Salary history must already have been recorded by the caller.
+     */
+    public static function updatePartial(int $id, array $data): bool
+    {
+        $allowed = [
+            'basic_salary', 'allowance', 'position_id', 'department_id',
+            'employment_type', 'status', 'date_regularized',
+            'date_separated', 'separation_reason',
+        ];
+        $sets   = [];
+        $params = [':id' => $id];
+        foreach ($allowed as $col) {
+            if (array_key_exists($col, $data)) {
+                $sets[]            = "{$col} = :{$col}";
+                $params[":{$col}"] = $data[$col];
+            }
+        }
+        if (empty($sets)) return true;
+        $sets[] = 'updated_at = NOW()';
+        $stmt   = self::db()->prepare(
+            'UPDATE employees SET ' . implode(', ', $sets) . ' WHERE id = :id'
+        );
+        return (bool) $stmt->execute($params);
+    }
+
     // ── Salary History ───────────────────────────────────────────────────────
 
     public static function getSalaryHistory(int $employeeId): array
     {
         $stmt = self::db()->prepare('
-            SELECT sh.*, u.name AS approved_by_name
-            FROM salary_history sh LEFT JOIN users u ON u.id = sh.approved_by
-            WHERE sh.employee_id = ? ORDER BY sh.effective_date DESC
+            SELECT sh.*,
+                   u.name  AS approved_by_name,
+                   op.name AS old_position_name,
+                   np.name AS new_position_name
+            FROM salary_history sh
+            LEFT JOIN users     u  ON u.id  = sh.approved_by
+            LEFT JOIN positions op ON op.id = sh.old_position_id
+            LEFT JOIN positions np ON np.id = sh.new_position_id
+            WHERE sh.employee_id = ? ORDER BY sh.effective_date DESC, sh.id DESC
         ');
         $stmt->execute([$employeeId]);
         return $stmt->fetchAll();
@@ -345,19 +379,22 @@ class EmployeeModel extends BaseModel
         $stmt = self::db()->prepare('
             INSERT INTO salary_history
               (employee_id, old_basic_salary, new_basic_salary, old_allowance, new_allowance,
-               reason, effective_date, approved_by)
+               reason, change_type, old_position_id, new_position_id, effective_date, approved_by)
             VALUES (:employee_id, :old_basic_salary, :new_basic_salary, :old_allowance, :new_allowance,
-                    :reason, :effective_date, :approved_by)
+                    :reason, :change_type, :old_position_id, :new_position_id, :effective_date, :approved_by)
         ');
         return (bool) $stmt->execute([
             ':employee_id'      => $data['employee_id'],
             ':old_basic_salary' => $data['old_basic_salary'],
             ':new_basic_salary' => $data['new_basic_salary'],
-            ':old_allowance'    => $data['old_allowance']  ?? 0,
-            ':new_allowance'    => $data['new_allowance']  ?? 0,
-            ':reason'           => $data['reason']         ?? null,
+            ':old_allowance'    => $data['old_allowance']    ?? 0,
+            ':new_allowance'    => $data['new_allowance']    ?? 0,
+            ':reason'           => $data['reason']           ?? null,
+            ':change_type'      => $data['change_type']      ?? 'salary_increase',
+            ':old_position_id'  => $data['old_position_id']  ?? null,
+            ':new_position_id'  => $data['new_position_id']  ?? null,
             ':effective_date'   => $data['effective_date'],
-            ':approved_by'      => $data['approved_by']    ?? null,
+            ':approved_by'      => $data['approved_by']      ?? null,
         ]);
     }
 }

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 13, 2026 at 08:16 AM
+-- Generation Time: Apr 20, 2026 at 11:53 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -190,7 +190,18 @@ INSERT INTO `activity_logs` (`id`, `user_id`, `action`, `description`, `ip_addre
 (147, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 02:17:04'),
 (148, 1, 'SAVE_ATTENDANCE', 'Saved 2 employees on 2026-03-31 | Errors: 0', '::1', '2026-04-12 04:13:11'),
 (149, 1, 'UPDATE_ATTENDANCE', 'Updated ID:1 on 2026-03-31 | note: Late Update', '::1', '2026-04-12 04:14:59'),
-(150, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 12:57:55');
+(150, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-12 12:57:55'),
+(151, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-13 06:16:19'),
+(152, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-13 13:50:04'),
+(153, 1, 'UPLOAD_DOCUMENT', 'Uploaded document \'Doc\' (nbi_clearance) for employee ID:1', '::1', '2026-04-13 13:52:36'),
+(154, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-14 01:39:29'),
+(155, 1, 'EMPLOYEE_CHANGE', 'Promotion recorded for employee ID:1 effective 2026-04-16', '::1', '2026-04-14 01:41:50'),
+(156, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-14 01:42:34'),
+(157, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-14 05:16:55'),
+(158, 5, 'LOGIN', 'User \'chichi.emp\' logged in from ::1', '::1', '2026-04-14 07:45:47'),
+(159, 5, 'SUBMIT_REIMBURSEMENT', 'Employee ID:1 submitted reimbursement: Training / Seminar ₱1,000.00 [with attachment]', '::1', '2026-04-14 07:55:59'),
+(160, 1, 'LOGIN', 'User \'admin1\' logged in from ::1', '::1', '2026-04-14 07:56:12'),
+(161, 1, 'REVIEW_REIMBURSEMENT', 'Marked reimbursement ID:1 (Chichi The Dog) as approved', '::1', '2026-04-14 07:58:52');
 
 -- --------------------------------------------------------
 
@@ -295,7 +306,9 @@ INSERT INTO `attendance` (`id`, `employee_id`, `date`, `time_in`, `time_out`, `s
 (41, 1, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '[]', 9.00, 0, 0.00, 1, '2026-04-07 00:15:09', '2026-04-07 00:15:47'),
 (46, 2, '2026-04-07', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-07 00:16:00', '2026-04-07 00:16:00'),
 (47, 1, '2026-03-31', '09:00:00', '17:00:00', 'late', '', '[{\"id\":\"69db1c43b3ec3\",\"note\":\"Late Update\",\"by\":\"Rocky Astor\",\"at\":\"2026-04-12 06:14\"}]', 8.00, 0, 0.00, 1, '2026-04-12 04:13:11', '2026-04-12 04:14:59'),
-(48, 2, '2026-03-31', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-12 04:13:11', '2026-04-12 04:13:11');
+(48, 2, '2026-03-31', '08:00:00', '17:00:00', 'present', '', '', 9.00, 0, 0.00, 1, '2026-04-12 04:13:11', '2026-04-12 04:13:11'),
+(50, 1, '2026-04-10', NULL, NULL, 'on_leave', 'sick', 'Auto-created: leave approved (ID:1)', NULL, 0, 0.00, NULL, '2026-04-13 06:33:23', '2026-04-13 06:33:23'),
+(51, 1, '2026-04-08', NULL, NULL, 'on_leave', 'sick', 'Auto-created: leave approved (ID:2)', NULL, 0, 0.00, NULL, '2026-04-13 06:33:56', '2026-04-13 06:33:56');
 
 -- --------------------------------------------------------
 
@@ -352,7 +365,7 @@ CREATE TABLE `employees` (
   `date_regularized` date DEFAULT NULL,
   `date_separated` date DEFAULT NULL,
   `separation_reason` text DEFAULT NULL,
-  `status` enum('active','inactive','resigned','terminated') NOT NULL DEFAULT 'active',
+  `status` enum('active','inactive','resigned','terminated','retired') NOT NULL DEFAULT 'active',
   `sick_leave_balance` decimal(5,2) NOT NULL DEFAULT 10.00,
   `vacation_leave_balance` decimal(5,2) NOT NULL DEFAULT 10.00,
   `bereavement_leave_balance` decimal(5,2) NOT NULL DEFAULT 5.00,
@@ -379,7 +392,7 @@ CREATE TABLE `employees` (
 --
 
 INSERT INTO `employees` (`id`, `employee_no`, `name`, `gender`, `civil_status`, `birthdate`, `birthplace`, `nationality`, `address`, `email`, `phone`, `sss_no`, `philhealth_no`, `pagibig_no`, `tin_no`, `department_id`, `position_id`, `basic_salary`, `allowance`, `date_hired`, `date_start`, `employment_type`, `date_regularized`, `date_separated`, `separation_reason`, `status`, `sick_leave_balance`, `vacation_leave_balance`, `bereavement_leave_balance`, `emergency_leave_balance`, `sil_balance`, `maternity_leave_balance`, `paternity_leave_balance`, `solo_parent_leave_balance`, `vawc_leave_balance`, `magna_carta_leave_balance`, `created_at`, `updated_at`, `emergency_contact_name`, `emergency_contact_phone`, `emergency_contact_relation`, `profile_photo`, `cutoff1_fixed_amount`, `tax_method`, `gov_deduction_mode`) VALUES
-(1, 'EMP-001', 'Chichi The Dog', 'female', 'single', '2000-11-11', NULL, 'Filipino', 'Dasma Cavite', 'rokki.kaito@gmail.com', '09123456789', '1234567890', '123456789012', '123456789012', '123456789012', 4, 12, 100000.00, 10000.00, '2026-01-02', '2026-01-05', 'probationary', NULL, NULL, NULL, 'active', 8.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 14:36:55', '2026-04-11 16:08:24', 'Nami the Dog', '09123456789', 'Daughter', NULL, NULL, 'half_monthly', 'second_cutoff'),
+(1, 'EMP-001', 'Chichi The Dog', 'female', 'single', '2000-11-11', NULL, 'Filipino', 'Dasma Cavite', 'rokki.kaito@gmail.com', '09123456789', '1234567890', '123456789012', '123456789012', '123456789012', 4, 12, 105000.00, 10000.00, '2026-01-02', '2026-01-05', 'probationary', NULL, NULL, NULL, 'active', 8.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 14:36:55', '2026-04-14 01:41:50', 'Nami the Dog', '09123456789', 'Daughter', NULL, NULL, 'half_monthly', 'second_cutoff'),
 (2, 'EMP-002', 'Chicken the Cat', 'male', 'single', '2000-12-02', NULL, 'Filipino', 'Dasma Cavite', 'chicken@rocky.com', '09123456710', '1234567001', '123456789001', '123456789001', '123456789001', 1, 2, 200000.00, 10000.00, '2026-01-14', '2026-01-19', 'probationary', NULL, NULL, NULL, 'active', 10.00, 10.00, 5.00, 5.00, 5.00, 105.00, 7.00, 7.00, 10.00, 60.00, '2026-03-28 16:54:12', '2026-04-04 04:44:17', 'Goku the Cat', '09203456710', 'Son', NULL, NULL, 'half_monthly', 'second_cutoff');
 
 -- --------------------------------------------------------
@@ -397,6 +410,30 @@ CREATE TABLE `employee_documents` (
   `expiry_date` date DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `uploaded_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `employee_documents`
+--
+
+INSERT INTO `employee_documents` (`id`, `employee_id`, `document_type`, `title`, `file_path`, `expiry_date`, `notes`, `uploaded_by`, `created_at`) VALUES
+(1, 1, 'nbi_clearance', 'Doc', 'uploads/employee_docs/1/2167554d4dcf11d04797361c4b20b516.png', '2027-04-01', NULL, 1, '2026-04-13 13:52:36');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `employee_notifications`
+--
+
+CREATE TABLE `employee_notifications` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `employee_id` int(10) UNSIGNED NOT NULL,
+  `type` enum('promotion','regularization','retirement','general') NOT NULL DEFAULT 'general',
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `is_read` tinyint(1) NOT NULL DEFAULT 0,
+  `created_by` int(10) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -569,7 +606,14 @@ INSERT INTO `login_attempts` (`id`, `username`, `ip_address`, `attempted_at`, `w
 (52, 'chichi.emp', '::1', '2026-04-12 00:22:01', 1),
 (53, 'admin1', '::1', '2026-04-12 09:55:39', 1),
 (54, 'admin1', '::1', '2026-04-12 10:17:04', 1),
-(55, 'admin1', '::1', '2026-04-12 20:57:55', 1);
+(55, 'admin1', '::1', '2026-04-12 20:57:55', 1),
+(56, 'admin1', '::1', '2026-04-13 14:16:19', 1),
+(57, 'admin1', '::1', '2026-04-13 21:50:04', 1),
+(58, 'admin1', '::1', '2026-04-14 09:39:29', 1),
+(59, 'chichi.emp', '::1', '2026-04-14 09:42:34', 1),
+(60, 'admin1', '::1', '2026-04-14 13:16:55', 1),
+(61, 'chichi.emp', '::1', '2026-04-14 15:45:47', 1),
+(62, 'admin1', '::1', '2026-04-14 15:56:12', 1);
 
 -- --------------------------------------------------------
 
@@ -693,6 +737,7 @@ CREATE TABLE `reimbursements` (
   `receipt_date` date NOT NULL,
   `description` varchar(255) DEFAULT NULL,
   `receipt_no` varchar(60) DEFAULT NULL,
+  `receipt_file` varchar(255) DEFAULT NULL COMMENT 'Relative path to uploaded receipt/attachment',
   `status` enum('pending','approved','rejected','paid') NOT NULL DEFAULT 'pending',
   `reviewed_by` int(10) UNSIGNED DEFAULT NULL,
   `reviewed_at` timestamp NULL DEFAULT NULL,
@@ -700,6 +745,13 @@ CREATE TABLE `reimbursements` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `reimbursements`
+--
+
+INSERT INTO `reimbursements` (`id`, `employee_id`, `type`, `amount`, `receipt_date`, `description`, `receipt_no`, `receipt_file`, `status`, `reviewed_by`, `reviewed_at`, `review_notes`, `created_at`, `updated_at`) VALUES
+(1, 1, 'training', 1000.00, '2026-04-10', 'Attend the company seminar, \r\nInclusion of the reimbursement is the transpo, food and training fee', '', 'uploads/reimbursements/1/caba7914778c2bcebc0acc111a217351.png', 'approved', 1, '2026-04-14 07:58:52', '', '2026-04-14 07:55:59', '2026-04-14 07:58:52');
 
 -- --------------------------------------------------------
 
@@ -744,10 +796,20 @@ CREATE TABLE `salary_history` (
   `old_allowance` decimal(12,2) NOT NULL DEFAULT 0.00,
   `new_allowance` decimal(12,2) NOT NULL DEFAULT 0.00,
   `reason` varchar(255) DEFAULT NULL,
+  `change_type` enum('salary_increase','salary_decrease','promotion','demotion','role_change','probationary_to_regular','retirement','other') NOT NULL DEFAULT 'salary_increase',
+  `old_position_id` int(10) UNSIGNED DEFAULT NULL,
+  `new_position_id` int(10) UNSIGNED DEFAULT NULL,
   `effective_date` date NOT NULL,
   `approved_by` int(10) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `salary_history`
+--
+
+INSERT INTO `salary_history` (`id`, `employee_id`, `old_basic_salary`, `new_basic_salary`, `old_allowance`, `new_allowance`, `reason`, `change_type`, `old_position_id`, `new_position_id`, `effective_date`, `approved_by`, `created_at`) VALUES
+(1, 1, 100000.00, 105000.00, 10000.00, 10000.00, 'Excelllent Performance Q1', 'promotion', 12, 12, '2026-04-16', 1, '2026-04-14 01:41:50');
 
 -- --------------------------------------------------------
 
@@ -781,6 +843,8 @@ CREATE TABLE `users` (
   `username` varchar(80) NOT NULL,
   `email` varchar(150) NOT NULL,
   `password` varchar(255) NOT NULL,
+  `must_change_password` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1 = user must change password on next login',
+  `password_changed_at` timestamp NULL DEFAULT NULL COMMENT 'Timestamp of last password change',
   `role` enum('admin','management','employee') NOT NULL DEFAULT 'admin',
   `employee_id` int(10) UNSIGNED DEFAULT NULL,
   `status` enum('active','inactive') NOT NULL DEFAULT 'active',
@@ -793,13 +857,13 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `name`, `username`, `email`, `password`, `role`, `employee_id`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 'Rocky Astor', 'admin1', 'admin1@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'admin', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-03-19 06:55:52'),
-(2, 'Jalen Andrino', 'admin2', 'admin2@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'admin', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-03-19 06:55:52'),
-(3, 'Mochi Manager', 'management1', 'management1@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'management', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-03-19 06:55:52'),
-(4, 'Chichi The Dog', 'admin3', 'admin3@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 'admin', NULL, 'active', 1, '2026-03-04 01:14:34', '2026-03-19 06:55:52'),
-(5, 'Chichi The Dog', 'chichi.emp', 'rokki.kaito@gmail.com', '$2y$10$OnvEPm50E7IApL5P.Nf2x.E1LJ2ka1Il6OKoVl1yKV3kcoHqTgU02', 'employee', 1, 'active', 1, '2026-03-28 14:36:55', '2026-04-11 16:07:53'),
-(6, 'Chicken the Cat', 'chicken.emp', 'chicken@rocky.com', '$2y$10$kHCdYhq89Mxtq06rNS87huzdp1PZtZgK4EORIQRnuSVufHBoM/bGm', 'employee', 2, 'active', 1, '2026-03-28 16:54:12', '2026-03-28 16:54:12');
+INSERT INTO `users` (`id`, `name`, `username`, `email`, `password`, `must_change_password`, `password_changed_at`, `role`, `employee_id`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 'Rocky Astor', 'admin1', 'admin1@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 1, NULL, 'admin', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-04-20 09:53:13'),
+(2, 'Jalen Andrino', 'admin2', 'admin2@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 1, NULL, 'admin', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-04-20 09:53:13'),
+(3, 'Mochi Manager', 'management1', 'management1@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 1, NULL, 'management', NULL, 'active', NULL, '2026-02-24 10:54:28', '2026-04-20 09:53:13'),
+(4, 'Chichi The Dog', 'admin3', 'admin3@rocky.com', '$2y$10$u8dAA/RaxigZoaqeXehBYucwFP/1zlv5qlsDrpJvxW47BgMmjFGoy', 1, NULL, 'admin', NULL, 'active', 1, '2026-03-04 01:14:34', '2026-04-20 09:53:13'),
+(5, 'Chichi The Dog', 'chichi.emp', 'rokki.kaito@gmail.com', '$2y$10$OnvEPm50E7IApL5P.Nf2x.E1LJ2ka1Il6OKoVl1yKV3kcoHqTgU02', 1, NULL, 'employee', 1, 'active', 1, '2026-03-28 14:36:55', '2026-04-20 09:53:13'),
+(6, 'Chicken the Cat', 'chicken.emp', 'chicken@rocky.com', '$2y$10$kHCdYhq89Mxtq06rNS87huzdp1PZtZgK4EORIQRnuSVufHBoM/bGm', 1, NULL, 'employee', 2, 'active', 1, '2026-03-28 16:54:12', '2026-04-20 09:53:13');
 
 -- --------------------------------------------------------
 
@@ -819,7 +883,7 @@ CREATE TABLE `v_employees` (
 ,`address` text
 ,`date_hired` date
 ,`employment_type` enum('regular','probationary','contractual','part_time')
-,`status` enum('active','inactive','resigned','terminated')
+,`status` enum('active','inactive','resigned','terminated','retired')
 ,`basic_salary` decimal(12,2)
 ,`allowance` decimal(12,2)
 ,`sick_leave_balance` decimal(5,2)
@@ -961,6 +1025,13 @@ ALTER TABLE `employee_documents`
   ADD KEY `employee_documents_ibfk_2` (`uploaded_by`);
 
 --
+-- Indexes for table `employee_notifications`
+--
+ALTER TABLE `employee_notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `employee_notifications_emp_fk` (`employee_id`);
+
+--
 -- Indexes for table `holidays`
 --
 ALTER TABLE `holidays`
@@ -1037,7 +1108,9 @@ ALTER TABLE `salary_deductions`
 ALTER TABLE `salary_history`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_employee_id` (`employee_id`),
-  ADD KEY `salary_history_ibfk_2` (`approved_by`);
+  ADD KEY `salary_history_ibfk_2` (`approved_by`),
+  ADD KEY `salary_history_old_pos_fk` (`old_position_id`),
+  ADD KEY `salary_history_new_pos_fk` (`new_position_id`);
 
 --
 -- Indexes for table `thirteenth_month_pay`
@@ -1066,7 +1139,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `activity_logs`
 --
 ALTER TABLE `activity_logs`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=151;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=162;
 
 --
 -- AUTO_INCREMENT for table `announcements`
@@ -1084,7 +1157,7 @@ ALTER TABLE `applicants`
 -- AUTO_INCREMENT for table `attendance`
 --
 ALTER TABLE `attendance`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -1102,6 +1175,12 @@ ALTER TABLE `employees`
 -- AUTO_INCREMENT for table `employee_documents`
 --
 ALTER TABLE `employee_documents`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `employee_notifications`
+--
+ALTER TABLE `employee_notifications`
   MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
@@ -1126,7 +1205,7 @@ ALTER TABLE `leave_requests`
 -- AUTO_INCREMENT for table `login_attempts`
 --
 ALTER TABLE `login_attempts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT for table `payroll_notes`
@@ -1150,7 +1229,7 @@ ALTER TABLE `positions`
 -- AUTO_INCREMENT for table `reimbursements`
 --
 ALTER TABLE `reimbursements`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `salary_deductions`
@@ -1162,7 +1241,7 @@ ALTER TABLE `salary_deductions`
 -- AUTO_INCREMENT for table `salary_history`
 --
 ALTER TABLE `salary_history`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `thirteenth_month_pay`
@@ -1221,6 +1300,12 @@ ALTER TABLE `employee_documents`
   ADD CONSTRAINT `employee_documents_ibfk_2` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
+-- Constraints for table `employee_notifications`
+--
+ALTER TABLE `employee_notifications`
+  ADD CONSTRAINT `employee_notifications_emp_fk` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `job_postings`
 --
 ALTER TABLE `job_postings`
@@ -1259,7 +1344,9 @@ ALTER TABLE `positions`
 --
 ALTER TABLE `salary_history`
   ADD CONSTRAINT `salary_history_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `employees` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `salary_history_ibfk_2` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `salary_history_ibfk_2` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `salary_history_new_pos_fk` FOREIGN KEY (`new_position_id`) REFERENCES `positions` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `salary_history_old_pos_fk` FOREIGN KEY (`old_position_id`) REFERENCES `positions` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `thirteenth_month_pay`
