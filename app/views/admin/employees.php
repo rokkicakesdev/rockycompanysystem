@@ -1,5 +1,10 @@
 <?php
-// ── Handlers MUST run before any HTML output ─────────────────────────────────
+// ── Bootstrap — load config, DB and Model FIRST so all handlers can use them ─
+if (!defined('ROLE_ADMIN')) require_once __DIR__ . '/../../../config/config.php';
+if (!defined('DB_HOST'))    require_once __DIR__ . '/../../../config/database.php';
+if (!class_exists('Database')) require_once __DIR__ . '/../../../core/Database.php';
+if (!class_exists('Model'))    require_once __DIR__ . '/../../../core/Model.php';
+
 if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 // Generate CSRF token if not already set
@@ -12,9 +17,6 @@ $msg = '';
 
 // ── Handle toggle status ──────────────────────────────────────────────────────
 if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
-    require_once __DIR__ . '/../../../config/config.php';
-    require_once __DIR__ . '/../../../config/database.php';
-    require_once __DIR__ . '/../../../core/Model.php';
     $emp   = Model::findEmployeeById((int)$_GET['toggle']);
     $newSt = ($emp && $emp['status'] === 'active') ? 'inactive' : 'active';
     Model::toggleEmployeeStatus((int)$_GET['toggle'], $newSt);
@@ -109,6 +111,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_document'])) {
         }
         header('Location: employees.php?view_id=' . $delEmpId . '&doc_tab=1');
         exit;
+    }
+}
+
+// ── Handle: Record Promotion / Demotion / Role Change / Salary Adjustment ────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['record_change'])) {
+    if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
+        $msg = '<div class="alert alert-danger">Invalid security token.</div>';
+    } else {
+        $rcEmpId       = (int)($_POST['rc_emp_id']       ?? 0);
+        $changeType    = $_POST['rc_change_type']        ?? '';
+        $newPositionId = (int)($_POST['rc_new_position_id'] ?? 0) ?: null;
+        $newBasic      = (float)($_POST['rc_new_basic']  ?? 0);
+        $newAllowance  = (float)($_POST['rc_new_allowance'] ?? 0);
+        $effectiveDate = $_POST['rc_effective_date']     ?? date('Y-m-d');
+        $reason        = trim($_POST['rc_reason']        ?? '');
+
+        $allowedTypes = ['salary_increase','salary_decrease','promotion','demotion','role_change','other'];
+
+        if (!$rcEmpId || !in_array($changeType, $allowedTypes, true) || !$effectiveDate) {
+            $msg = '<div class="alert alert-danger">Please fill in all required fields.</div>';
+        } else {
+            $rcEmp = Model::findEmployeeById($rcEmpId);
+            if ($rcEmp) {
+                $oldBasic      = (float)($rcEmp['basic_salary'] ?? 0);
+                $oldAllowance  = (float)($rcEmp['allowance']    ?? 0);
+                $oldPositionId = (int)($rcEmp['position_id']    ?? 0) ?: null;
+
+                // Determine final salary — for position-only changes keep current salary unless overridden
+                $finalBasic     = ($newBasic > 0)     ? $newBasic     : $oldBasic;
+                $finalAllowance = ($newAllowance >= 0) ? $newAllowance : $oldAllowance;
+                $finalPosition  = $newPositionId       ? $newPositionId : $oldPositionId;
+
+                // Record history entry
+                Model::createSalaryHistory([
+                    'employee_id'      => $rcEmpId,
+                    'old_basic_salary' => $oldBasic,
+                    'new_basic_salary' => $finalBasic,
+                    'old_allowance'    => $oldAllowance,
+                    'new_allowance'    => $finalAllowance,
+                    'reason'           => $reason ?: ucwords(str_replace('_', ' ', $changeType)),
+                    'change_type'      => $changeType,
+                    'old_position_id'  => $oldPositionId,
+                    'new_position_id'  => $finalPosition,
+                    'effective_date'   => $effectiveDate,
+                    'approved_by'      => $_SESSION['user_id'] ?? null,
+                ]);
+
+                // Update employee record with new salary / position
+                $updateData = [
+                    'basic_salary' => $finalBasic,
+                    'allowance'    => $finalAllowance,
+                    'position_id'  => $finalPosition ?? $oldPositionId,
+                    'updated_by'   => $_SESSION['user_id'] ?? null,
+                ];
+                Model::updateEmployeePartial($rcEmpId, $updateData);
+
+                Model::log($_SESSION['user_id'], 'EMPLOYEE_CHANGE',
+                    ucwords(str_replace('_', ' ', $changeType)) . " recorded for employee ID:{$rcEmpId} effective {$effectiveDate}");
+            }
+            header('Location: employees.php?view_id=' . $rcEmpId . '&sal_tab=1&updated=1');
+            exit;
+        }
     }
 }
 
@@ -410,7 +474,7 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" data-toggle="pill" href="#tabSalary">
+            <a class="nav-link <?= isset($_GET['sal_tab']) ? 'active' : '' ?>" data-toggle="pill" href="#tabSalary">
               <i class="fas fa-chart-line mr-1"></i>Salary History
             </a>
           </li>
@@ -532,12 +596,104 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
           </div>
 
           <!-- Salary History -->
-          <div class="tab-pane fade" id="tabSalary">
+          <div class="tab-pane fade <?= isset($_GET['sal_tab']) ? 'show active' : '' ?>" id="tabSalary">
+
+            <!-- Record Change Form -->
+            <form method="POST" class="mb-4" id="recordChangeForm">
+              <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf_token) ?>">
+              <input type="hidden" name="record_change" value="1">
+              <input type="hidden" name="rc_emp_id"    value="<?= (int)$viewEmp['id'] ?>">
+
+              <div class="card border-success mb-0">
+                <div class="card-header bg-success text-white py-2">
+                  <i class="fas fa-exchange-alt mr-2"></i>Record Promotion / Demotion / Role Change / Salary Adjustment
+                </div>
+                <div class="card-body pb-2">
+                  <div class="row">
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">Change Type <span class="text-danger">*</span></label>
+                        <select name="rc_change_type" id="rcChangeType" class="form-control form-control-sm" required>
+                          <option value="">-- Select --</option>
+                          <option value="promotion">🏆 Promotion</option>
+                          <option value="demotion">🔽 Demotion</option>
+                          <option value="role_change">🔄 Role Change</option>
+                          <option value="salary_increase">📈 Salary Increase</option>
+                          <option value="salary_decrease">📉 Salary Decrease</option>
+                          <option value="other">📝 Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">Effective Date <span class="text-danger">*</span></label>
+                        <input type="date" name="rc_effective_date" class="form-control form-control-sm"
+                               value="<?= date('Y-m-d') ?>" required>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">New Position <small class="text-muted">(if changing)</small></label>
+                        <select name="rc_new_position_id" class="form-control form-control-sm">
+                          <option value="">-- Keep Current --</option>
+                          <?php foreach ($positions as $pos): ?>
+                            <option value="<?= $pos['id'] ?>"
+                              <?= (int)$pos['id'] === (int)($viewEmp['position_id'] ?? 0) ? 'selected' : '' ?>>
+                              <?= htmlspecialchars($pos['department_name'] . ' › ' . $pos['name']) ?>
+                            </option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">Reason / Notes</label>
+                        <input type="text" name="rc_reason" class="form-control form-control-sm"
+                               placeholder="e.g. Excellent performance Q1 2026" maxlength="255">
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">New Basic Salary <small class="text-muted">(leave 0 to keep current)</small></label>
+                        <div class="input-group input-group-sm">
+                          <div class="input-group-prepend"><span class="input-group-text">₱</span></div>
+                          <input type="number" step="0.01" min="0" name="rc_new_basic"
+                                 class="form-control form-control-sm"
+                                 value="<?= number_format((float)($viewEmp['basic_salary'] ?? 0), 2, '.', '') ?>"
+                                 placeholder="<?= number_format((float)($viewEmp['basic_salary'] ?? 0), 2) ?>">
+                        </div>
+                        <small class="text-muted">Current: ₱<?= number_format((float)($viewEmp['basic_salary'] ?? 0), 2) ?></small>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="form-group">
+                        <label class="font-weight-600">New Allowance <small class="text-muted">(leave 0 to keep current)</small></label>
+                        <div class="input-group input-group-sm">
+                          <div class="input-group-prepend"><span class="input-group-text">₱</span></div>
+                          <input type="number" step="0.01" min="0" name="rc_new_allowance"
+                                 class="form-control form-control-sm"
+                                 value="<?= number_format((float)($viewEmp['allowance'] ?? 0), 2, '.', '') ?>"
+                                 placeholder="<?= number_format((float)($viewEmp['allowance'] ?? 0), 2) ?>">
+                        </div>
+                        <small class="text-muted">Current: ₱<?= number_format((float)($viewEmp['allowance'] ?? 0), 2) ?></small>
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-save mr-1"></i>Save Change Record
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- History Table -->
             <div class="table-responsive">
               <table class="table table-sm table-bordered mb-0">
-                <thead>
+                <thead class="thead-dark">
                   <tr>
                     <th>Effective Date</th>
+                    <th>Change Type</th>
+                    <th>Position Change</th>
                     <th class="text-right">Old Basic</th>
                     <th class="text-right">New Basic</th>
                     <th>Reason</th>
@@ -545,18 +701,47 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                   </tr>
                 </thead>
                 <tbody>
-                  <?php if (!empty($viewSalaryH)): ?>
-                    <?php foreach ($viewSalaryH as $sh): ?>
-                    <tr>
-                      <td><?= date('M d, Y', strtotime($sh['effective_date'])) ?></td>
-                      <td class="text-right">₱<?= number_format($sh['old_basic_salary'], 2) ?></td>
-                      <td class="text-right text-success"><strong>₱<?= number_format($sh['new_basic_salary'], 2) ?></strong></td>
-                      <td><?= htmlspecialchars($sh['reason'] ?? '—') ?></td>
-                      <td><?= htmlspecialchars($sh['approved_by_name'] ?? '—') ?></td>
-                    </tr>
-                    <?php endforeach; ?>
+                  <?php if (!empty($viewSalaryH)):
+                    $changeTypeBadge = [
+                      'promotion'       => ['success', '🏆 Promotion'],
+                      'demotion'        => ['danger',  '🔽 Demotion'],
+                      'role_change'     => ['info',    '🔄 Role Change'],
+                      'salary_increase' => ['primary', '📈 Increase'],
+                      'salary_decrease' => ['warning', '📉 Decrease'],
+                      'other'           => ['secondary','📝 Other'],
+                    ];
+                    foreach ($viewSalaryH as $sh):
+                      $ct   = $sh['change_type'] ?? 'salary_increase';
+                      $badge = $changeTypeBadge[$ct] ?? ['secondary', ucfirst(str_replace('_',' ',$ct))];
+                      $salDiff = (float)$sh['new_basic_salary'] - (float)$sh['old_basic_salary'];
+                  ?>
+                  <tr>
+                    <td><?= date('M d, Y', strtotime($sh['effective_date'])) ?></td>
+                    <td><span class="badge badge-<?= $badge[0] ?>"><?= $badge[1] ?></span></td>
+                    <td class="text-xs">
+                      <?php if (!empty($sh['old_position_name']) || !empty($sh['new_position_name'])): ?>
+                        <?= htmlspecialchars($sh['old_position_name'] ?? '—') ?>
+                        <?php if (!empty($sh['new_position_name']) && $sh['new_position_name'] !== ($sh['old_position_name'] ?? '')): ?>
+                          <i class="fas fa-arrow-right mx-1 text-muted"></i>
+                          <strong><?= htmlspecialchars($sh['new_position_name']) ?></strong>
+                        <?php endif; ?>
+                      <?php else: ?>
+                        <span class="text-muted">—</span>
+                      <?php endif; ?>
+                    </td>
+                    <td class="text-right">₱<?= number_format($sh['old_basic_salary'], 2) ?></td>
+                    <td class="text-right <?= $salDiff > 0 ? 'text-success' : ($salDiff < 0 ? 'text-danger' : '') ?>">
+                      <strong>₱<?= number_format($sh['new_basic_salary'], 2) ?></strong>
+                      <?php if ($salDiff != 0): ?>
+                        <small>(<?= $salDiff > 0 ? '+' : '' ?><?= number_format($salDiff, 2) ?>)</small>
+                      <?php endif; ?>
+                    </td>
+                    <td><?= htmlspecialchars($sh['reason'] ?? '—') ?></td>
+                    <td><?= htmlspecialchars($sh['approved_by_name'] ?? '—') ?></td>
+                  </tr>
+                  <?php endforeach; ?>
                   <?php else: ?>
-                    <tr><td colspan="5" class="text-center text-muted py-3">No salary history found.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">No change history found.</td></tr>
                   <?php endif; ?>
                 </tbody>
               </table>

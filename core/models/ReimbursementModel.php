@@ -83,18 +83,24 @@ class ReimbursementModel extends BaseModel
     {
         $stmt = self::db()->prepare('
             INSERT INTO reimbursements
-              (employee_id, type, amount, receipt_date, description, receipt_no, status)
+              (employee_id, type, amount, receipt_date, description, receipt_no, receipt_file, status)
             VALUES
-              (:employee_id, :type, :amount, :receipt_date, :description, :receipt_no, "pending")
+              (:employee_id, :type, :amount, :receipt_date, :description, :receipt_no, :receipt_file, "pending")
         ');
         return (bool) $stmt->execute([
             ':employee_id'  => $d['employee_id'],
             ':type'         => $d['type'],
             ':amount'       => (float)$d['amount'],
             ':receipt_date' => $d['receipt_date'],
-            ':description'  => $d['description'] ?? null,
-            ':receipt_no'   => $d['receipt_no']  ?? null,
+            ':description'  => $d['description']  ?? null,
+            ':receipt_no'   => $d['receipt_no']    ?? null,
+            ':receipt_file' => $d['receipt_file']  ?? null,
         ]);
+    }
+
+    public static function getLastInsertId(): int
+    {
+        return (int) self::db()->lastInsertId();
     }
 
     public static function review(int $id, string $status, int $reviewedBy, string $notes = ''): bool
