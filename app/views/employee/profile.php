@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     }
 }
 
-// ── POST: Change password ─────────────────────────────────────
+// ── POST: Change password ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     if (!hash_equals($csrf_token, $_POST['csrf_token'] ?? '')) {
         $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Invalid security token.</div>";
@@ -58,21 +58,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         $newPw      = $_POST['new_password']       ?? '';
         $confirmPw  = $_POST['confirm_password']   ?? '';
 
-        // Fetch current user to verify password
+        // Password policy check
+        $policyErrors = [];
+        if (strlen($newPw) < 8)             $policyErrors[] = 'at least 8 characters';
+        if (!preg_match('/[A-Z]/', $newPw)) $policyErrors[] = 'an uppercase letter';
+        if (!preg_match('/[a-z]/', $newPw)) $policyErrors[] = 'a lowercase letter';
+        if (!preg_match('/[0-9]/', $newPw)) $policyErrors[] = 'a number';
+        if (!preg_match('/[\W_]/', $newPw)) $policyErrors[] = 'a special character';
+
         $user = Model::findUserById($_SESSION['user_id']);
 
         if (!$user || !password_verify($currentPw, $user['password'])) {
             $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Current password is incorrect.</div>";
-        } elseif (strlen($newPw) < 8) {
-            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New password must be at least 8 characters.</div>";
         } elseif (!hash_equals($newPw, $confirmPw)) {
             $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New passwords do not match.</div>";
+        } elseif (password_verify($newPw, $user['password'])) {
+            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>New password cannot be the same as your current password.</div>";
+        } elseif (!empty($policyErrors)) {
+            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>Password must include: " . implode(', ', $policyErrors) . ".</div>";
         } else {
             Model::updateUserPassword($_SESSION['user_id'], $newPw);
+            unset($_SESSION['must_change_password']);
             Model::log($_SESSION['user_id'], 'CHANGE_PASSWORD', "Employee changed their password");
             $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Password changed successfully.</div>";
         }
     }
+}
 }
 
 // Reload fresh employee data

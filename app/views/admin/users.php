@@ -54,11 +54,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
           ->required('email', 'Email')->email('email', 'Email')
           ->inList('role', ['admin', 'management', 'employee'], 'Role')
           ->inList('status', ['active', 'inactive'], 'Status');
+        $pwPolicyErrors = [];
         if (!empty($_POST['new_password'])) {
             $v->minLen('new_password', 8, 'New password');
+            $np = $_POST['new_password'];
+            if (!preg_match('/[A-Z]/', $np)) $pwPolicyErrors[] = 'an uppercase letter';
+            if (!preg_match('/[a-z]/', $np)) $pwPolicyErrors[] = 'a lowercase letter';
+            if (!preg_match('/[0-9]/', $np)) $pwPolicyErrors[] = 'a number';
+            if (!preg_match('/[\W_]/', $np)) $pwPolicyErrors[] = 'a special character';
         }
         if ($v->fails()) {
             $msg = $v->errorHtml();
+        } elseif (!empty($pwPolicyErrors)) {
+            $msg = "<div class='alert alert-warning'><i class='fas fa-exclamation-triangle mr-2'></i>Password must include: " . implode(', ', $pwPolicyErrors) . ".</div>";
         } else {
             Model::updateUser((int)$_POST['user_id'], [
                 'name'   => trim($_POST['name']),
@@ -68,6 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
             ]);
             if (!empty($_POST['new_password'])) {
                 Model::updateUserPassword((int)$_POST['user_id'], $_POST['new_password']);
+                // Force user to change this admin-set password on next login
+                Model::forcePasswordChange((int)$_POST['user_id']);
             }
             Model::log($_SESSION['user_id'], 'UPDATE_USER', "Updated user ID:" . $_POST['user_id']);
             $msg = "<div class='alert alert-success alert-auto-dismiss'>User updated successfully.</div>";
