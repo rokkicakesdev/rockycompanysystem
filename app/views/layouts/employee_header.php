@@ -17,6 +17,19 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'employee') {
     exit;
 }
 
+// ── Forced password change guard ──────────────────────────────────────────────
+if (!isset($_SESSION['must_change_password'])) {
+    if (class_exists('Model') && isset($_SESSION['user_id'])) {
+        $__u = Model::findUserById((int)$_SESSION['user_id']);
+        $_SESSION['must_change_password'] = (bool)($__u['must_change_password'] ?? false);
+        unset($__u);
+    }
+}
+if (!empty($_SESSION['must_change_password'])) {
+    header('Location: ' . BASE_URL . '/change_password.php');
+    exit;
+}
+
 $currentUser = $_SESSION['user'];
 $currentPath = basename($_SERVER['PHP_SELF']);
 ?>

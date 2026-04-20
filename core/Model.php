@@ -53,6 +53,7 @@ class Model
     public static function createUser(array $data): bool                 { return UserModel::create($data); }
     public static function updateUser(int $id, array $data): bool        { return UserModel::update($id, $data); }
     public static function updateUserPassword(int $id, string $pw): bool { return UserModel::updatePassword($id, $pw); }
+    public static function forcePasswordChange(int $id): bool           { return UserModel::forcePasswordChange($id); }
     public static function updateUserStatus(int $id, string $s): bool    { return UserModel::updateStatus($id, $s); }
     public static function generateEmployeeUsername(string $n): string   { return UserModel::generateEmployeeUsername($n); }
     public static function createResetToken(int $uid, string $tok, int $mins = 30): bool { return UserModel::createResetToken($uid, $tok, $mins); }

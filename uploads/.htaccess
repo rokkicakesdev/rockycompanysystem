@@ -1,0 +1,16 @@
+# Rocky Company HRIS — Upload Directory Security
+# ALL file access MUST go through download.php which enforces auth + ownership.
+# Direct URL access is DENIED.
+
+Order deny,allow
+Deny from all
+
+Options -ExecCGI
+AddHandler cgi-script .php .php3 .php4 .php5 .php7 .phtml .phar .pl .py .sh
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+Options -Indexes

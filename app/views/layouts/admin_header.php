@@ -29,6 +29,20 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'] ?? '', [ROLE_ADM
     exit;
 }
 
+// ── Forced password change guard ──────────────────────────────────────────────
+// Load must_change_password flag from DB once per session, then cache in session.
+if (!isset($_SESSION['must_change_password'])) {
+    if (class_exists('Model') && isset($_SESSION['user_id'])) {
+        $__u = Model::findUserById((int)$_SESSION['user_id']);
+        $_SESSION['must_change_password'] = (bool)($__u['must_change_password'] ?? false);
+        unset($__u);
+    }
+}
+if (!empty($_SESSION['must_change_password'])) {
+    header('Location: ' . BASE_URL . '/change_password.php');
+    exit;
+}
+
 // Dynamic counters
 $pendingLeaves = 0;
 if (class_exists('Model') && method_exists('Model', 'countPendingLeaves')) {

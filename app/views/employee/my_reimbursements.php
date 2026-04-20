@@ -102,7 +102,6 @@ $records    = ReimbursementModel::getByEmployee($employeeId);
 $typeLabels = ReimbursementModel::types();
 
 // Build the base URL for reimbursement attachments (served via direct path)
-$uploadBaseUrl = BASE_URL . '/uploads/reimbursements/' . $employeeId . '/';
 
 require_once __DIR__ . '/../layouts/employee_header.php';
 ?>
@@ -152,9 +151,9 @@ require_once __DIR__ . '/../layouts/employee_header.php';
             <td><?= htmlspecialchars($r['receipt_no'] ?? '—') ?></td>
             <td>
               <?php if (!empty($r['receipt_file'])): ?>
-                <a href="<?= BASE_URL . '/' . ltrim($r['receipt_file'], '/') ?>"
-                   target="_blank" class="btn btn-xs btn-outline-secondary" title="View Attachment">
-                  <i class="fas fa-paperclip mr-1"></i>View
+                <a href="<?= BASE_URL ?>/download.php?type=reimb&id=<?= (int)$r['id'] ?>"
+                   class="btn btn-xs btn-outline-secondary" title="Download Receipt">
+                  <i class="fas fa-download mr-1"></i>Receipt
                 </a>
               <?php else: ?>
                 <span class="text-muted small">—</span>

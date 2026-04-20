@@ -1,68 +1,57 @@
 # Rocky Company HRIS — Apache Security Rules
-# Place this file in the project root (same folder as index.php)
 
-# ── Force HTTPS (enable on production — disable on localhost) ─────
-# Uncomment the 4 lines below when deploying to a live HTTPS server.
-# Leave commented out for local XAMPP development (HTTP only).
-#
-# <IfModule mod_rewrite.c>
-#     RewriteEngine On
-#     RewriteCond %{HTTPS} off
-#     RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-# </IfModule>
+# ── Force HTTPS ───────────────────────────────────────────────────────────────
+# HOW TO ENABLE FOR PRODUCTION:
+#   Set APP_ENV=production in .env, ensure valid SSL cert, then uncomment below.
+#   On localhost/XAMPP: keep commented — HTTP is fine for local dev.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
 
-# ── Disable directory listing ─────────────────────────────────────
+# ── Disable directory listing ─────────────────────────────────────────────────
 Options -Indexes
 
-# ── Block direct access to sensitive file types ───────────────────
-# NOTE: .json and .lock are intentionally NOT blocked here.
-# Composer needs to read/write composer.json and composer.lock via the CLI.
-# These files have no sensitive data and are not directly useful to attackers.
+# ── Block direct access to sensitive file types ───────────────────────────────
 <FilesMatch "\.(env|log|sql|sh|bak|swp|map)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# Block dotfiles and markdown by exact name
+# Block dotfiles and markdown
 <FilesMatch "^(\.gitignore|\.gitattributes|README\.md|CHANGELOG\.md|LICENSE\.md)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
 
-# ── Block access to specific sensitive PHP utility files ──────────
+# ── Block access to specific sensitive PHP utility files ──────────────────────
 <FilesMatch "^(reset_password|clear_session)\.php$">
     Order allow,deny
     Deny from all
-    # If you need localhost access, uncomment below and remove the Deny line:
-    # Allow from 127.0.0.1 ::1
 </FilesMatch>
 
-# ── Block direct access to sensitive directories ──────────────────
+# ── Block direct access to sensitive directories ──────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
-
-    # Block access to config/, core/, database/, vendor/ directories
     RewriteRule ^config/.*$   - [F,L]
     RewriteRule ^core/.*$     - [F,L]
     RewriteRule ^database/.*$ - [F,L]
     RewriteRule ^vendor/.*$   - [F,L]
-
-    # Block access to hidden files (.env, .git, etc.)
     RewriteRule (^|/)\. - [F,L]
 </IfModule>
 
-# ── Security Headers ──────────────────────────────────────────────
-# Requires mod_headers. On XAMPP this is usually already enabled.
+# ── Security Headers ──────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
     Header always set X-Frame-Options "DENY"
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
     Header always set X-XSS-Protection "1; mode=block"
-    # Uncomment ONLY on HTTPS production — breaks localhost if enabled:
-    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    # HSTS — only effective on HTTPS. Safe to keep; browsers ignore on HTTP.
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
-# ── PHP error display (extra safety net on top of config.php) ─────
+# ── PHP error display ─────────────────────────────────────────────────────────
 <IfModule mod_php.c>
     php_flag display_errors Off
     php_flag log_errors On

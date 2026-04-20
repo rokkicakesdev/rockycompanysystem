@@ -264,19 +264,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ── Auto-create linked user account ───────────────────────────
             // Format:   username = firstname.emp  (unique, suffixed if taken)
-            // Password: admin123  (employee must change on first login)
+            // Password: cryptographically random temp — must be changed on first login.
             $autoUsername = Model::generateEmployeeUsername($data['name']);
             $userCreated  = false;
+            $tempPassword = '';
             if ($newEmpId > 0) {
+                // Readable temp password: letters+digits+specials, no ambiguous chars
+                $chars    = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789!@#';
+                $tempPass = '';
+                for ($i = 0; $i < 12; $i++) {
+                    $tempPass .= $chars[random_int(0, strlen($chars) - 1)];
+                }
+                $tempPassword = substr($tempPass, 0, 4) . '-' . substr($tempPass, 4, 4) . '-' . substr($tempPass, 8, 4);
+
                 $userCreated = Model::createUser([
-                    'name'        => $data['name'],
-                    'username'    => $autoUsername,
-                    'email'       => $data['email'] ?? ($autoUsername . '@rocky.com'),
-                    'password'    => 'admin123',
-                    'role'        => 'employee',
-                    'employee_id' => $newEmpId,
-                    'status'      => 'active',
-                    'created_by'  => $_SESSION['user_id'] ?? null,
+                    'name'                 => $data['name'],
+                    'username'             => $autoUsername,
+                    'email'                => $data['email'] ?? ($autoUsername . '@rocky.com'),
+                    'password'             => $tempPassword,
+                    'role'                 => 'employee',
+                    'employee_id'          => $newEmpId,
+                    'status'               => 'active',
+                    'must_change_password' => 1,
+                    'created_by'           => $_SESSION['user_id'] ?? null,
                 ]);
             }
 
@@ -291,7 +301,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ? "<br><small><i class=\"fas fa-user-check mr-1\"></i>
                    User account created &mdash;
                    Username: <strong>{$autoUsername}</strong> &nbsp;|&nbsp;
-                   Default password: <strong>admin123</strong></small>"
+                   Temporary password: <strong style=\"font-family:monospace;letter-spacing:1px;\">{$tempPassword}</strong>
+                   &nbsp;<span class=\"badge badge-warning\">Must change on first login</span></small>"
                 : '';
 
             $msg = "<div class=\"alert alert-success alert-dismissible fade show\" role=\"alert\">
@@ -865,10 +876,11 @@ if (isset($_GET['view_id']) && is_numeric($_GET['view_id'])) {
                       <td>
                         <?= htmlspecialchars($doc['title']) ?>
                         <?php if (!empty($doc['file_path'])): ?>
-                          <br><small class="text-muted">
-                            <i class="fas fa-paperclip mr-1"></i>
-                            <?= htmlspecialchars(basename($doc['file_path'])) ?>
-                          </small>
+                          <br>
+                          <a href="<?= BASE_URL ?>/download.php?type=doc&id=<?= (int)$doc['id'] ?>"
+                             class="btn btn-xs btn-outline-secondary mt-1" title="Download File">
+                            <i class="fas fa-download mr-1"></i><?= htmlspecialchars(basename($doc['file_path'])) ?>
+                          </a>
                         <?php endif; ?>
                       </td>
                       <td>
