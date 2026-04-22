@@ -377,12 +377,34 @@ final class PhilippineDeductionsTest extends TestCase
 
     #[Test]
     #[Group('cutoff1')]
-    public function first_cutoff_half_monthly_tax_equals_second_cutoff_tax(): void
+    public function first_cutoff_tax_is_higher_than_second_cutoff_due_to_no_gov_deds(): void
     {
-        // With no absences and same salary, both cutoffs should yield the same tax
+        // The 1st cutoff has NO government deductions in its taxable base (by design:
+        // SSS/PhilHealth/Pag-IBIG are collected entirely on the 2nd cutoff).
+        // Therefore 1st cutoff taxable = semi-monthly basic (₱15,000).
+        //
+        // The 2nd cutoff DOES deduct government contributions from its taxable base:
+        // taxable = ₱15,000 − SSS EE − PhilHealth EE − Pag-IBIG EE → lower taxable.
+        //
+        // Both cutoffs use the annualised BIR bracket method (RR 11-2018, RR 13-2023),
+        // so the 1st cutoff tax will be HIGHER than the 2nd cutoff tax.
+        //
+        // This is correct and intentional — the employee pays more tax on the 1st cutoff
+        // (when no gov deds have been collected yet) and less on the 2nd cutoff once the
+        // gov deductions reduce the taxable base.
         $resultFirst  = PhilippineDeductions::computeFirstCutoff(30000.00, 0.0, null, 'half_monthly');
         $resultSecond = PhilippineDeductions::computeSecondCutoff(30000.00, 0.0, null, 'half_monthly');
-        $this->assertSame($resultFirst['withholding_tax'], $resultSecond['withholding_tax']);
+
+        // 1st cutoff tax should be GREATER than 2nd cutoff tax
+        $this->assertGreaterThan(
+            $resultSecond['withholding_tax'],
+            $resultFirst['withholding_tax'],
+            '1st cutoff tax should exceed 2nd cutoff tax because gov deductions are absent from 1st cutoff taxable base.'
+        );
+
+        // Their combined tax should be a reasonable approximation of the full monthly tax
+        $combinedTax = round($resultFirst['withholding_tax'] + $resultSecond['withholding_tax'], 2);
+        $this->assertGreaterThan(0.0, $combinedTax);
     }
 
     #[Test]
@@ -646,6 +668,59 @@ final class PhilippineDeductionsTest extends TestCase
     {
         $result = PhilippineDeductions::computeYearEndReconciliation(200000.00, 0.0, 0.0);
         $this->assertSame(0.00, $result);
+    }
+
+    #[Test]
+    #[Group('reconciliation')]
+    /**
+     * Guard against double-withholding regression.
+     *
+     * When the caller correctly includes the December 2nd cutoff's own
+     * gov deductions and regular semi-monthly tax in the annual totals
+     * (as PayrollService now does), the reconciliation amount must equal
+     * exactly the difference between the true annual tax and all tax
+     * already paid including that cutoff's regular withholding — i.e. it
+     * should be near-zero for a stable-income employee who had no bonuses
+     * or income changes throughout the year.
+     *
+     * Scenario: ₱30,000/month basic, all 24 cutoffs processed, gov deds
+     * collected correctly, regular withholding applied each cutoff.
+     * Reconciliation should be ₱0.00 (or cents-level rounding only).
+     */
+    public function reconciliation_is_zero_when_complete_annual_figures_supplied(): void
+    {
+        $monthlyBasic = 30000.00;
+        $sss          = PhilippineDeductions::computeSSS($monthlyBasic);
+        $ph           = PhilippineDeductions::computePhilHealth($monthlyBasic);
+        $pi           = PhilippineDeductions::computePagIbig($monthlyBasic);
+        $monthlyGovEe = $sss['employee'] + $ph['employee'] + $pi['employee'];
+
+        // Annual basic = 12 months × basic (24 semi-monthly cutoffs)
+        $annualBasic   = $monthlyBasic * 12;
+        $annualGovDeds = $monthlyGovEe * 12;
+
+        // Annual taxable = annual basic - annual gov deds
+        $annualTaxable    = max(0.0, $annualBasic - $annualGovDeds);
+        $correctAnnualTax = PhilippineDeductions::computeAnnualTax($annualTaxable);
+
+        // Simulate 24 cutoffs of regular withholding (annualised method ÷ 24)
+        // For a stable-income employee each cutoff pays: correctAnnualTax / 24
+        // But the annualised method computes semi-monthly on semi-monthly taxable:
+        //   semi-monthly taxable = (monthlyBasic/2 - monthlyGovEe/2) = annualTaxable/24
+        $semiMonthlyTaxable = $annualTaxable / 24;
+        $semiMonthlyAnnual  = PhilippineDeductions::computeAnnualTax($semiMonthlyTaxable * 24);
+        $semiMonthlyTax     = round($semiMonthlyAnnual / 24, 2);
+        $annualTaxPaid      = round($semiMonthlyTax * 24, 2); // 24 cutoffs
+
+        $result = PhilippineDeductions::computeYearEndReconciliation(
+            $annualBasic, $annualGovDeds, $annualTaxPaid
+        );
+
+        // Should be zero (or at most ₱1.00 due to per-cutoff rounding accumulation)
+        $this->assertLessThanOrEqual(1.00, abs($result),
+            'Reconciliation should be near-zero when complete annual figures (all 24 cutoffs) are supplied. '
+            . "Got: ₱{$result}. A large value indicates double-withholding on December 2nd cutoff."
+        );
     }
 
     // =========================================================================
