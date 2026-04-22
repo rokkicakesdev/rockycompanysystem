@@ -33,17 +33,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             $msg = $v->errorHtml();
         } else {
             $ok = Model::updateEmployeeProfile($employeeId, [
-            'phone'                      => trim($_POST['phone']                      ?? ''),
-            'address'                    => trim($_POST['address']                    ?? ''),
-            'emergency_contact_name'     => trim($_POST['emergency_contact_name']     ?? ''),
-            'emergency_contact_phone'    => trim($_POST['emergency_contact_phone']    ?? ''),
-            'emergency_contact_relation' => trim($_POST['emergency_contact_relation'] ?? ''),
-        ]);
-        if ($ok) {
-            Model::log($_SESSION['user_id'], 'UPDATE_PROFILE', "Employee ID:{$employeeId} updated their profile");
-            $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Profile updated successfully.</div>";
-        } else {
-            $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update profile. Please try again.</div>";
+                'phone'                      => trim($_POST['phone']                      ?? ''),
+                'address'                    => trim($_POST['address']                    ?? ''),
+                'emergency_contact_name'     => trim($_POST['emergency_contact_name']     ?? ''),
+                'emergency_contact_phone'    => trim($_POST['emergency_contact_phone']    ?? ''),
+                'emergency_contact_relation' => trim($_POST['emergency_contact_relation'] ?? ''),
+            ]);
+            if ($ok) {
+                Model::log($_SESSION['user_id'], 'UPDATE_PROFILE', "Employee ID:{$employeeId} updated their profile");
+                $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Profile updated successfully.</div>";
+            } else {
+                $msg = "<div class='alert alert-danger'><i class='fas fa-exclamation-circle mr-2'></i>Failed to update profile. Please try again.</div>";
             }
         }
     }
@@ -83,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
             $msg = "<div class='alert alert-success alert-auto-dismiss'><i class='fas fa-check-circle mr-2'></i>Password changed successfully.</div>";
         }
     }
-}
 }
 
 // Reload fresh employee data
