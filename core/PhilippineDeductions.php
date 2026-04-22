@@ -119,7 +119,7 @@ final class PhilippineDeductions
         // The MSC ceiling is ₱35,000 (SSS Circular 2024-006, effective Jan 2025).
         // Any salary above ₱34,750.01 falls into the maximum bracket (MSC = ₱35,000).
         // Contribution is CAPPED regardless of actual salary — a ₱36k earner and a
-        // ₱1M earner both contribute the same SSS amount: ₱35,000 × 4.5% = ₱1,575.
+        // ₱1M earner both contribute the same SSS amount: ₱35,000 × 5.0% = ₱1,750 (EE) / ₱3,500 (ER).
         foreach (self::$sssTable as $row) {
             [$min, $max, $msc, $ee, $er] = $row;
             if ($salary >= $min && $salary <= $max) {
@@ -511,16 +511,26 @@ final class PhilippineDeductions
     }
 
     /**
-     * Compute year-end tax reconciliation.
-     * Returns the difference between what SHOULD have been withheld
-     * (based on full annual income) and what WAS actually withheld.
+     * Compute year-end tax reconciliation (BIR annualization — RR 11-2018 / RR 13-2023).
+     * Returns the difference between what SHOULD have been withheld based on the
+     * employee's full annual taxable income and what WAS actually withheld all year.
      *
-     * Positive = employee underpaid tax (deduct from December 2nd cutoff net pay)
-     * Negative = employee overpaid tax (refund via December 2nd cutoff)
+     * Positive = employee underpaid tax → deduct from December 2nd cutoff net pay.
+     * Negative = employee overpaid tax  → refund via December 2nd cutoff (add to net).
      *
-     * @param float $annualBasicSalary  Total basic salary earned Jan–Dec (from payroll_records)
-     * @param float $annualGovDeds      Total gov deductions paid Jan–Nov (SSS+PH+PI EE only)
-     * @param float $annualTaxPaid      Total withholding tax already deducted Jan–Nov cutoffs
+     * ⚠ IMPORTANT — callers must pass COMPLETE annual figures including the
+     *   December 2nd cutoff itself (which is not yet saved to the DB when this
+     *   method is called). PayrollService pre-computes the Dec-2nd cutoff's own
+     *   gov deductions and regular semi-monthly tax and adds them to the YTD
+     *   DB totals before calling this method. Passing only Jan–Nov figures will
+     *   produce an overstated reconciliation amount (double-withholding risk).
+     *
+     * @param float $annualBasicSalary  Total taxable basic + extra earnings Jan–Dec
+     *                                  (all cutoffs including current Dec 2nd cutoff)
+     * @param float $annualGovDeds      Total EE gov deductions Jan–Dec (SSS+PH+PI EE)
+     *                                  including current Dec 2nd cutoff
+     * @param float $annualTaxPaid      Total withholding tax Jan–Dec
+     *                                  including current Dec 2nd cutoff regular tax
      */
     public static function computeYearEndReconciliation(
         float $annualBasicSalary,

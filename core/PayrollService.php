@@ -270,15 +270,70 @@ final class PayrollService
         }
 
         // ── Year-end reconciliation (December 2nd cutoff only) ────────────────
+        //
+        // BIR Annualization requirement (RR 11-2018, RR 13-2023):
+        // The employer must compute the employee's TRUE annual tax liability and
+        // reconcile it against all withholding tax already deducted for the year.
+        //
+        // The December 2nd cutoff record has NOT been saved to the DB yet when we
+        // compute the reconciliation. We therefore must MANUALLY add the current
+        // cutoff's figures to the YTD totals pulled from the DB so that the annual
+        // taxable base is complete and accurate:
+        //
+        //   annualBasic    += December 2nd cutoff basic earned (after proration)
+        //   annualGovDeds  += December 2nd cutoff EE gov deductions (SSS + PH + PI)
+        //   annualTaxPaid  += December 2nd cutoff semi-monthly withholding tax
+        //                     (i.e., the "regular" tax that computeSecondCutoff will apply
+        //                     independently; we include it here so the reconciliation
+        //                     correctly measures only the REMAINING gap — otherwise we
+        //                     would produce a reconciliation amount that double-counts
+        //                     the regular semi-monthly tax for this cutoff)
+        //
+        // Without this correction:
+        //   - annualTaxable is overstated  (Dec 2nd gov deds missing from the subtrahend)
+        //   - correctAnnualTax is overstated
+        //   - reconciliation = overstated - (tax paid excluding Dec 2nd cutoff regular tax)
+        //   → employee is over-charged on reconciliation while also paying the
+        //     regular Dec-2nd semi-monthly tax separately → effective double-withholding.
         $reconciliation = 0.0;
         if (Model::isDecember2ndCutoff($period)) {
             $year4 = Model::periodYear($period);
             if (Model::hasPayrollBeforeDecember($empId, $year4)) {
-                $currentCutoffEarned = max(0.0, $cutoffBasicAmount - $proratedDeduction);
-                $annualBasic         = Model::getTotalBasicByYear($empId, $year4) + $currentCutoffEarned;
-                $annualGovDeds       = Model::getTotalGovDedsByYear($empId, $year4);
-                $annualTaxPaid       = Model::getTotalWithholdingTaxByYear($empId, $year4);
-                $reconciliation      = PhilippineDeductions::computeYearEndReconciliation(
+                // 1. Current cutoff earnings (basic after absent/proration + OT/holiday premium)
+                //    extraEarnings (OT + holiday pay) is taxable under TRAIN Law (RR 13-2023)
+                //    and must be included in the annual taxable base for correct reconciliation.
+                $currentCutoffEarned = max(0.0, $cutoffBasicAmount - $proratedDeduction) + $extraEarnings;
+
+                // 2. Current cutoff gov deductions — compute now so they can be
+                //    included in the annual totals. Use the same method computeSecondCutoff
+                //    will use when it runs immediately after this block.
+                $dec2Sss        = PhilippineDeductions::computeSSS((float)$emp['basic_salary']);
+                $dec2Ph         = PhilippineDeductions::computePhilHealth((float)$emp['basic_salary']);
+                $dec2Pi         = PhilippineDeductions::computePagIbig((float)$emp['basic_salary']);
+
+                if ($govMode === 'split') {
+                    $dec2GovEe = round($dec2Sss['employee'] / 2, 2)
+                               + round($dec2Ph['employee']  / 2, 2)
+                               + round($dec2Pi['employee']  / 2, 2);
+                } else {
+                    $dec2GovEe = $dec2Sss['employee'] + $dec2Ph['employee'] + $dec2Pi['employee'];
+                }
+
+                // 3. Current cutoff regular semi-monthly withholding tax
+                //    taxable = earned (basic + OT/holiday) minus gov deds, annualised ÷ 24
+                //    This mirrors exactly what computeSecondCutoff will compute so that
+                //    annualTaxPaid includes this cutoff's regular withholding before
+                //    the reconciliation measures only the remaining gap.
+                $dec2Taxable    = max(0.0, $currentCutoffEarned - $dec2GovEe);
+                $dec2AnnualTax  = PhilippineDeductions::computeAnnualTax($dec2Taxable * 24);
+                $dec2RegularTax = round($dec2AnnualTax / 24, 2);
+
+                // 4. Build complete annual figures
+                $annualBasic    = Model::getTotalBasicByYear($empId, $year4) + $currentCutoffEarned;
+                $annualGovDeds  = Model::getTotalGovDedsByYear($empId, $year4)  + $dec2GovEe;
+                $annualTaxPaid  = Model::getTotalWithholdingTaxByYear($empId, $year4) + $dec2RegularTax;
+
+                $reconciliation = PhilippineDeductions::computeYearEndReconciliation(
                     $annualBasic, $annualGovDeds, $annualTaxPaid
                 );
             }
