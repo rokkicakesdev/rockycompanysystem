@@ -30,7 +30,8 @@ require_once __DIR__ . '/models/UserModel.php';
 require_once __DIR__ . '/models/DepartmentModel.php';
 require_once __DIR__ . '/models/EmployeeModel.php';
 require_once __DIR__ . '/models/AttendanceModel.php';
-require_once __DIR__ . '/models/LeaveModel.php';require_once __DIR__ . '/models/RecruitmentModel.php';
+require_once __DIR__ . '/models/LeaveModel.php';
+require_once __DIR__ . '/models/RecruitmentModel.php';
 require_once __DIR__ . '/models/PayrollModel.php';
 require_once __DIR__ . '/models/AnnouncementModel.php';
 require_once __DIR__ . '/models/HolidayModel.php';
@@ -38,6 +39,7 @@ require_once __DIR__ . '/models/ActivityLogModel.php';
 require_once __DIR__ . '/models/DashboardModel.php';
 require_once __DIR__ . '/models/ReimbursementModel.php';
 require_once __DIR__ . '/models/EmployeeNotificationModel.php';
+require_once __DIR__ . '/models/CompanySettingsModel.php';
 
 class Model
 {
@@ -255,4 +257,14 @@ class Model
     public static function createEmployeeNotification(array $data): bool   { return EmployeeNotificationModel::create($data); }
     public static function popUnreadNotifications(int $empId): array       { return EmployeeNotificationModel::popUnread($empId); }
     public static function countUnreadNotifications(int $empId): int       { return EmployeeNotificationModel::countUnread($empId); }
+
+    // ════════════════════════════════════════════════════════
+    //  COMPANY SETTINGS  →  CompanySettingsModel
+    // ════════════════════════════════════════════════════════
+
+    public static function getCompanySetting(string $key, string $default = ''): string { return CompanySettingsModel::get($key, $default); }
+    public static function getAllCompanySettings(): array                                { return CompanySettingsModel::getAll(); }
+    public static function setCompanySetting(string $key, string $value): bool          { return CompanySettingsModel::set($key, $value); }
+    public static function saveCompanySettings(array $data): int                        { return CompanySettingsModel::saveMany($data); }
+    public static function getReportHeader(): array                                     { return CompanySettingsModel::getReportHeader(); }
 }

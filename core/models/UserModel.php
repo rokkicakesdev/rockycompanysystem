@@ -184,4 +184,28 @@ class UserModel extends BaseModel
             error_log('UserModel::deleteResetToken: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Check whether a raw token exists and has not yet expired.
+     * Does NOT consume (delete) the token — safe to call on page load.
+     */
+    public static function isResetTokenValid(string $rawToken): bool
+    {
+        return self::findByResetToken($rawToken) !== null;
+    }
+
+    /**
+     * Validate the raw token, delete it immediately (one-time use), and return
+     * the associated user row so the caller can update the password.
+     * Returns null if the token is invalid, expired, or already consumed.
+     */
+    public static function consumeResetToken(string $rawToken): ?array
+    {
+        $row = self::findByResetToken($rawToken);
+        if ($row === null) {
+            return null;
+        }
+        self::deleteResetToken((int) $row['id']);
+        return $row;
+    }
 }
