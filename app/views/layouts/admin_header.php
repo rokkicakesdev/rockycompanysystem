@@ -211,6 +211,12 @@ $userRole = $_SESSION['role'] ?? 'Unknown';
             </a>
           </li>
           <li class="nav-item">
+            <a href="<?= BASE_URL ?>/app/views/admin/loans.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'loans.php' ? 'active' : '' ?>">
+              <i class="nav-icon fas fa-hand-holding-usd"></i>
+              <p>Loans &amp; Cash Advances</p>
+            </a>
+          </li>
+          <li class="nav-item">
             <a href="<?= BASE_URL ?>/app/views/admin/thirteenth_month.php" class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'thirteenth_month.php' ? 'active' : '' ?>">
               <i class="nav-icon fas fa-gift"></i>
               <p>13th Month Pay</p>

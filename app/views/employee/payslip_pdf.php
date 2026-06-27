@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../../config/config.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../core/Model.php';
+require_once __DIR__ . '/../../../core/models/LoanModel.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -53,6 +54,7 @@ $record13th = Model::isDecember1stCutoff($period) ? Model::get13thMonthByEmploye
 $absentDed        = (float)($payrollRecord['absent_deduction']       ?? 0);
 $unpaidLeaveDed   = (float)($payrollRecord['unpaid_leave_deduction'] ?? 0);
 $salaryDedTotal   = (float)($payrollRecord['salary_deduction']       ?? 0);
+$loanDedTotal     = (float)($payrollRecord['loan_deduction']         ?? 0);
 // other_deductions now stores ONLY year-end reconciliation
 $reconcile        = (float)($payrollRecord['other_deductions']       ?? 0);
 
@@ -138,6 +140,20 @@ if ($salaryDedTotal > 0) {
         $reason = ucwords(str_replace('_', ' ', $si['reason']));
         $desc   = !empty($si['description']) ? " ({$si['description']})" : '';
         $salaryDedRows .= "<tr><td class='lbl'>{$reason}{$desc}</td><td class='red'>&minus; &#8369; {$p($si['amount'])}</td></tr>";
+    }
+}
+
+// Loan deduction rows (SSS, Pag-IBIG, company loans auto-deducted)
+$loanDedRows = '';
+if ($loanDedTotal > 0) {
+    $loanItems = Model::getLoanDeductionsByPayroll((int)$payrollRecord['id']);
+    if (!empty($loanItems)) {
+        foreach ($loanItems as $li) {
+            $ltype      = LoanModel::getLoanTypeLabel($li['loan_type']);
+            $loanDedRows .= "<tr><td class='lbl'>{$ltype} (Loan Deduction)</td><td class='red'>&minus; &#8369; {$p($li['amount_deducted'])}</td></tr>";
+        }
+    } else {
+        $loanDedRows = "<tr><td class='lbl'>Loan Deduction</td><td class='red'>&minus; &#8369; {$p($loanDedTotal)}</td></tr>";
     }
 }
 
@@ -393,6 +409,7 @@ $html .= <<<HTML
       {$absRow}
       {$unpaidRow}
       {$salaryDedRows}
+      {$loanDedRows}
       {$reconcileRow}
       <tr class="total"><td class="red">Total Deductions</td><td class="amt red">&#8369; {$totalDed}</td></tr>
     </table>

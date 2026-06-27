@@ -181,6 +181,10 @@ class PayrollModel extends BaseModel
      */
     public static function deleteRecord(int $id): bool
     {
+        if (!class_exists('LoanModel')) {
+            require_once __DIR__ . '/LoanModel.php';
+        }
+        LoanModel::reverseDeductions($id);
         $stmt = self::db()->prepare('DELETE FROM payroll_records WHERE id = ?');
         return (bool) $stmt->execute([$id]);
     }
@@ -256,7 +260,14 @@ class PayrollModel extends BaseModel
 
     public static function create(array $d): bool
     {
-        $stmt = self::db()->prepare('
+        $db = self::db();
+        $db->exec("
+            ALTER TABLE payroll_records
+            ADD COLUMN IF NOT EXISTS `loan_deduction` DECIMAL(10,2) NOT NULL DEFAULT 0.00
+                COMMENT 'Auto-deducted SSS/Pag-IBIG/company loan instalments'
+        ");
+
+        $stmt = $db->prepare('
             INSERT INTO payroll_records
               (employee_id, period, basic_salary, allowance, gross_pay,
                sss_msc, sss_ee, sss_er,
@@ -264,7 +275,7 @@ class PayrollModel extends BaseModel
                pagibig_mfs, pagibig_ee, pagibig_er,
                taxable_income, withholding_tax,
                other_deductions, total_deductions, net_pay,
-               absent_deduction, salary_deduction, unpaid_leave_deduction,
+               absent_deduction, salary_deduction, loan_deduction, unpaid_leave_deduction,
                overtime_pay, holiday_pay,
                days_worked, days_absent, days_paid_leave, working_days_in_month,
                remarks, status, processed_by)
@@ -275,7 +286,7 @@ class PayrollModel extends BaseModel
                :pagibig_mfs, :pagibig_ee, :pagibig_er,
                :taxable_income, :withholding_tax,
                :other_deductions, :total_deductions, :net_pay,
-               :absent_deduction, :salary_deduction, :unpaid_leave_deduction,
+               :absent_deduction, :salary_deduction, :loan_deduction, :unpaid_leave_deduction,
                :overtime_pay, :holiday_pay,
                :days_worked, :days_absent, :days_paid_leave, :working_days_in_month,
                :remarks, :status, :processed_by)
@@ -302,6 +313,7 @@ class PayrollModel extends BaseModel
             ':net_pay'                 => $d['net_pay'],
             ':absent_deduction'        => $d['absent_deduction']        ?? 0,
             ':salary_deduction'        => $d['salary_deduction']        ?? 0,
+            ':loan_deduction'          => $d['loan_deduction']          ?? 0,
             ':unpaid_leave_deduction'  => $d['unpaid_leave_deduction']  ?? 0,
             ':overtime_pay'            => $d['overtime_pay']            ?? 0,
             ':holiday_pay'             => $d['holiday_pay']             ?? 0,
@@ -385,10 +397,10 @@ class PayrollModel extends BaseModel
             SET salary_deduction  = :sd,
                 total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
                                     + absent_deduction + unpaid_leave_deduction + :sd2
-                                    + other_deductions,
+                                    + loan_deduction + other_deductions,
                 net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
                                     + absent_deduction + unpaid_leave_deduction + :sd3
-                                    + other_deductions)
+                                    + loan_deduction + other_deductions)
             WHERE id = :id
         ');
         return (bool) $updateStmt->execute([
@@ -426,9 +438,11 @@ class PayrollModel extends BaseModel
             UPDATE payroll_records
             SET salary_deduction  = :sd,
                 total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
-                                    + absent_deduction + unpaid_leave_deduction + :sd2 + other_deductions,
+                                    + absent_deduction + unpaid_leave_deduction + :sd2
+                                    + loan_deduction + other_deductions,
                 net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
-                                    + absent_deduction + unpaid_leave_deduction + :sd3 + other_deductions)
+                                    + absent_deduction + unpaid_leave_deduction + :sd3
+                                    + loan_deduction + other_deductions)
             WHERE id = :id
         ');
         return (bool) $updateStmt->execute([':sd' => $totalSalaryDed, ':sd2' => $totalSalaryDed, ':sd3' => $totalSalaryDed, ':id' => $payrollId]);
@@ -459,9 +473,11 @@ class PayrollModel extends BaseModel
             UPDATE payroll_records
             SET salary_deduction  = :sd,
                 total_deductions  = withholding_tax + sss_ee + philhealth_ee + pagibig_ee
-                                    + absent_deduction + unpaid_leave_deduction + :sd2 + other_deductions,
+                                    + absent_deduction + unpaid_leave_deduction + :sd2
+                                    + loan_deduction + other_deductions,
                 net_pay           = gross_pay - (withholding_tax + sss_ee + philhealth_ee + pagibig_ee
-                                    + absent_deduction + unpaid_leave_deduction + :sd3 + other_deductions)
+                                    + absent_deduction + unpaid_leave_deduction + :sd3
+                                    + loan_deduction + other_deductions)
             WHERE id = :id
         ');
         return (bool) $updateStmt->execute([':sd' => $totalSalaryDed, ':sd2' => $totalSalaryDed, ':sd3' => $totalSalaryDed, ':id' => $payrollId]);
@@ -498,6 +514,7 @@ class PayrollModel extends BaseModel
                 COALESCE(SUM(absent_deduction),   0) AS ytd_absent_deduction,
                 COALESCE(SUM(unpaid_leave_deduction), 0) AS ytd_unpaid_leave,
                 COALESCE(SUM(salary_deduction),   0) AS ytd_salary_deduction,
+                COALESCE(SUM(loan_deduction),     0) AS ytd_loan_deduction,
                 COALESCE(SUM(total_deductions),   0) AS ytd_deductions,
                 COALESCE(SUM(net_pay),            0) AS ytd_net,
                 COUNT(*)                              AS ytd_periods
