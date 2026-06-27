@@ -31,6 +31,7 @@ require_once __DIR__ . '/Model.php';
 require_once __DIR__ . '/PhilippineDeductions.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/models/LoanModel.php';
 
 // ── Result DTO ─────────────────────────────────────────────────────────────
 final class PayrollGenerationResult
@@ -383,6 +384,15 @@ final class PayrollService
                       . number_format($reconciliation, 2) . '.';
         }
 
+        // ── Loan deductions (SSS salary loan, Pag-IBIG MPL, company loans) ──
+        $loanResult   = LoanModel::computeCutoffDeduction($empId, $period);
+        $loanDeduction = $loanResult['total'];
+        $loanItems    = $loanResult['items'];
+
+        if ($loanDeduction > 0) {
+            $remarks .= 'Loan deduction: ₱' . number_format($loanDeduction, 2) . '. ';
+        }
+
         // ── Build record ──────────────────────────────────────────────────────
         $record = [
             'employee_id'            => $empId,
@@ -407,8 +417,9 @@ final class PayrollService
             'overtime_pay'           => $overtimePay,
             'holiday_pay'            => $holidayPay,
             'salary_deduction'       => 0,
-            'total_deductions'       => $deductions['total_deductions'],
-            'net_pay'                => $deductions['net_pay'],
+            'loan_deduction'         => $loanDeduction,
+            'total_deductions'       => round($deductions['total_deductions'] + $loanDeduction, 2),
+            'net_pay'                => round($deductions['net_pay'] - $loanDeduction, 2),
             'days_worked'            => $daysWorked,
             'days_absent'            => $daysAbsentOnly + $daysUnpaidLeave,
             'days_paid_leave'        => $daysPaidLeave,
@@ -420,6 +431,12 @@ final class PayrollService
 
         if (!Model::createPayrollRecord($record)) {
             return htmlspecialchars($emp['name']) . ' - DB insert failed';
+        }
+
+        $payrollId = (int) Database::getInstance()->lastInsertId();
+
+        if (!empty($loanItems)) {
+            LoanModel::applyDeductions($payrollId, $empId, $period, $loanItems);
         }
 
         return null; // success

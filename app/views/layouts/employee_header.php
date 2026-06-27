@@ -126,6 +126,14 @@ $currentPath = basename($_SERVER['PHP_SELF']);
         </li>
 
         <li class="nav-item">
+          <a href="<?= BASE_URL ?>/app/views/employee/my_loans.php"
+             class="nav-link <?= strpos($currentPath, 'my_loans') !== false ? 'active' : '' ?>">
+            <i class="nav-icon fas fa-hand-holding-usd"></i>
+            <p>My Loans</p>
+          </a>
+        </li>
+
+        <li class="nav-item">
           <a href="<?= BASE_URL ?>/app/views/employee/my_attendance.php"
              class="nav-link <?= strpos($currentPath, 'my_attendance') !== false ? 'active' : '' ?>">
             <i class="nav-icon fas fa-clock"></i>

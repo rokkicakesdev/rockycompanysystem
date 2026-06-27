@@ -10,6 +10,7 @@
 require_once __DIR__ . '/../../../config/config.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../core/Model.php';
+require_once __DIR__ . '/../../../core/models/LoanModel.php';
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
@@ -44,6 +45,7 @@ $record13th     = Model::isDecember1stCutoff($period) ? Model::get13thMonthByEmp
 $absentDed      = (float)($payrollRecord['absent_deduction']       ?? 0);
 $unpaidLeaveDed = (float)($payrollRecord['unpaid_leave_deduction'] ?? 0);
 $salaryDedTotal = (float)($payrollRecord['salary_deduction']       ?? 0);
+$loanDedTotal   = (float)($payrollRecord['loan_deduction']         ?? 0);
 $reconcile      = (float)($payrollRecord['other_deductions']       ?? 0);
 
 $companyName    = defined('COMPANY_NAME')    ? COMPANY_NAME    : 'Rocky Company';
@@ -96,6 +98,18 @@ if ($salaryDedTotal > 0) {
         $r2  = ucwords(str_replace('_', ' ', $si['reason']));
         $d2  = !empty($si['description']) ? " ({$si['description']})" : '';
         $salaryDedRows .= "<tr><td class='lbl'>{$r2}{$d2}</td><td class='red'>&minus; &#8369; {$p($si['amount'])}</td></tr>";
+    }
+}
+$loanDedRows = '';
+if ($loanDedTotal > 0) {
+    $loanLogItems = Model::getLoanDeductionsByPayroll((int)$payrollRecord['id']);
+    if (!empty($loanLogItems)) {
+        foreach ($loanLogItems as $li) {
+            $ltype = LoanModel::getLoanTypeLabel($li['loan_type']);
+            $loanDedRows .= "<tr><td class='lbl'>{$ltype} (Loan Deduction)</td><td class='red'>&minus; &#8369; {$p($li['amount_deducted'])}</td></tr>";
+        }
+    } else {
+        $loanDedRows = "<tr><td class='lbl'>Loan Deduction</td><td class='red'>&minus; &#8369; {$p($loanDedTotal)}</td></tr>";
     }
 }
 $reconcileFmt = $p(abs($reconcile));
@@ -260,7 +274,7 @@ $html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><style>{$css}</style><
       . "<td class='split-right'><h4 class='section-title'>Deductions</h4><table class='comp'>"
       . "{$deductionRows}"
       . "<tr><td>Withholding Tax</td><td class='amt red'>&minus; &#8369; {$withholdingTax}</td></tr>"
-      . "{$absRow}{$unpaidRow}{$salaryDedRows}{$reconcileRow}"
+      . "{$absRow}{$unpaidRow}{$salaryDedRows}{$loanDedRows}{$reconcileRow}"
       . "<tr class='total'><td class='red'>Total Deductions</td><td class='amt red'>&#8369; {$totalDed}</td></tr>"
       . "</table></td></tr></table>"
       . "<div class='net-box'><table class='net-table'><tr>"

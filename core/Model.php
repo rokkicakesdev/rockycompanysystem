@@ -40,6 +40,7 @@ require_once __DIR__ . '/models/DashboardModel.php';
 require_once __DIR__ . '/models/ReimbursementModel.php';
 require_once __DIR__ . '/models/EmployeeNotificationModel.php';
 require_once __DIR__ . '/models/CompanySettingsModel.php';
+require_once __DIR__ . '/models/LoanModel.php';
 
 class Model
 {
@@ -267,4 +268,23 @@ class Model
     public static function setCompanySetting(string $key, string $value): bool          { return CompanySettingsModel::set($key, $value); }
     public static function saveCompanySettings(array $data): int                        { return CompanySettingsModel::saveMany($data); }
     public static function getReportHeader(): array                                     { return CompanySettingsModel::getReportHeader(); }
+
+    // ════════════════════════════════════════════════════════
+    //  LOANS  →  LoanModel
+    // ════════════════════════════════════════════════════════
+
+    public static function getAllLoans(): array                                          { return LoanModel::getAll(); }
+    public static function getLoansByEmployee(int $employeeId): array                   { return LoanModel::getByEmployee($employeeId); }
+    public static function getActiveLoansByEmployee(int $employeeId): array             { return LoanModel::getActiveByEmployee($employeeId); }
+    public static function findLoanById(int $id): ?array                                { return LoanModel::findById($id); }
+    public static function createLoan(array $d, int $userId): bool                      { return LoanModel::create($d, $userId); }
+    public static function updateLoan(int $id, array $d): bool                          { return LoanModel::update($id, $d); }
+    public static function deleteLoan(int $id): bool                                    { return LoanModel::delete($id); }
+    public static function getLoanTypes(): array                                         { return LoanModel::getLoanTypes(); }
+    public static function getLoanSummaryStats(): array                                  { return LoanModel::getSummaryStats(); }
+    public static function computeLoanCutoffDeduction(int $employeeId, string $period): array { return LoanModel::computeCutoffDeduction($employeeId, $period); }
+    public static function applyLoanDeductions(int $payrollId, int $employeeId, string $period, array $items): void { LoanModel::applyDeductions($payrollId, $employeeId, $period, $items); }
+    public static function reverseLoanDeductions(int $payrollId): void                  { LoanModel::reverseDeductions($payrollId); }
+    public static function getLoanDeductionsByPayroll(int $payrollId): array            { return LoanModel::getDeductionsByPayroll($payrollId); }
+    public static function getLoanDeductionLogByLoan(int $loanId): array                { return LoanModel::getDeductionLogByLoan($loanId); }
 }
